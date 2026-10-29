@@ -66,6 +66,10 @@ var _cur: Dictionary = {}  ## the view whose sheet the sprite is showing
 var _shown := ["", 0]  ## the animation (named as the side sheet names it) and frame showing now
 ## Set by FxView when a death animation replaces the sprite (Cairn's stones scatter).
 var ko_hidden := false
+## Set by FxView while this fighter's head is off his neck (Craglash's Mountain Maw in flight,
+## or snapping home): a reaction row with a headless twin ("<row>_nohead": hurt, guard)
+## shows that twin instead, so a hit mid-flight never shows two heads.
+var head_out := false
 ## Set by main when this fighter stands in front of a shorter one and covers it.
 var see_through := false
 ## Set by main when the local team can't see this fighter (Vision: brush, a fence or a
@@ -364,6 +368,8 @@ func refresh() -> void:
 	# its hit spark and smear (FxView) still show over both.
 	z_index = 0
 	var pick := _pick()
+	if head_out and _layout_has(String(pick[0]) + "_nohead"):
+		pick[0] = String(pick[0]) + "_nohead"
 	var res := _resolve(pick[0])
 	var v: Dictionary = res[0]
 	var anim: Array = res[1]

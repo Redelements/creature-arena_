@@ -3,7 +3,7 @@ extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
 ##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | pete | sno | counterplay
 ## (crease_storm and pete_flank are trailer beats: tools/trailer_shots.json; maw_reach is an
-## inspection beat for docs/maw-range/phase0)
+## inspection beat for docs/maw-range/phase0, maw_hit for Mountain Maw's headless hurt rows)
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -544,6 +544,20 @@ const SCRIPTS := {
 			{"do": "walk", "who": 0, "hold": "down", "t": 56},
 			{"do": "wait", "t": 20},
 			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "aim_at": true, "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 60},
+		],
+	},
+	"maw_hit": {
+		"left": "craglash", "right": "cairn", "energy": [0, 0], "gap": 4.0,
+		"title": "MOUNTAIN MAW  -  HIT MID-FLIGHT",
+		"captions": [["Cairn's Haymaker lands while Craglash's head flies"]],
+		"steps": [
+			{"do": "place", "part": 0, "dir": "right", "gap": 4.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "hold": "left", "show": 0},
+			{"do": "wait", "t": 22},
+			{"do": "press", "who": 1, "bit": H, "move": "heavy", "aim_at": true},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 60},
 		],

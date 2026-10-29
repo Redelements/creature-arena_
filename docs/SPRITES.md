@@ -311,7 +311,7 @@ them in every view beside the old frames.
 | 3 | backhand | 8 | Backhand (light 2): the far arm cocks back, whips across the body |
 | 4 | headbutt | 8 | Headbutt (light 3) and Landslide Entry (own `anim_at`): the head launches ahead of its neck |
 | 5 | stomp | 12 | Rockslide Stomp: 0-3 the charge loop (foot lifted, trembling), top of the lift, drop, held impact, overshoot, slow rise |
-| 6 | lash | 12 | Mountain Maw: the neck coils back (0-3), snaps out (4), **headless** while the head flies (5-7: the neck at full thickness to `neck_end`, an end stone, no head; the game draws the head and the rest of the chain), reels in with the head home (8-11) |
+| 6 | lash | 12 | Mountain Maw: the fling back (0 the gather, held through the raw windup; 1 the head snapped back and up, turned 35 degrees face-up (side), mouth opening, the neck coiled up behind the shoulders, the body leaning back; 2-3 held with a shiver, jaws wide), the throw (4: head forward, the neck whipping on behind it), **headless** while the head flies (5-7: the neck at full thickness to `neck_end`, an end stone, no head; the game draws the head and the rest of the chain), reels in with the head home (8-11) |
 | 7 | bedrock | 12 | Bedrock: wide stance, fists down, sunk in, a 4-frame pulse loop (3-6) while rooted, release roar |
 | 8 | coil | 6 | Avalanche Coil: only the Surge's cut-in picture now (`cut_in_frame` `[8, 2]`) |
 | 9 | charge | 12 | Landslide Charge: crouch, drive, a 4-frame head-low run (2-5), brake, skid, settle |
@@ -322,7 +322,9 @@ them in every view beside the old frames.
 | 14 | idle_alt | 8 | grinds his jaw (angry and strain faces), the head turns slowly toward the foe and back, the mane bristles once |
 | 15 | maw_head | 2 | Mountain Maw's flying head alone, drawn at `neck_end`: jaws open (roar), jaws shut; facing the way the sheet faces (the up sheets show the back of the head) |
 | 16 | maw_slab | 10 | one full-thickness neck stone at `neck_end`, turned 0, 18, ... 162 degrees on screen: the chain's stones |
-| 17 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
+| 17 | hurt_nohead | 4 | hurt with no head and the neck stretched to `neck_end` (the same end stone as lash 5-7): shown in place of hurt while his head is out (hit mid-Maw) |
+| 18 | guard_nohead | 4 | guard, likewise headless |
+| 19 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
 
 **Mountain Maw's head (phase 1 of `plans/craglash-anim.md`, Oct 29).** One head, his own: lash
 frames 5-7 are headless (their neck ends at `MAW_END`, where frame 8's head sits, at full
@@ -331,11 +333,19 @@ thickness, with an end stone), and FxView draws the head and the rest of the nec
 `python tools/gen_craglash.py maw` (which also checks the JSON against the rig):
 `"neck_end"` per view, the neck's end in world px from the sprite's origin as the sheet faces
 (x mirrored with the sprite), `"neck_dir"` per view, the neck's direction there (a unit vector
-on screen), and `"headless": {"lash": [5, 6, 7]}`, the frames that draw no head. The rows
-`maw_head` and `maw_slab` (above, in every view; the up/down/diagonal sheets have them at rows
-15-16 too, the knockout being side only) are drawn with their middle on `neck_end`, so the
+on screen), and `"headless": {"lash": [5, 6, 7], "hurt_nohead": [0, 1, 2, 3], "guard_nohead": [0, 1, 2, 3]}`,
+the frames that draw no head. The rows `maw_head`, `maw_slab`, `hurt_nohead` and `guard_nohead`
+are on every sheet (rows 15-18 on the up/down/diagonal sheets too, the knockout being side
+only); `maw_head` and `maw_slab` are drawn with their middle on `neck_end`, so the
 game places a frame by putting `neck_end` where the piece goes. Normal and emissive sheets
 carry them like every row.
+
+**Hit mid-flight (phase 2).** A row `<name>_nohead` is the headless twin of a reaction row:
+while his head is out (`CreatureView.head_out`, set by FxView: the projectile flies or the head
+is snapping home after it), the view shows `hurt_nohead` / `guard_nohead` in place of `hurt` /
+`guard`, so the flying head stays the only one. Every headless frame ends its neck at the same
+`MAW_END` (`gen_craglash.py maw` checks it), so one `neck_end` per view serves them all. The
+knockout has no twin: knocked down or out mid-flight, the flying head is not drawn.
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design

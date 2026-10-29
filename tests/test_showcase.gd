@@ -218,3 +218,23 @@ func test_pete_flank_trailer_beat_robs_cerebro_past_the_tank() -> void:
 	assert_eq(int(r["hit"][2]), 0, "Pete goes round the tank, never through him")
 	var sim: MatchSim = r["sim"]
 	assert_gt(sim.creatures[0].pos.x, sim.creatures[1].pos.x, "Pete ends up behind Cerebro")
+
+
+func test_maw_hit_showcase_hits_craglash_while_his_head_flies() -> void:
+	# The beat for Mountain Maw's headless hurt rows (hurt_nohead): Cairn's jab must land on
+	# Craglash while his head projectile is still out.
+	var sc := Showcase.new("maw_hit")
+	var sim := sc.build()
+	var mid_flight := false
+	for i in 2000:
+		if sc.finished:
+			break
+		sim.step(sc.inputs(sim))
+		for e in sim.events:
+			if String(e["type"]) == "hit" and int(e.get("target", -1)) == 0:
+				for pr in sim.projectiles:
+					if int(pr["owner"]) == 0:
+						mid_flight = true
+	assert_true(sc.finished, "maw_hit showcase should finish")
+	assert_eq(sc.failed, "", "maw_hit showcase:")
+	assert_true(mid_flight, "Cairn should hit Craglash while his head flies")

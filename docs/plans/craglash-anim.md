@@ -71,7 +71,7 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
 - Check: `tools/anim_preview.py --check craglash`, `tests/test_craglash.gd`,
   `test_rollback` (view keys don't touch the sim; the test is for the data hash only).
 
-### 2. The rear-back (sheet only)
+### 2. The rear-back (sheet only) — DONE Oct 29 (PR `maw-phase2-fling`; see "Phase 2: what was built")
 - `maw_new()` frames 0-3: head back to about x -28, y up 10, lean -20, c1/c2 behind the
   shoulders, mane -1.0, face "strain" then "roar" at frame 3; frame 4 is the snap with the
   neck straight. Timeline `NEW_AT["skill_2"]` and `skill_2.anim_at` together: frame 3 from
@@ -144,6 +144,34 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
   jaws shut (3 a full flight); `bite` is a synthesized stone clack (placeholder).
 - NET_VERSION 71 (craglash.json is in `data_hash`). Pops in the lash row unchanged: 8 frames,
   13 spikes switching (`craglash_phase0.py check lash`), as in phase 0.
+
+## Phase 2: what was built (Oct 29)
+- Fling back (R3), sheet and timeline only (startup 20, windup 12, recovery 46 unchanged):
+  `maw_new()` 0 the gather (held through the raw windup's red tell), 1 the snap: head back and
+  up (side x -16, well above the crown), the neck coiled up behind the shoulders, lean -17,
+  mane slicked back, face strain, and in the side view the whole head turned 35 degrees face-up
+  (new pose key `head_rot`, side view only: the other views read the tilt from the head's
+  place, behind the body facing down, in front of it facing up); 2-3 the hold with a shiver
+  (head 1 px about, turned 30 / 33 degrees, jaws wide). 4 the throw: the head forward with the
+  neck whipping on behind it over the shoulders (a straight neck hid behind the head in the side
+  view and added spike pops). `anim_at` and `NEW_AT`: 0 at tick 0, 1 at 2, then 2/3/2/3 every
+  3 ticks (the shiver) to 4 at 18, 5-7 from 21 (the projectile's spawn), 8-11 from 48 as before.
+- Hit mid-flight (Kevin's item 4): new rows `hurt_nohead` and `guard_nohead` on every sheet
+  (the reaction poses with the neck stretched to `MAW_END`, no head; ko moves to row 19 on the
+  side sheet); `headless` lists them. FxView sets `CreatureView.head_out` while his head
+  projectile flies or a snap back that began outside the Maw runs; the view then shows the
+  `_nohead` twin. The flying head and chain draw only while the sprite shows a headless frame.
+- **Knockout or knockdown mid-flight**: the ko row keeps its head (it has no twin, and its
+  neck falls apart) and the flying head is simply not drawn from then on (the projectile still
+  lives in the sim and can still bite; its end fx show). The same holds for any other row
+  without a twin (a dodge, idle after a short stun).
+- If the flight ends while he is hurt, the head snaps home along the chain (hold through the
+  hitstop, 5 ticks) onto the hurt twin, then the ordinary hurt row (head attached) takes over:
+  the head jumps from the neck's end to the hurt pose's head spot on that tick.
+- Pops in the lash row (`craglash_phase0.py check lash`): 8 frames / 13 spike switches before,
+  6 frames / 13 after (the fling moved them to the 3-to-4 throw; phase 3 fixes them).
+- Showcase `maw_hit` (Cairn jabs Craglash while the head flies), pinned in `tests/test_showcase.gd`.
+- NET_VERSION 72 (craglash.json `anim_at` and sprite block: data_hash).
 
 ## Inspection notes
 Phase 0 (Oct 29): `docs/maw-range/phase0/findings.md` (previews, in-game shots, the frame table;
