@@ -537,6 +537,14 @@ class Pose:
         # Up/down views only: hands as (sideways, up, forward) from each shoulder, when the
         # guess from the side pose isn't right (a guard, crossed arms).
         self.vhands = kw.get("vhands")
+        # Mountain Maw in flight (docs/SPRITES.md, Craglash): a headless frame draws the neck at
+        # full thickness to the head's spot, one stone more on the end and no head (the game
+        # draws the flying head and the rest of the chain from the sprite block's neck_end);
+        # `part` draws one piece of him alone at the head's spot: "head" (the maw_head row) or
+        # "slab" (one neck stone square to `slab_ang` degrees on screen, the maw_slab row).
+        self.headless = kw.get("headless", False)
+        self.part = kw.get("part")
+        self.slab_ang = kw.get("slab_ang", 0.0)
         # Most poses hold the head up on the neck; on the ground ones it stays put.
         self.head_lift = HEAD_LIFT if kw.get("raise_head", True) else 0
         if self.head_lift:
@@ -831,12 +839,37 @@ def stone_disc(center, tangent, f, img_out, along=2.9):
     img_out.alpha_composite(outline(img, "stone"))
 
 
+def neck_end_tangent(rig):
+    """The neck's last stretch on screen (the bezier's end tangent: head minus its second
+    control point), for the headless frames' last stone and the sprite block's neck_dir."""
+    p = rig.p
+    head = O(p.head)
+    c2 = O(p.c2) if p.c2 else add(head, (-12, 6))
+    return (head[0] - c2[0], head[1] - c2[1])
+
+
 def draw_neck(rig):
     img = layer()
     pts = neck_points(rig)
+    if rig.p.headless:
+        # full thickness to the end (R1: he is rock, the chain never thins), and the end stone
+        # where the head would sit: the game's chain carries on from it
+        for (c, t, _f) in pts:
+            stone_disc(c, t, 0.0, img)
+        stone_disc(O(rig.p.head), neck_end_tangent(rig), 0.0, img)
+        return outline(img, "stone")
     for (c, t, f) in pts[:-1]:
         stone_disc(c, t, f, img)
     return outline(img, "stone")
+
+
+def slab_layer(center, ang):
+    """The maw_slab row: one full-thickness neck stone at `center`, its length along `ang`
+    degrees on screen (0 = right, 90 = down)."""
+    lay = layer()
+    a = math.radians(ang)
+    stone_disc(center, (math.cos(a), math.sin(a)), 0.0, lay)
+    return outline(lay, "stone")
 
 
 def scattered_neck():
@@ -975,6 +1008,10 @@ def render(pose):
 def _render(pose):
     pose = whole_pixels(pose)
     rig = Rig(pose)
+    if pose.part == "head":
+        return finish(draw_head(rig))
+    if pose.part == "slab":
+        return finish(slab_layer(O(pose.head), pose.slab_ang))
     img = layer()
     if pose.scatter:
         img.alpha_composite(scattered_neck())
@@ -992,7 +1029,8 @@ def _render(pose):
     parts.append(draw_arm(rig, 1))
     for part in parts:
         img.alpha_composite(part)
-    img.alpha_composite(draw_head(rig))
+    if not pose.headless:
+        img.alpha_composite(draw_head(rig))
     return finish(img)
 
 
@@ -1203,7 +1241,8 @@ def v_neck_stones(vr):
     n = max(4, int(round(length / SLAB_SPACING)))
     out = []
     acc, j = 0.0, 0
-    for k in range(n - 1):
+    headless = p.headless
+    for k in range(n if headless else n - 1):
         tgt = length * k / n
         while j < 199 and acc + seg3[j] < tgt:
             acc += seg3[j]
@@ -1212,9 +1251,29 @@ def v_neck_stones(vr):
         # A stone seen end-on (the neck pointing at or away from us) shows its full face.
         fore = min(1.0, seg2[j] / max(seg3[j], 1e-6))
         lay = layer()
-        stone_disc(a, (b[0] - a[0] + 1e-6, b[1] - a[1]), k / max(1, n - 1), lay, along=2.9 + (1.0 - fore) * 2.0)
+        stone_disc(a, (b[0] - a[0] + 1e-6, b[1] - a[1]), 0.0 if headless else k / max(1, n - 1), lay,
+                   along=2.9 + (1.0 - fore) * 2.0)
         out.append((vr.depth3(pts3[j]), outline(lay, "stone")))
+    if headless:
+        # the end stone where the head would sit, full thickness (draw_neck)
+        lay = layer()
+        a, b = pts[199], pts[200]
+        stone_disc(pts[200], (b[0] - a[0] + 1e-6, b[1] - a[1]), 0.0, lay)
+        out.append((vr.depth3(pts3[200]), outline(lay, "stone")))
     return out
+
+
+def v_neck_end(vr):
+    """The headless neck's end on screen and its last tangent there (sprite block neck_end,
+    neck_dir), from the same curve v_neck_stones draws."""
+    p = vr.p
+    base3 = vr.T3((0, -20))
+    head3 = vr.head3()
+    c1 = vr.side_to3(p.c1, 7.0) if p.c1 else (base3[0] + 8, base3[1] + 12, base3[2] - 4)
+    c2 = vr.side_to3(p.c2, 10.0) if p.c2 else (head3[0] + 10, head3[1] - 6, head3[2] - 6)
+    a = vr.P(_bezier3(base3, c1, c2, head3, 0.995))
+    b = vr.P(head3)
+    return b, (b[0] - a[0], b[1] - a[1])
 
 
 def v_head(vr):
@@ -1281,6 +1340,10 @@ def _face_front(d, cx, cy, face):
 def render_view(pose, view):
     pose = whole_pixels(pose)
     vr = VRig(pose, view)
+    if pose.part == "head":
+        return finish(v_head(vr))
+    if pose.part == "slab":
+        return finish(slab_layer(vr.P(vr.head3()), pose.slab_ang))
     parts = []  # (depth, order, layer)
     if pose.scatter:
         lay = layer()
@@ -1297,7 +1360,8 @@ def render_view(pose, view):
     if not pose.scatter:
         for dep, lay in v_neck_stones(vr):
             parts.append((dep + 0.2, 4, lay))
-    parts.append((vr.depth(vr.head3()[2]) + 0.6, 5, v_head(vr)))
+    if not pose.headless:
+        parts.append((vr.depth(vr.head3()[2]) + 0.6, 5, v_head(vr)))
     img = layer()
     for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
         img.alpha_composite(lay)
@@ -1568,6 +1632,10 @@ def _face_quarter(d, cx, cy, face):
 def render_diag(pose, view):
     pose = whole_pixels(pose)
     dr = DRig(pose, view)
+    if pose.part == "head":
+        return finish(d_head(dr))
+    if pose.part == "slab":
+        return finish(slab_layer(dr.P(dr.head3()), pose.slab_ang))
     body = dr.depth(dr.hip3[2])
     parts = []  # (depth, order, layer)
     for i in (0, 1):
@@ -1585,7 +1653,8 @@ def render_diag(pose, view):
             parts.append((dep + 0.2, 4, lay))
     # From behind, the neck's top stones would hide most of the head; the head sits on them
     # instead, so the mane and the face's edge read.
-    parts.append((dr.depth3(dr.head3()) + (0.6 if view == "down_side" else 6.0), 5, d_head(dr)))
+    if not pose.headless:
+        parts.append((dr.depth3(dr.head3()) + (0.6 if view == "down_side" else 6.0), 5, d_head(dr)))
     img = layer()
     for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
         img.alpha_composite(lay)
@@ -1951,11 +2020,18 @@ def charge_new():
     ]
 
 
+# Mountain Maw's headless frames (5-7) all end the neck here, where frame 8's head sits: the
+# game draws the flying head and the rest of the chain from this point (the sprite block's
+# neck_end), and the head is home on it when frame 8 takes over. Its rows maw_head and
+# maw_slab are drawn at the same spot.
+MAW_END = dict(head=(32, -33), c2=(19, -33))
+
+
 def maw_new():
     """Mountain Maw (skill 2), 12 frames: the neck coils back (0-3: 0 held through the raw
-    windup, 3 the deepest), the head snaps out ahead of its neck (4), at full stretch
-    held while the head flies (5, 6 alternate a shiver down the neck), then the neck reels
-    back in (7-11)."""
+    windup, 3 the deepest), the head snaps out ahead of its neck (4), then the neck at full
+    stretch with no head (5-7, a shiver down the neck: the game draws the head flying on
+    from the neck's end, MAW_END), then the neck reels back in with the head home (8-11)."""
     cr = dict(lean=-8)
     return [
         K(hip=(-1, -9), lean=-8, head=(-6, -49), c1=(2, -62), c2=(8, -56), face="angry",
@@ -1968,18 +2044,34 @@ def maw_new():
           hands=[(-8, -1), (8, -9)], mane=-1.0, feet=((-9, 0), (7, 0))),
         K(hip=(1, -9), lean=7, head=(14, -53), c1=(-6, -63), c2=(-14, -60), face="roar",
           hands=[(-9, -3), (9, -2)], mane=0.4, feet=((-9, 0), (8, 0))),
-        K(hip=(2, -9), lean=12, head=(48, -30), c1=(8, -50), c2=(28, -32), face="roar",
-          hands=[(-9, -1), (9, 0)], mane=1.0, feet=((-9, 0), (8, 0))),
-        K(hip=(2, -9), lean=11, head=(47, -31), c1=(10, -47), c2=(30, -36), face="roar",
-          hands=[(-9, -1), (9, 0)], mane=0.7, feet=((-9, 0), (8, 0))),
-        K(hip=(2, -9), lean=10, head=(42, -27), c1=(8, -48), c2=(26, -26), face="angry",
-          hands=[(-9, -1), (9, 0)], mane=0.5, feet=((-9, 0), (8, 0))),
+        K(hip=(2, -9), lean=12, c1=(8, -52), face="roar", headless=True,
+          hands=[(-9, -1), (9, 0)], mane=1.0, feet=((-9, 0), (8, 0)), **MAW_END),
+        K(hip=(2, -9), lean=11, c1=(10, -49), face="roar", headless=True,
+          hands=[(-9, -1), (9, 0)], mane=0.7, feet=((-9, 0), (8, 0)), **MAW_END),
+        K(hip=(2, -9), lean=10, c1=(6, -51), face="angry", headless=True,
+          hands=[(-9, -1), (9, 0)], mane=0.5, feet=((-9, 0), (8, 0)), **MAW_END),
         K(hip=(2, -9), lean=8, head=(32, -33), c1=(5, -50), c2=(19, -33), face="angry",
           hands=[(-9, 0), (9, 1)], mane=0.4),
         K(hip=(1, -9), lean=5, head=(22, -38), c1=(0, -52), c2=(12, -40), face="angry", hands=REST_HANDS, mane=0.3),
         K(hip=(1, -9), lean=3, head=(16, -42), c1=(-4, -54), c2=(4, -50), hands=REST_HANDS, mane=0.2),
         K(hip=(0, -9), lean=1, head=(12, -44), hands=REST_HANDS, mane=0.1),
     ]
+
+
+MAW_SLABS = 10  # maw_slab: a stone every 180 / MAW_SLABS degrees (the game turns the rest half round)
+
+
+def maw_head():
+    """The flying head (maw_head row): jaws open (0), jaws shut (1), the head alone at
+    MAW_END, facing the way the sheet faces."""
+    return [K(face="roar", mane=1.0, part="head", c1=(5, -50), **MAW_END),
+            K(face="angry", mane=0.7, part="head", c1=(5, -50), **MAW_END)]
+
+
+def maw_slab():
+    """The chain's stones (maw_slab row): one full-thickness neck stone at MAW_END per
+    angle on screen, 0 to 162 degrees in 18-degree steps."""
+    return [K(part="slab", slab_ang=k * 180.0 / MAW_SLABS, c1=(5, -50), **MAW_END) for k in range(MAW_SLABS)]
 
 
 def bedrock_new():
@@ -2088,6 +2180,8 @@ ROWS = [
     ("guard", guard()),
     ("victory", victory_new()),
     ("idle_alt", idle_alt_new()),
+    ("maw_head", maw_head()),    # Mountain Maw's flying head and its chain: drawn by the game (fx_view)
+    ("maw_slab", maw_slab()),
     ("ko", ko()),
 ]
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.
@@ -2148,8 +2242,10 @@ NEW_AT = {
     "heavy": [[0, 4], [10, 5], [14, 6], [16, 7], [21, 8], [27, 9], [35, 10], [46, 11]],
     "skill_1": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [18, 2], [21, 3], [24, 4], [27, 5], [29, 6],
                 [34, 7], [38, 8], [44, 9], [52, 10], [60, 11]],
-    "skill_2": [[0, 0], [4, 1], [9, 2], [14, 3], [18, 4], [21, 5], [27, 6], [33, 5], [38, 7], [44, 8], [50, 9],
-                [56, 10], [62, 11]],
+    # 5-7 headless from the throw (tick 21, the head flies) until the head has snapped home:
+    # the flight ends by tick 42 and fx_view's snap back takes 5 ticks, then 8-11 reel in
+    "skill_2": [[0, 0], [4, 1], [9, 2], [14, 3], [18, 4], [21, 5], [27, 6], [33, 5], [38, 7], [48, 8], [53, 9],
+                [58, 10], [62, 11]],
     "surge": _bedrock_at(),
 }
 NEW_CHARGE = [0, 4, 6]  # the heavy's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
@@ -2308,6 +2404,46 @@ def inspect_frames(picks):
     print("wrote", path)
 
 
+def maw_keys():
+    """The sprite block's Mountain Maw keys (docs/SPRITES.md, Craglash): per view, where the
+    headless frames' neck ends ("neck_end", world px from the sprite's origin, as the sheet
+    faces: the game mirrors x with the sprite) and the neck's direction there ("neck_dir", a
+    unit vector on screen), and which frames are headless."""
+    global F, FH, OX, OY
+    saved = (F, FH, OX, OY)
+    rows = dict(ROWS)
+    pose = whole_pixels(rows["lash"][5])
+    ends, dirs = {}, {}
+    try:
+        for view in VIEWS:
+            if view == "side":
+                F, FH, OX, OY = SIDE_FRAME
+                rig = Rig(pose)
+                e, t = O(pose.head), neck_end_tangent(rig)
+            else:
+                F, FH = VF, VFH
+                OX, OY = VIEW_ORIGIN[view]
+                e, t = v_neck_end(DRig(pose, view) if view in ("down_side", "up_side") else VRig(pose, view))
+            ln = math.hypot(t[0], t[1]) or 1.0
+            ends[view] = [round(e[0] - OX, 1), round(e[1] - OY, 1)]
+            dirs[view] = [round(t[0] / ln, 3), round(t[1] / ln, 3)]
+    finally:
+        F, FH, OX, OY = saved
+    lash = rows["lash"]
+    heads = [k for k, q in enumerate(lash) if getattr(q, "headless", False)]
+    ends_ok = all(whole_pixels(lash[k]).head == pose.head and whole_pixels(lash[k]).c2 == pose.c2 for k in heads)
+    if not ends_ok:
+        raise RuntimeError("every headless lash frame must end its neck at MAW_END")
+    return {"neck_end": ends, "neck_dir": dirs, "headless": {"lash": heads}}
+
+
+def maw_problems(sprite):
+    """craglash.json's sprite block against maw_keys()."""
+    want = maw_keys()
+    return ["sprite.%s is %s, the generator draws %s" % (k, sprite.get(k), v)
+            for k, v in want.items() if sprite.get(k) != v]
+
+
 def A_timed(at, length):
     out, f = [], 0
     for t in range(length):
@@ -2347,7 +2483,14 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "inspect":
+    if len(sys.argv) > 1 and sys.argv[1] == "maw":
+        # python3 tools/gen_craglash.py maw: the sprite block's neck_end / neck_dir / headless
+        import json as _json
+        print(_json.dumps(maw_keys()))
+        bad = maw_problems(_data()["sprite"])
+        if bad:
+            sys.exit("craglash.json is stale: " + "; ".join(bad))
+    elif len(sys.argv) > 1 and sys.argv[1] == "inspect":
         # python3 tools/gen_craglash.py inspect idle:0 run:2
         inspect_frames(sys.argv[2:])
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
