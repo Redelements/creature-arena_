@@ -294,8 +294,8 @@
       "hitstop": 8,
       "juggle": true,
       "projectile": {
-        "speed": 8.0,
-        "life": 17,
+        "speed": 10.0,
+        "life": 22,
         "radius": 10,
         "radius_end": 17,
         "offset": 26,

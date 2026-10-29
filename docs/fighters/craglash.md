@@ -24,3 +24,4 @@
 ## Changelog
 - 2026-10-27 — created
 - 2026-10-29 — data tune toward Kevin's R4 target (PR `craglash-tune`, NET_VERSION 69): stamina regen 0.35 -> 0.5, Rake cooldown 120 -> 90, roll speed 2.7 -> 3.2, Bedrock armor 0.75 -> 0.85; HP and damage unchanged. Normal 1v1 field 29% -> 41%; the slot bench (tank slot of culvert / cerebro / pete) had him at 50% before
+- 2026-10-29 — Mountain Maw reaches half again as far (Kevin: "extend his mountain maw range 50%"; PR `maw-range`, NET_VERSION 70): projectile speed 8 -> 10, life 17 -> 22, so the head flies 220 px past its 26 px spawn (was 136). Startup (20), windup (12), pull and crumple unchanged. The look (a thrown jaw instead of his neck stretching) is a separate animation plan: `docs/plans/craglash-anim.md`.
