@@ -162,9 +162,8 @@ func test_comeback_respawn_and_sudden_death_speed() -> void:
 	assert_eq(int(t.respawn_t[0]), int(float(t.rules["respawn_seconds_flag_away"]) * 60), "red is back sooner:")
 	# Sudden death: the carrier isn't slowed.
 	t.overtime = true
-	blue.slow = 0
 	_idle(t, 2)
-	assert_true(blue.slow <= 0 or blue.slow_mult >= 1.0, "no carry slow in sudden death")
+	assert_near(blue.carry_mult, float(t.rules["overtime_carry_slow"]), 0.001, "the sudden-death carry speed:")
 
 
 func test_a_capture_slows_the_game_for_a_moment() -> void:
