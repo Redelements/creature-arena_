@@ -226,7 +226,7 @@ same). Gallery: `pixellab/cairn/cairn_route_a.png`.
 | 13 | victory | 10 | settles (0), then a 7-frame loop of the rear fist pumped overhead (behind his head side-on, so the grin shows), the lead fist on his hip (1-7), then the rear fist held high, the stones lifted proud (8-9) |
 | 14 | idle_alt | 8 | the fidget: the fists drop, the head stone grinds round a full turn on the stack (the band tails swinging round with it), then the fists knock together |
 
-### Craglash — 96×96 frames, 12 × 16 (1152×1536 px)
+### Craglash — 96×96 frames, 12 × 18 (1152×1728 px)
 
 Craglash is the first creature from the artist's character sheets. His sheet is a
 pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
@@ -251,7 +251,7 @@ flat on windups (`mane` in a pose). Big frames because the neck reaches far: the
 Coil; standing, his mane tops out 71 px above his feet (`fx_top`). Feet at **x 34, y 90**.
 Any creature can use a bigger frame by setting `"frame"` in its JSON; the game, the
 cut-in and the team select scale to it. His up and down sheets (`craglash_down.png`,
-`craglash_up.png`) are **128×160** frames with the same rows minus the knockout, feet at
+`craglash_up.png`) are **128×160** frames with the same rows minus the knockout (17 rows), feet at
 x 64, y 112 (down) and y 124 (up); the same rig draws them from the front and from behind.
 
 His diagonal sheets (`craglash_down_side.png`, `craglash_up_side.png`, the same 128×160
@@ -311,7 +311,7 @@ them in every view beside the old frames.
 | 3 | backhand | 8 | Backhand (light 2): the far arm cocks back, whips across the body |
 | 4 | headbutt | 8 | Headbutt (light 3) and Landslide Entry (own `anim_at`): the head launches ahead of its neck |
 | 5 | stomp | 12 | Rockslide Stomp: 0-3 the charge loop (foot lifted, trembling), top of the lift, drop, held impact, overshoot, slow rise |
-| 6 | lash | 12 | Mountain Maw: the neck coils back, snaps out, shivers while the head flies, reels in |
+| 6 | lash | 12 | Mountain Maw: the neck coils back (0-3), snaps out (4), **headless** while the head flies (5-7: the neck at full thickness to `neck_end`, an end stone, no head; the game draws the head and the rest of the chain), reels in with the head home (8-11) |
 | 7 | bedrock | 12 | Bedrock: wide stance, fists down, sunk in, a 4-frame pulse loop (3-6) while rooted, release roar |
 | 8 | coil | 6 | Avalanche Coil: only the Surge's cut-in picture now (`cut_in_frame` `[8, 2]`) |
 | 9 | charge | 12 | Landslide Charge: crouch, drive, a 4-frame head-low run (2-5), brake, skid, settle |
@@ -320,7 +320,22 @@ them in every view beside the old frames.
 | 12 | guard | 4 | forearms crossed, head tucked behind them: 0 held, 1 the blocked hit (head knocked back a pixel, mane flaring), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 13 | victory | 8 | a slow mountain roar: breathe in and rear back, 1-5 loop (head high, fists up, mane bristling, a pixel of hip shudder to shake the stones), 6-7 breathe out and hold |
 | 14 | idle_alt | 8 | grinds his jaw (angry and strain faces), the head turns slowly toward the foe and back, the mane bristles once |
-| 15 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
+| 15 | maw_head | 2 | Mountain Maw's flying head alone, drawn at `neck_end`: jaws open (roar), jaws shut; facing the way the sheet faces (the up sheets show the back of the head) |
+| 16 | maw_slab | 10 | one full-thickness neck stone at `neck_end`, turned 0, 18, ... 162 degrees on screen: the chain's stones |
+| 17 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
+
+**Mountain Maw's head (phase 1 of `plans/craglash-anim.md`, Oct 29).** One head, his own: lash
+frames 5-7 are headless (their neck ends at `MAW_END`, where frame 8's head sits, at full
+thickness, with an end stone), and FxView draws the head and the rest of the neck from there
+(`_draw_long_bite`, `src/view/CLAUDE.md`). The sprite block carries what it needs, written by
+`python tools/gen_craglash.py maw` (which also checks the JSON against the rig):
+`"neck_end"` per view, the neck's end in world px from the sprite's origin as the sheet faces
+(x mirrored with the sprite), `"neck_dir"` per view, the neck's direction there (a unit vector
+on screen), and `"headless": {"lash": [5, 6, 7]}`, the frames that draw no head. The rows
+`maw_head` and `maw_slab` (above, in every view; the up/down/diagonal sheets have them at rows
+15-16 too, the knockout being side only) are drawn with their middle on `neck_end`, so the
+game places a frame by putting `neck_end` where the piece goes. Normal and emissive sheets
+carry them like every row.
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design

@@ -52,7 +52,7 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
 - Write down every frame where a spike or neck stone is on the wrong side, per view.
   Output: a short table in this file under "Inspection notes".
 
-### 1. One head (view + sheet)
+### 1. One head (view + sheet) — DONE Oct 29 (PR `maw-phase1-one-head`; see "Phase 1: what was built")
 - Generator: lash frames 5-7 become headless. The neck runs to the frame edge; export its
   end point per view into the sprite JSON block (new key, e.g. `"neck_end": {"side": [x, y],
   "down": ..., "up": ..., "down_side": ..., "up_side": ...}` in `data/creatures/craglash.json`
@@ -103,6 +103,11 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
 - R3. **Fling the head back (a quick head tilt), then throw it forward.** The rear-back is
   a snap, not a slow lean: the head tilts back hard in a few ticks and holds.
 - R4. **Jaw-biting sounds as the head flies.** A chomp every few ticks of flight.
+- R5. (default, Kevin accepted) **Side view: the neck keeps rising from inside the crown ring**
+  (the phase 0 depth model flags stones 1-4 under the crown in nearly every side frame; that is
+  how he is built, not a bug).
+- R6. (default, Kevin accepted) **The spike pops are phase 3**, not phase 1: the one-head PR
+  leaves the sort keys alone (the lash row's pop count must just not get worse).
 
 ## Changes to the phases from the rulings
 - Phase 1: the view draws slabs at the rig's spacing from `neck_end` to the head with no
@@ -114,6 +119,31 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
   is a placeholder until Kevin picks one (see `docs/open-items.md`, audio).
 - Phase 2: frames 0-3 become fling-back: frame 1 already at the deep tilt (head back and
   tilted up, mouth opening), frames 2-3 hold it with a shiver, frame 4 the throw.
+
+## Phase 1: what was built (Oct 29)
+- Sheets (`tools/gen_craglash.py`): lash 5-7 are headless: the neck at full thickness (R1)
+  ends at `MAW_END`, where frame 8's head sits, with one more stone on the end. New rows on
+  every sheet (and its `_n` / `_e`): `maw_head` (jaws open, jaws shut) and `maw_slab` (one
+  full stone at 10 angles), both drawn with their middle on the neck's end; the knockout moved
+  to row 17 on the side sheet. Every other row is byte-identical. `gen_craglash.py maw` writes
+  and checks the sprite block's `neck_end` / `neck_dir` (per view) and `headless`.
+- Not "to the frame edge", as first planned: the neck ends 32 px out (side), short of where
+  the projectile spawns (26 px, then 10 a tick), so the flying head is always ahead of it and
+  the head comes home onto frame 8 without a jump.
+- View (`fx_view.gd:_draw_long_bite`, on two children of his CreatureView): stones every 5 px
+  from `neck_end` on a slight arc along `neck_dir` to the head; the head rides the projectile
+  from the neck's end, dropping 14 px toward the bite over its first 60 px, turned along the
+  flight in the side view, jaws open/shut every 4 ticks of `life_total - life`. Facing down or
+  sideways it is in front of his body, facing up behind it; it y-sorts with him (so facing
+  down the bitten foe covers the head a little: it bites from behind them).
+- Snap back (R2): on `projectile_end` the head holds through the hitstop (8 ticks on a bite),
+  then reels home in 5 ticks (slow start, fast finish), stones vanishing behind it; the
+  sprite's frames 8-11 now start at tick 48 (`anim_at` and `NEW_AT`), and any headless frame
+  with no head flying draws the head home on the neck's end.
+- Sound (R4): fx `flight_sound` `{"id": "bite", "every": 8, "at": 4}`, a chomp each time the
+  jaws shut (3 a full flight); `bite` is a synthesized stone clack (placeholder).
+- NET_VERSION 71 (craglash.json is in `data_hash`). Pops in the lash row unchanged: 8 frames,
+  13 spikes switching (`craglash_phase0.py check lash`), as in phase 0.
 
 ## Inspection notes
 Phase 0 (Oct 29): `docs/maw-range/phase0/findings.md` (previews, in-game shots, the frame table;

@@ -9,6 +9,17 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Depth is floor position alone: `entities.y_sort_enabled`, `z_index = 0` (2 only when high
   in the air). A swing aimed down at someone in front draws behind them; sparks and smears
   draw over both.
+- A fighter part the view draws beyond the sprite (Mountain Maw's flying head and neck) is
+  drawn from the fighter's own sheet on children of his CreatureView (`MawBack` before the
+  pivot, `MawFront` after it), with his material, light mask and weather tint, so it flashes,
+  petrifies, changes palette, darkens and hides with him and y-sorts at his feet; never in
+  FxView's own layers, which are over or under every fighter. A sheet frame that leaves a part
+  out names it in the sprite block (`"headless"`), and whenever such a frame shows the view
+  draws the part, so he is never shown without it (`fx_view.gd:_maw_state`). Where the sprite
+  stops is data, not a guess: `"neck_end"` / `"neck_dir"` per view, written by the generator
+  (`gen_craglash.py maw`). Facing down or sideways the part is in front of the body, facing up
+  behind it. Its timing keys on the sim (`sim.tick`, the projectile's `life`, its serial),
+  never wall time, so a rollback redraws it the same.
 - Floor effects that show an area are true circles on the floor (no y squash), or vertical
   reach looks wrong. `FxView` rings and orbits use `sin(a) * 0.5`.
 - Shadows lie on the floor under everyone: `ShadowLayer` (main adds it between `fx_ground` and
@@ -200,7 +211,8 @@ dig/slosh/poof/chop_chop/shout sounds.
   header, then `_move_started`, `_charging`, `_strike`, `_during_move`
 - New projectile look → `_draw_projectiles`, `_proj_kind` (the move's `fx.projectile`:
   rod, knife, mallet, cleaver, fire (a kiddolink strip turned along the flight, `_draw_fireball`),
-  venom, head, tongue, wave, pinecone; else a sprite strip); a prop held while a move plays
+  venom, head (Craglash's own head and neck from his sheet: `_draw_long_bite`, see Gotchas), tongue,
+  wave, pinecone; else a sprite strip); a prop held while a move plays
   (`fx.prop` "pan": Cerebro's Surge pan and its flame) → `_draw_held_pan` from `_draw_creature_extras`;
   Crease's darts, shuriken, cranes, hopping frogs → `paper_fx.gd` static `draw_*`
   (`draw_frog_shot` / `frog_hop` time the hop from `life_total - life`); what the frogs
