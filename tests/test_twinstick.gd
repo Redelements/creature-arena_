@@ -110,6 +110,34 @@ func test_aim_assist_bends_a_close_8_way_attack_onto_the_opponent() -> void:
 	assert_false(PlayerInput.assist(RIGHT, me, foe) & SimDefs.IN_AIM, "only when attacking")
 
 
+## Aim assist only bends toward foes the screen shows: a Tiptoed (stealthed) Pete inside
+## ASSIST_RANGE and 18 degrees off the aim line isn't snapped to; a visible one is, and so
+## is one in brush (`covered`), which the council kept in scope.
+func test_aim_assist_skips_a_stealthed_foe() -> void:
+	var sim := MatchFactory.versus("cairn", "pete")
+	var me := sim.creatures[0]
+	var pete := sim.creatures[1]
+	me.pos = Vector2(200, 150)
+	pete.pos = me.pos + Vector2.from_angle(deg_to_rad(18.0)) * 40.0
+	assert_eq(PlayerInput.assist_foe(sim, me), pete, "visible: the assist's foe")
+	var seen := PlayerInput.assist(L | RIGHT, me, PlayerInput.assist_foe(sim, me))
+	assert_true(seen & SimDefs.IN_AIM, "visible Pete: assisted")
+	assert_gt(SimDefs.aim_from_bits(seen).dot((pete.pos - me.pos).normalized()), 0.995, "straight at him")
+	pete.stealth = 180
+	assert_eq(PlayerInput.assist_foe(sim, me), null, "Tiptoed: no foe for the assist")
+	assert_eq(sim.nearest_opponent(me), pete, "(the sim's own pick is unchanged)")
+	var hidden := PlayerInput.assist(L | RIGHT, me, PlayerInput.assist_foe(sim, me))
+	assert_false(hidden & SimDefs.IN_AIM, "Tiptoed Pete: not snapped to")
+	assert_eq(hidden, L | RIGHT, "the attack goes where it was aimed")
+	pete.stealth = 0
+	pete.covered = true
+	assert_true(PlayerInput.assist(L | RIGHT, me, PlayerInput.assist_foe(sim, me)) & SimDefs.IN_AIM,
+		"in brush: still assisted")
+	pete.covered = false
+	pete.state = CreatureSim.State.KO
+	assert_eq(PlayerInput.assist_foe(sim, me), null, "KO'd: no foe")
+
+
 func test_mouse_attacks_aim_exactly_at_the_cursor() -> void:
 	var sim := MatchFactory.training("cairn")
 	var me := sim.creatures[0]
