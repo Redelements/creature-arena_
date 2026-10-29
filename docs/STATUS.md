@@ -28,6 +28,9 @@ hazards, shrines, sprees, the crown, the combo meter (#205-#216).
 
 - Fighters: route A (our own rigs at 2x). PixelLab animation rejected (Oct 27).
 - Balance and benches: Normal CPUs only, never Rage (Oct 25). No mage buffs. No parry.
+- Normal CPUs were nerfed Oct 29 2026 (`docs/plans/cpu-tiers.md`): every balance or pacing
+  number taken before that (matrix, pins, mode metrics, CTF / Caravan benches, nightly
+  artifacts) is not comparable with one taken after.
 - The game is "Ready 4 Rambles" to players; internals, user dir, package id, server paths keep
   creature-arena.
 - Chaos Cup always may draw hazards; Arena options govern the normal modes only.

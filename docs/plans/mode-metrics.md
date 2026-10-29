@@ -18,7 +18,9 @@ godot --headless --path . --script res://tests/bench_modes.gd -- --seeds=12
 ```
 
 Since Oct 26 the bench plays **Normal CPUs** (`--level=1`, the default; Kevin: no Rage
-benches); the older tables below were Rage. The Normal baseline and the Oct 27 pass over
+benches); the older tables below were Rage. **Normal was nerfed on Oct 29 2026**
+(`docs/plans/cpu-tiers.md`): every Normal table below predates it and is not comparable
+with a run made after. The Normal baseline and the Oct 27 pass over
 every open idea are the first section.
 
 Each mode in its own process runs in parallel (on Windows give each its own `APPDATA`). A

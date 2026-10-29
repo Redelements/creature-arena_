@@ -212,7 +212,11 @@ CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
 beats Hard about 98% of the time). Balance is measured **Normal against Normal**, never
 with Rage CPUs (Kevin's ruling, Oct 2026: the Rage results didn't match how the game
 plays); the benches default to Normal. `--matrix` prints every pair, `--pairs=a:b,c:d` just
-those, both with `--seeds=N`.
+those, both with `--seeds=N`. Normal was nerfed on Oct 29 2026 (reaction, prediction and
+cadence first; every knob now a quarter of the way from Easy to Hard): what each tier knob
+does, how far apart the tiers measure and why CPU-vs-CPU win rates don't say whether a
+player can beat Normal are in `docs/plans/cpu-tiers.md`. Balance numbers from before that
+date aren't comparable with later ones.
 
 ### Class balance
 
