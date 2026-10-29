@@ -35,6 +35,10 @@ extends Node2D
 ##   --cam-lead=0|1 --cam-clash=0|1 --cam-settle=0|1  camera behaviour off / on (Normal) for
 ##                         this session, not saved (also low|normal|high; Settings > Video > Camera)
 ##   --quit-after=N        exit after N frames
+##   --replay=FILE --from=A --to=B  watch one saved replay (an absolute path or user://) from
+##                         tick A to tick B at 1x, then quit (main_args.gd `start_replay_cli`);
+##                         frame 1 shows tick A + 1, so --shots and Godot's --write-movie record
+##                         exactly that range with sound (Export clip, tools/clip.py)
 ##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
 ##                         Lighting otherwise; Light2DView, BloomView)
 ##   --a11y=teams,outlines,markers  Settings > Accessibility this session, not saved: colour-safe
@@ -608,6 +612,10 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
+## --replay / --from / --to: one replay range to play and quit on ({path, from, to}; main_args.gd).
+var _clip_cli := {}
+var clips := ClipMarks.new()  ## this match's clip markers (F6, combo KOs), saved beside its replay (clip_marks.gd)
+var clip_ctl := ClipExport.new(self)  ## the Replay theater's Export clip (clip_export.gd)
 ## --bug-report[=DIR]: where the bug-report zip goes ("" when the flag isn't given).
 var _bug_report_dir := ""
 var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
@@ -895,7 +903,10 @@ func _ready() -> void:
 	_apply_discord()
 	_apply_range_rings()
 	touch_ctl._apply_touch()
+	add_child(clip_ctl)
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
+	if _clip_cli.has("path"):
+		args_ctl.start_replay_cli()  # --replay: one range of a saved fight, then quit
 	if start_mode >= 0:
 		_start_match(start_mode)
 		if in_training():
@@ -1912,7 +1923,7 @@ func _open_replays() -> void:
 		var dir := DirAccess.open(replays_dir) if DirAccess.dir_exists_absolute(replays_dir) else null
 		if dir != null:
 			for f in dir.get_files():
-				if f.ends_with(".json"):
+				if f.ends_with(".json") and not ClipMarks.is_sidecar(f):
 					files.append(f)
 		files.sort()
 		files.reverse()
@@ -1940,7 +1951,9 @@ func _replay_label(path: String) -> String:
 	var names: Array = []
 	for id in st.get("ids", []):
 		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))
-	return "%s   %s   %s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names)]
+	var marks := ClipMarks.load_for(path).size()
+	return "%s   %s   %s%s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names),
+		("   %d clip%s" % [marks, "" if marks == 1 else "s"]) if marks > 0 else ""]
 
 
 ## Watches a replay: the match it was recorded on is rebuilt and every side plays its
@@ -2646,6 +2659,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		s.apply_mutators(session, seed_base)  # --mutators, or Arena options > Hazards
 	replay = Replay.new()
 	replay.setup = _replay_setup(s)
+	clips.reset()  # (markers are kept per match, as its replay is)
 	cpus = []
 	cpus.resize(sides.size())
 	hud.resize_slots(sides.size())
@@ -3363,6 +3377,8 @@ func _react(e: Dictionary) -> void:
 			_shrine_toast(e)
 		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
 			_wanted_toast(e)
+	if flow != Flow.MENU and not _replaying() and sim != null:
+		clips.note(e, sim.tick, _is_local_fighter)  # a combo KO by a player here: a clip marker
 	fx.spawn(e)
 	light2d.on_event(e)  # a big hit's or a Surge's flash of light (Lighting Low / High)
 	audio.on_event(e)
@@ -3736,10 +3752,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_toast("Reset")
 
 
-## F6: save the fight so far (or just finished) to the Replay theater.
-func _save_replay() -> void:
+## Whether slot `i` is a player on this machine (online: the local slot).
+func _is_local_fighter(i: int) -> bool:
+	if online != null:
+		return i == online.local_slot
+	return i >= 0 and i < sides.size() and sides[i] in LOCAL_SIDES
+
+
+## F6: save the fight so far (or just finished) to the Replay theater, with a clip marker
+## here (and the match's other markers) in its sidecar (ClipMarks). Returns the path.
+func _save_replay() -> String:
 	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
 	var path := replays_dir.path_join("replay_%s.json" % stamp)
+	var k := 2
+	while FileAccess.file_exists(path):  # (two saves in one second)
+		path = replays_dir.path_join("replay_%s_%d.json" % [stamp, k])
+		k += 1
 	if online != null:
 		# Online: the confirmed inputs (what both machines agreed on), with the setup.
 		replay = Replay.new()
@@ -3752,10 +3780,13 @@ func _save_replay() -> void:
 		for row in watch.log:
 			replay.record(row)
 	if replay.save(path) == OK:
-		hud.show_toast("Replay saved: %d ticks" % replay.frames.size())
+		clips.add(replay.frames.size(), "F6")
+		ClipMarks.save_for(path, clips.marks)
+		hud.show_toast("Replay saved: %d ticks (a clip marker here)" % replay.frames.size())
 		print("Replay saved to ", ProjectSettings.globalize_path(path))
-	else:
-		hud.show_toast("Could not save replay")
+		return path
+	hud.show_toast("Could not save replay")
+	return ""
 
 
 ## Back in a menu: Esc, B or View.
@@ -3783,6 +3814,7 @@ func _open_pause() -> void:
 			["Speed: %s" % ReplayViewer.SPEED_NAMES[replay_ctl.speed_i], func():
 				_close_ui()
 				replay_ctl.cycle_speed(), "Slow motion or fast forward: 1/4, 1/2, 1x, 2x"],
+			["Export clip", func(): clip_ctl.open_screen(), "Save a video of a marked moment (C, pad R3)"],
 			["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB],
 			["Replay theater", func():
 				_close_ui()
@@ -4410,6 +4442,9 @@ func _capture() -> void:
 			Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
 			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
 			CreatureView.sheet_report()])
+	if args_ctl.clip_over():
+		get_tree().quit()  # --replay: the range has played
+		return
 	if _quit_after > 0 and t >= _quit_after:
 		online_ctl._write_net_report()
 		_print_perf()
