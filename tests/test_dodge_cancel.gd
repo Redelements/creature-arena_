@@ -171,3 +171,82 @@ func test_a_press_in_your_own_hitstop_cancels_as_it_ends() -> void:
 	assert_true(run_until(sim, func(): return sim.hitstop == 0 and a.state == CreatureSim.State.DODGE, 20),
 		"the dodge takes over the first tick after the freeze")
 	assert_lt(b.hp, b.max_hp, "the jab that landed still counts:")
+
+
+# ---- Connected lights (Kevin's ruling R3, Oct 28): a fighter, tank or bruiser that lands
+# a light (hit or blocked) dodges out of it at dodge_cancel_connected_mult x the dodge
+# price; a whiff, a heavy, and every other role keep dodge_cancel_cost_mult.
+
+## Starts `btn` on fighter `left` against `right` (holding `p1`), waits for it to
+## connect (`connect` false: the foe stands out of reach), then dodges out. Returns the
+## stamina the dodge cost, or -1.0 if it never came out.
+func _cancel_spend(left: String, right: String, btn: int, connect := true, p1 := 0) -> float:
+	var sim := _duel(2.0 if connect else 80.0, left, right)
+	var a := sim.creatures[0]
+	tap(sim, btn, 0, p1)
+	if connect:
+		assert_true(run_until(sim, func(): return a.connected, 40, 0, p1), "%s's move connects" % left)
+	else:
+		run(sim, 0, 2, p1)
+	assert_eq(a.state, CreatureSim.State.ATTACK, "%s is still attacking" % left)
+	assert_true(a.connected == connect, "connected is %s" % connect)
+	var before := a.stamina
+	run(sim, D, 1, p1)
+	if not run_until(sim, func(): return a.state == CreatureSim.State.DODGE, 30, 0, p1) \
+			and a.state != CreatureSim.State.DODGE:
+		return -1.0
+	return before - a.stamina
+
+
+func _mult() -> float:
+	return float(CreatureSim.stamina_rules()["dodge_cancel_cost_mult"])
+
+
+func _plain(fid: String) -> float:
+	return _duel(2.0, fid, "cairn").creatures[0].dodge_cost
+
+
+func test_the_connected_rules_live_in_the_stamina_rules() -> void:
+	var r := CreatureSim.stamina_rules()
+	assert_true(r.has("dodge_cancel_connected_mult"), "stamina.json has dodge_cancel_connected_mult")
+	var roles: Array = r.get("dodge_cancel_refund_roles", [])
+	for role in ["fighter", "tank", "bruiser"]:
+		assert_true(roles.has(role), "%s gets the refund" % role)
+	for role in ["mage", "assassin", "skirmisher"]:
+		assert_false(roles.has(role), "%s does not" % role)
+
+
+func test_a_landed_light_is_left_at_the_plain_price() -> void:
+	assert_near(_cancel_spend("cairn", "cairn", L), _plain("cairn") * float(
+		CreatureSim.stamina_rules()["dodge_cancel_connected_mult"]), 0.001, "Cairn after a landed jab:")
+
+
+func test_a_whiffed_light_still_costs_the_cancel_price() -> void:
+	assert_near(_cancel_spend("cairn", "cairn", L, false), _plain("cairn") * _mult(), 0.001, "Cairn after a whiffed jab:")
+
+
+func test_a_connected_heavy_still_costs_the_cancel_price() -> void:
+	assert_near(_cancel_spend("cairn", "cairn", H), _plain("cairn") * _mult(), 0.001, "Cairn after a landed Haymaker:")
+
+
+func test_an_assassin_pays_the_cancel_price_after_a_landed_light() -> void:
+	assert_near(_cancel_spend("digby", "cairn", L), _plain("digby") * _mult(), 0.001, "Digby after a landed jab:")
+
+
+func test_a_mage_pays_the_cancel_price_after_a_landed_light() -> void:
+	assert_near(_cancel_spend("cerebro", "cairn", L), _plain("cerebro") * _mult(), 0.001, "Cerebro after a landed jab:")
+
+
+func test_a_blocked_light_counts_as_connected() -> void:
+	var spent := _cancel_spend("cairn", "cairn", L, true, G)
+	assert_near(spent, _plain("cairn"), 0.001, "Cairn after a blocked jab:")
+
+
+func test_every_refund_role_gets_it_and_no_other() -> void:
+	var refund: Array = CreatureSim.stamina_rules()["dodge_cancel_refund_roles"]
+	for fid in ["cairn", "culvert", "craglash", "barkley", "sno", "hissy"]:
+		var c := _duel(2.0, fid, "cairn").creatures[0]
+		assert_true(refund.has(String(c.def.get("role", "fighter"))), "%s gets the refund" % fid)
+	for fid in ["cerebro", "crease", "gillbert", "digby", "pete"]:
+		var c := _duel(2.0, fid, "cairn").creatures[0]
+		assert_false(refund.has(String(c.def.get("role", "fighter"))), "%s does not" % fid)
