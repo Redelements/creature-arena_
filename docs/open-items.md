@@ -63,6 +63,7 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   skipped on Kevin's call) and the two arenas that need them (Saltflat Ring, Night Market
   Roof), Raid (needs a boss sheet), a Steam transport. Everything else in that plan is in.
   Priorities: Game Plan doc, "Game modes".
+- **Council backlog:** `docs/plans/council-backlog.md` sequences the Oct 28 design council's twelve items in three waves with the rulings each needs.
 - **Modes, in flight:** `docs/plans/mode-ideas.md` is the living plan (shrines, the Brawl crown,
   Team Deathmatch sprees and shutdowns, hazards are shipped; the "idea" rows await evidence and
   Kevin's decision). Metrics: `tests/bench_modes.gd`, `docs/plans/mode-metrics.md`. Combat
