@@ -79,7 +79,7 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
 - The CPU, trials and showcases don't change: this is the same 20-tick startup.
 - Check: `--check`, the GIF, and `tests/test_counterplay.gd` (unchanged warning window).
 
-### 3. Spike order (sheet, all views)
+### 3. Spike order (sheet, all views) — DONE Oct 29 (PR `maw-phase3-spikes`; see "Phase 3: what was built")
 - Split `draw_spikes` out of `draw_torso` / `v_torso` / `d_torso` into crown and flank
   layers with their own `(depth, order)`.
 - Rule to try first (then look at it): side view: neck over the torso when the head is
@@ -108,6 +108,15 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
   how he is built, not a bug).
 - R6. (default, Kevin accepted) **The spike pops are phase 3**, not phase 1: the one-head PR
   leaves the sort keys alone (the lash row's pop count must just not get worse).
+
+- R7. (phase 3, the rule as built; Kevin to confirm on the branch build) **Spike order:** the side
+  view as R5; in the down, up and diagonal views a neck stone within 9 rig px of a spike's depth
+  is drawn over it (facing up the head with it), past 9 px the nearer one. The plan's first idea,
+  the crown over the neck facing down, was tried and dropped: it put the crown over the stones in
+  front of his chest in idle, backhand and guard, and still popped (coil).
+- R8. (default, Kevin approved folding it into phase 3) **Knocked down or out mid-flight** shows a
+  headless twin (`ko_nohead`) instead of dropping the flying head; **a head that comes home while
+  he is hurt or guarding** stays on the headless twin until the reaction ends.
 
 ## Changes to the phases from the rulings
 - Phase 1: the view draws slabs at the rig's spacing from `neck_end` to the head with no
@@ -172,6 +181,26 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
   6 frames / 13 after (the fling moved them to the 3-to-4 throw; phase 3 fixes them).
 - Showcase `maw_hit` (Cairn jabs Craglash while the head flies), pinned in `tests/test_showcase.gd`.
 - NET_VERSION 72 (craglash.json `anim_at` and sprite block: data_hash).
+
+## Phase 3: what was built (Oct 29)
+- Generator (`tools/gen_craglash.py`): `v_torso` / `d_torso` return the torso cut into disjoint
+  pieces (`torso_pieces`: the body, each crown spike, each flank spike: together exactly the old
+  torso layer); `render_view` / `render_diag` hand every part to `compose()`, which keeps the old
+  `(depth, order)` sort for every overlapping pair except a neck stone (and facing up the head)
+  against a spike: those go by both depths measured the same way (`depth3` at the stone's centre
+  and the spike's base) with the tie rule `SPIKE_BIAS` (R7: the neck wins within 9 px). Every layer is opaque, so
+  only overlapping pairs need an order (a topological sort); where the rule's order loops with
+  an old pair, the rule wins. Side view unchanged (`_render`, R5).
+- Pure geometry alone (bias 0) still popped (43 frames): the crown and the neck's root sit at
+  nearly the same depth. The neck winning ties within 9 px leaves none in any row or view; the
+  crown winning facing down (-9) left coil pops and covered the stones in front of his chest.
+- `craglash_phase0.py check` now reads the generator's real draw order (`gen_craglash.TRACE`)
+  and the visible spike pieces; `CRAGLASH_SPIKE_ORDER=hip` renders the old order for compares.
+- Fold-ins (R8): `ko_nohead` (row 20, side only) and the head held on a twin through the
+  reaction (`fx_view.gd:_maw_out`); FxView reads the sheet actually showing
+  (`CreatureView.sheet_view()`), so a side-only twin facing down uses the side `neck_end`.
+- NET_VERSION 73 (craglash.json sprite block: anims, side_only, headless).
+- Findings, before/after table, rows changed: `docs/maw-range/phase3/findings.md`.
 
 ## Inspection notes
 Phase 0 (Oct 29): `docs/maw-range/phase0/findings.md` (previews, in-game shots, the frame table;
