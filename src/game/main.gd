@@ -167,6 +167,10 @@ const MODES := [
 	{"label": "Capture the Flag: 4v4 vs CPU", "team": 4, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Weekly Challenge", "weekly": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Brawl", "brawl": true, "seating": "ffa", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
+	{"label": "Team battle: 2v2 local", "team": 2, "seating": "teams", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
+	{"label": "Team Deathmatch: 2v2 local", "team": 2, "rules": "deathmatch", "seating": "teams", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
+	{"label": "Sinkhole: 2v2 local", "team": 2, "rules": "sinkhole", "seating": "teams", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
+	{"label": "King of the Crater: 2v2 local", "team": 2, "rules": "crater", "seating": "teams", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -224,6 +228,9 @@ const MENU_ROWS := [
 		"desc": "Free-for-all, four fighters, one life each; up to four players at this screen, CPUs fill the empty seats"},
 	{"label": "Brawl: up to 4 players", "group": "local", "modes": [55],
 		"desc": "Free-for-all, four fighters, one life each; everyone here picks a seat, CPUs fill the rest"},
+	{"label": "Teams: 2 v 2 local", "group": "local", "modes": [56, 57, 58, 59],
+		"choices": ["Team battle", "Deathmatch", "Sinkhole", "Crater"],
+		"desc": "Two a side, everyone here picks a seat and a side (Left/Right on the join screen); CPUs fill the rest. Left/Right: the rules"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
 		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower, a rolling boulder, a fault line"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
@@ -1506,8 +1513,11 @@ func _start_match(m: int, keep_teams := false) -> void:
 ## `--locals=N`, else one.
 func _wanted_humans(cfg: Dictionary) -> int:
 	var n := _humans(cfg)
-	if String(cfg.get("seating", "")) == "ffa":
-		return clampi(_cli_locals if _cli_locals > 0 else 1, 1, n)
+	match String(cfg.get("seating", "")):
+		"ffa":
+			return clampi(_cli_locals if _cli_locals > 0 else 1, 1, n)
+		"teams":  # everyone, seats alternating sides
+			return clampi(_cli_locals if _cli_locals > 0 else n, 1, n)
 	return n
 
 
@@ -1528,6 +1538,27 @@ func _seated_sides(cfg: Dictionary) -> Array:
 	return out
 
 
+## A team mode's sides from the seats (`"seating": "teams"`): TeamSim's slot order, side 0's
+## slots then side 1's, each side's seats first (in seat order) and CPUs in what's left.
+func _seated_team_sides(per_side: int) -> Array:
+	var out: Array = []
+	for side in 2:
+		var on := seats.seats_on(side)
+		for k in per_side:
+			out.append(side_of_seat(on[k]) if k < on.size() else Side.CPU)
+	return out
+
+
+## The pick screen's columns (one a seat) regrouped by the seats' sides, for `_start_team`
+## to pad with CPU fighters.
+func _seated_team_picks(columns: Array) -> Array:
+	var out: Array = [[], []]
+	for k in seats.humans:
+		if k < columns.size() and not (columns[k] as Array).is_empty():
+			(out[seats.side_of_seat(k)] as Array).append(columns[k][0])
+	return out
+
+
 ## The join screen of a local mode with a `seating` key: the seats claim their controllers
 ## (`LocalSeats.begin` .. `finish`), then the fighter pick opens as usual. "versus": every
 ## seat of the table must join; "ffa": anyone may (one is enough, CPUs fill the rest).
@@ -1541,7 +1572,16 @@ func _open_seats(cfg: Dictionary) -> void:
 	s.mode_title = "DUEL" if cfg.get("duel", false) else "VERSUS"
 	if cfg.get("brawl", false):
 		s.mode_title = "CHAOS CUP" if cfg.get("chaos", false) else "BRAWL"
-	s.need = 1 if String(cfg["seating"]) == "ffa" else humans
+	var kind := String(cfg["seating"])
+	s.need = humans
+	if kind == "ffa":
+		s.need = 1
+	elif kind == "teams":  # two people at least, each picking a side; CPUs fill the rest
+		s.need = 2
+		s.teams = true
+		s.side_cap = int(cfg.get("team", 2))
+		s.mode_title = {"deathmatch": "TEAM DEATHMATCH", "sinkhole": "SINKHOLE", "crater": "KING OF THE CRATER"}.get(
+			String(cfg.get("rules", "")), "TEAM BATTLE")
 	s.most = humans
 	s.seats = seats
 	s.done.connect(func() -> void:
@@ -1570,6 +1610,7 @@ func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
 			labels = []
 			for k in maxi(2, humans):
 				labels.append("PLAYER %d" % (k + 1) if k < humans else "CPU")
+		var seated_team := cfg.has("team") and String(cfg.get("seating", "")) == "teams"
 		if cfg.has("team"):
 			size = int(cfg["team"])
 			labels = ["YOU + CPU", "CPU TEAM"]
@@ -1577,8 +1618,13 @@ func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
 			title = {"sinkhole": "SINKHOLE  %d v %d", "crater": "KING OF THE CRATER  %d v %d",
 				"deathmatch": "TEAM DEATHMATCH  %d v %d", "caravan": "CARAVAN  %d v %d",
 				"ctf": "CAPTURE THE FLAG  %d v %d"}.get(kind, "TEAM BATTLE  %d v %d") % [size, size]
+		if seated_team:  # a column a seat, one fighter each, labelled with the seat's side
+			size = 1
+			labels = []
+			for k in humans:
+				labels.append("PLAYER %d  (%s)" % [k + 1, "RED" if seats.side_of_seat(k) == 0 else "BLUE"])
 		var pick := CharacterSelect.new()
-		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
+		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") and not seated_team else _teams)
 		pick.p1_keyboard = player_input.keyboard
 		var pads: Array = []
 		for k in maxi(1, humans):
@@ -1606,6 +1652,8 @@ func _on_teams_chosen(teams: Array) -> void:
 	_close_ui()
 	hud.visible = true
 	_teams = teams
+	if String(MODES[mode].get("seating", "")) == "teams":
+		_teams = _seated_team_picks(teams)  # a column a seat -> a list a side
 	audio.play("ui_select", 0.0, 1.0, true)
 	_start_round()
 	show_ctl._maybe_intro()
@@ -1894,6 +1942,8 @@ func _start_team(per_side: int, rules_id := "") -> void:
 	var s: Array = [Side.PLAYER]
 	for i in range(1, team_battle.slot_count()):
 		s.append(Side.CPU)
+	if String(MODES[mode].get("seating", "")) == "teams":
+		s = _seated_team_sides(team_battle.size)
 	_new_sim(team_battle.sim, s)
 	hud.team = team_battle
 	hud.focus = 0
@@ -2378,7 +2428,7 @@ func _team_flow() -> void:
 				var me := sides.find(Side.PLAYER)
 				if w < 0:
 					hud.banner = "DRAW"
-				elif me >= 0:
+				elif me >= 0 and _viewer_team() >= 0:  # (people here on both sides: the side's name)
 					hud.banner = "YOUR TEAM WINS!" if sim.creatures[me].team == w else "YOUR TEAM LOSES"
 				else:
 					hud.banner = "%s TEAM WINS!" % ("RED" if w == 0 else "BLUE")

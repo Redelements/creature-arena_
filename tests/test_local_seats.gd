@@ -310,3 +310,70 @@ func test_the_join_screen_decides_how_many_play_a_free_for_all() -> void:
 	assert_eq(g.seats.device_of(1), 0, "player 2 on pad 0")
 	assert_eq(g.seats.device_of(2), 1, "player 3 on pad 1")
 	g.free()
+
+
+# ------------------------------------------------------------------ teams with four seats
+
+func test_seats_pick_sides_and_pack_with_them() -> void:
+	var s := _seats()
+	s.begin(4)
+	assert_eq(s.side_pick, [0, 1, 0, 1], "seats alternate by default")
+	s.claim(0)
+	s.claim(1)
+	s.claim(2)
+	s.set_side(1, 0)
+	s.set_side(2, 1)
+	s.unclaim(1)
+	assert_eq(s.finish(), 2, "")
+	assert_eq(s.device_of(1), 2, "seat 3's pad moved down")
+	assert_eq(s.side_of_seat(1), 1, "with its side")
+	assert_eq(s.seats_on(0), [0], "")
+	assert_eq(s.seats_on(1), [1], "")
+
+
+func test_a_local_team_battle_started_headless_seats_everyone_alternating_sides() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(g.mode_index("Team battle: 2v2 local"))
+	assert_eq(g.sides, [g.Side.PLAYER, g.Side.PLAYER3, g.Side.PLAYER2, g.Side.PLAYER4],
+		"side 0's slots: seats 1 and 3; side 1's: seats 2 and 4:")
+	assert_true(g.team_battle != null, "")
+	assert_eq(g._viewer_team(), -1, "people on both sides: nobody's vision is hidden")
+	g._cli_locals = 3
+	g._start_match(g.mode_index("Team Deathmatch: 2v2 local"))
+	assert_eq(g.sides, [g.Side.PLAYER, g.Side.PLAYER3, g.Side.PLAYER2, g.Side.CPU], "three people: a CPU on blue")
+	g.free()
+
+
+func test_the_join_screen_sides_feed_the_team_pick_and_the_match() -> void:
+	var g := _game()
+	g._start_match(g.mode_index("Team battle: 2v2 local"))
+	assert_true(g.ui.top() is SeatScreen, "")
+	var ss: SeatScreen = g.ui.top()
+	assert_true(ss.teams, "a team join screen")
+	assert_eq(ss.need, 2, "")
+	_press("ui_accept")  # player 1, keyboard, red by default
+	g.seats.claim(0)  # player 2: blue by default
+	g.seats.claim(1)  # player 3: red by default
+	_pad(1, JOY_BUTTON_DPAD_RIGHT)  # player 3 moves to blue
+	assert_eq(g.seats.side_of_seat(2), 1, "Right: blue")
+	_press("ui_left")
+	assert_eq(g.seats.side_of_seat(0), 0, "Left keeps player 1 red")
+	assert_true(ss.ready_to_go(), "red 1, blue 2: within two a side")
+	_pad(0, JOY_BUTTON_DPAD_LEFT)  # player 2 to red
+	_press("ui_right")  # player 1 to blue: red 1 (p2), blue 2 (p1, p3)
+	_pad(1, JOY_BUTTON_DPAD_LEFT)  # player 3 to red: red 2, blue 1
+	assert_true(ss.ready_to_go(), "")
+	_press("ui_accept")
+	assert_true(g.ui.top() is CharacterSelect, "then the pick, a column a seat")
+	var cs: CharacterSelect = g.ui.top()
+	assert_eq(cs.players, 3, "")
+	assert_eq(cs.team_size, 1, "one fighter each")
+	assert_true(String(cs.labels[0]).contains("BLUE"), "player 1's column says blue: " + String(cs.labels[0]))
+	for p in 3:
+		cs.pick(p, true)
+	cs._process(CharacterSelect.START_DELAY + 0.1)
+	assert_eq(g.sides, [g.Side.PLAYER2, g.Side.PLAYER3, g.Side.PLAYER, g.Side.CPU],
+		"red: seats 2 and 3; blue: seat 1 and a CPU:")
+	assert_eq(String(g.sim.creatures[2].def["id"]), String(cs.teams[0][0]), "player 1 plays their own pick, on blue")
+	g.free()
