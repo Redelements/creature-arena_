@@ -1,6 +1,6 @@
 extends TestCase
 ## Projectile hit size (data/rules/projectiles.json): every straight shot's radius ×
-## radius_mult, lobs left alone, and the hooks (Gulp, Mountain Maw) widening over their
+## radius_mult, lobs left alone, and the hooks (Gulp, Mountain Maw, Cast Line) widening over their
 ## flight to "radius_end" at the end of their reach.
 
 const L := SimDefs.IN_LIGHT
@@ -60,7 +60,8 @@ func test_a_lob_keeps_its_burst() -> void:
 
 func test_the_hooks_widen_to_the_end_of_their_reach() -> void:
 	var mult := MatchSim.projectile_radius_mult()
-	for pair in [["culvert", SimDefs.IN_SKILL1, "skill_1"], ["craglash", SimDefs.IN_SKILL2, "skill_2"]]:
+	for pair in [["culvert", SimDefs.IN_SKILL1, "skill_1"], ["craglash", SimDefs.IN_SKILL2, "skill_2"],
+			["gillbert", SimDefs.IN_SKILL2, "skill_2"]]:
 		var sim := _range(String(pair[0]), 120.0)  # the dummy well off the line: nothing to hit
 		var p: Dictionary = sim.creatures[0].moves()[pair[2]]["projectile"]
 		var pr := _throw(sim, int(pair[1]))

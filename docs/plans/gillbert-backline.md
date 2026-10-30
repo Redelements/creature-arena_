@@ -92,7 +92,15 @@ Kevin wants one.
 - R5. `grab_air` on the hook: yes (snags juggled foes too) or no (a plain grab, like Gulp)?
 
 ## PRs
-1. `gillbert-grab-hook`: lever 1 (data, NET bump) + tests + README + fighter file.
+1. `gillbert-grab-hook`: lever 1 (data, NET bump) + tests + README + fighter file. **Done (NET 73):**
+   `grab`, `grab_air` and `juggle` (grab_air is not optional in data: a grab without `pull`,
+   `flip` or `swallow` would take the plain-grab branch and drop the target behind him; `juggle`
+   is what lets it snag a foe in the air, R5), `tell: "unblockable"` (warning 6 + 10 + 1 = 17
+   frames), projectile `radius` 10 -> `radius_end` 13 (16 -> 20.8 px hit, was 12.8: widest at full
+   reach, where the 64-step aim's error is largest, like Gulp and the Maw; a flat 11 benched the
+   same). Benches barely moved (1v1 field 12% -> 15%, the four pairs 3/96 -> 4/96, assassin slot
+   50% -> 58%, skills 8.2% -> 9.4% of his damage): the Normal CPU casts at 50 px into whoever is
+   nearest, so the hook's reach is PR 2's job.
 2. `gillbert-cpu-lane`: lever 2 (CPU only), benches in the PR.
 3. `gillbert-tune`: levers 3-4 as data, benched against main with 1-2 merged, same tables as
    the Craglash tune (#307).
