@@ -50,7 +50,7 @@ update the map in the same change.
 | knockdown, launch, crumple, reactions | `src/sim/creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown` | combat |
 | energy, Surge meter, breakaway | `src/sim/match_sim.gd:gain_energy`, `breakaway` | combo_rules, surge_ready |
 | hitstop, freeze-frame, KO freeze and slow motion, what stops on a crowded field | `src/sim/match_sim.gd:impact_stop`, `freeze_all`, `emit_event` ("ko"), `step`; `src/sim/creature_sim.gd:hitstop`, `buffer_input` | hitstop, counterplay, combat |
-| pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls`; how they look (pit depth, cracks spreading, pits closing, dust) `src/view/arena_view.gd:_paint_pit_cell`, `_step_fx` | terrain |
+| pits, holes, falling (the footprint rule, how much of a body over a pit drops it), floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls`, the rule `TerrainGrid.footprint_falls` with `data/rules/falls.json`; how they look (pit depth, cracks spreading, pits closing, dust) `src/view/arena_view.gd:_paint_pit_cell`, `_step_fx` | terrain, pit_footprint |
 | walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |
 | line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |
 | tag, Duel, 3v3 tag rules | `src/sim/duel_sim.gd:_tag`, `_enter_next`, `_bench_regen` | duel |
