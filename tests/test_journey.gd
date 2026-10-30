@@ -120,7 +120,18 @@ func _assert_on_row(g: Node, page_title: String, r: int, choice: int, where: Str
 
 
 ## Through the pick screen, if the mode has one: a real pick first, then the rest at random.
+## A local mode's join screen comes first: player 1 on the keyboard, the other seats
+## claiming a pad each, then Enter.
 func _through_pick(g: Node, label: String) -> void:
+	if g.ui.top() is SeatScreen:
+		var ss: SeatScreen = g.ui.top()
+		assert_eq(g.flow, g.Flow.SELECT, label + ": who's playing")
+		_press("ui_accept")
+		for k in range(1, ss.need):
+			ss.seats.claim(k - 1)
+		assert_true(ss.ready_to_go(), label + ": every seat joined")
+		_press("ui_accept")
+		assert_false(g.ui.top() is SeatScreen, label + ": the join screen closes")
 	if not (g.ui.top() is CharacterSelect):
 		return
 	var cs: CharacterSelect = g.ui.top()

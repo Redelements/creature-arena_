@@ -318,8 +318,9 @@ prompts and tests use.
    bug on the way.
 2. **Join screen** (`src/ui/seat_screen.gd`): "press A to join", seat colours, team columns
    (Left / Right) for the `teams` template, Ready per seat, disconnect prompt; the `seating`
-   key in `MODES` and the sides builder; `--locals=N` for tests. Shown by Duel 2P and Versus
-   2P first (two seats) so it ships tested before any 4-seat mode.
+   key in `MODES` and the sides builder. Shown by Duel 2P and Versus 2P first (two seats) so
+   it ships tested before any 4-seat mode. (`--locals=N` for tests moves to step 5, the first
+   mode where the screen chooses a count.)
 3. **Character select for N pickers** (cursor, team and pad per seat; a `MenuStick` per seat;
    simultaneous picks; undo per seat). Brawl 3/4 players stop handing seats 3-4 roster fighters.
 4. **HUD for four** (four-panel strip, seat stripes, per-slot combo counters and `respawn_in`,
