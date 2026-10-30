@@ -47,8 +47,12 @@ if ($Import) {
 
 Step "godot tests (tests/run_tests.gd)"
 $out = & $G --headless --path . --script res://tests/run_tests.gd 2>&1 | ForEach-Object { "$_" }
+$code = $LASTEXITCODE
 $out | Where-Object { $_ -match "FAIL|passed, \d+ failed|SCRIPT ERROR" } | Select-Object -Last 40
-if (-not ($out | Where-Object { $_ -match "^\d+ passed, 0 failed" })) { Fail "godot tests" }
+$summary = $out | Where-Object { $_ -match "^(\d+) passed, 0 failed" } | Select-Object -Last 1
+if ($code -ne 0) { Fail "godot tests (exit code $code)" }
+if (-not $summary) { Fail "godot tests" }
+if ([int]($summary -replace " passed.*", "") -lt 1) { Fail "godot tests (nothing ran: check TEST_ONLY)" }
 
 if (-not $Quick) {
 	Step "smoke match (--mode=2, 600 frames)"
