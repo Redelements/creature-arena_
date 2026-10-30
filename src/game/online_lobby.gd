@@ -461,9 +461,12 @@ func _refresh_status() -> void:
 	if show_room and room_created:
 		_room_label.text = ("%s room.  " % SIZE_NAMES[_size_index(room_size, room_tag)]) if room_size > 1 or room_tag > 1 else ""
 		_room_label.text += "Tell your friend%s: Join room, then this code" % ("s" if room_size > 1 else "")
-	var addrs := Netplay.local_addresses()
-	_addr_label.text = ("Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")) \
-		if busy and hosting_port > 0 else ""
+	# Only a host shows its addresses: asking the system for them costs milliseconds on
+	# Windows, and this refresh runs every tick while searching (main pushes the status).
+	_addr_label.text = ""
+	if busy and hosting_port > 0:
+		var addrs := Netplay.local_addresses()
+		_addr_label.text = "Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")
 	# Empty lines take no room, so the column stays on screen.
 	for l in [_status_label, _who_label, _room_label, _addr_label]:
 		(l as Label).visible = (l as Label).text != ""

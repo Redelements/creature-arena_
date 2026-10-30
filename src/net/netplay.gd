@@ -72,6 +72,9 @@ const PING_WAIT_MS := 400
 const LIVE_PING_EVERY := 60
 const LIVE_PING_KEEP := 5  ## the live ping is the best of this many recent samples
 const ATTENTIVE_WAIT_MS := 12  ## the guest waits on the socket this long a tick while being pinged
+## ... and only while being pinged: this many ticks after the last ping arrived. A guest
+## queued on the server (minutes, maybe) must not block its frames waiting for nothing.
+const ATTENTIVE_TICKS := 60
 ## Give up on a join that hasn't connected after this long.
 const CONNECT_TIMEOUT_TICKS := 10 * 60
 ## The most frames a spectator takes from the server's log of a match in progress (an
@@ -307,6 +310,7 @@ var _t := 0
 var _pings_sent := {}  ## n -> usec
 var _rtts: Array = []
 var _next_ping := 0
+var _pinged_t := -1000  ## the tick the last handshake ping arrived (a guest)
 var _live_rtts: Array = []
 var _live_n := 1000
 ## How long a precise ping may wait on the socket; 0 reads pongs a tick at a time (the
@@ -410,9 +414,11 @@ func tick(local_bits: int) -> void:
 		Phase.HANDSHAKE:
 			if hosting:
 				_ping_step()
-			elif link.realtime and ping_wait_ms > 0:
+			elif link.realtime and ping_wait_ms > 0 and attentive():
 				# Being pinged: wait on the socket for most of this tick (nothing else is
 				# moving yet) so each ping is answered within a millisecond of arriving.
+				# Not while queued on the server: a blocking tick there, 60 times a second,
+				# drags the menu's frame rate down (Kevin saw 5 fps waiting for a 1v1).
 				for m in link.poll(ATTENTIVE_WAIT_MS):
 					_handle(m)
 		Phase.PLAYING:
@@ -655,6 +661,8 @@ func _handle(m: Dictionary) -> void:
 			if game != null:
 				_set_paths(m)
 		"ping":
+			if phase == Phase.HANDSHAKE:
+				_pinged_t = _t
 			link.send({"t": "pong", "n": m.get("n", 0)}, true)
 			link.flush()  # straight back out, not at the end of the tick
 		"pong":
@@ -814,6 +822,12 @@ static func start_delay(m: Dictionary) -> int:
 ## each ping is timed precisely: the host waits on the socket for the pong (one ping a
 ## tick, PING_WAIT_MS at most), so the figure is the network's, not rounded up by the
 ## frames a reply would otherwise sit unread.
+## A guest is being pinged (a handshake ping arrived within ATTENTIVE_TICKS): its ticks
+## may wait on the socket. Queued on the server with no ping in sight, they must not.
+func attentive() -> bool:
+	return _t - _pinged_t <= ATTENTIVE_TICKS
+
+
 func _ping_step() -> void:
 	if their_team.is_empty():
 		return  # still waiting for hello

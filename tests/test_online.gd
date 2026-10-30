@@ -470,3 +470,45 @@ func test_direct_play_caps_its_links_but_a_spectator_takes_a_long_log() -> void:
 	w.leave()
 	guest.leave()
 	host.leave()
+
+
+## Queued on the server (which pings nobody until it has a match), a guest's ticks must
+## not block on the socket: that 12 ms wait, 60 times a second, dragged the menu to a
+## few frames a second. Only once a handshake ping has arrived does it wait attentively.
+func test_a_queued_guest_does_not_block_its_ticks_until_pinged() -> void:
+	var port := 20000 + ((Time.get_ticks_usec() + 4177) % 20000)
+	var server := EnetLink.new()  # stands in for the server: connected, silent
+	assert_eq(server.host(port), OK, "host on UDP %d: %s" % [port, server.error])
+	var link := EnetLink.new()
+	assert_eq(link.join("127.0.0.1", port), OK, "join: " + link.error)
+	var guest := Netplay.new()
+	guest.join("127.0.0.1", port, TEAM_B, link)
+	for i in 500:
+		server.poll()
+		guest.tick(0)
+		if guest.phase == Netplay.Phase.HANDSHAKE and server.status == NetLink.Status.CONNECTED:
+			break
+		OS.delay_usec(2000)
+	assert_eq(guest.phase, Netplay.Phase.HANDSHAKE, "connected and said hello:")
+	assert_eq(server.status, NetLink.Status.CONNECTED, "and the server has it:")
+	assert_false(guest.attentive(), "nobody has pinged yet")
+	var t0 := Time.get_ticks_usec()
+	for i in 30:
+		guest.tick(0)
+	var per_tick := float(Time.get_ticks_usec() - t0) / 30000.0
+	assert_true(per_tick < Netplay.ATTENTIVE_WAIT_MS * 0.5,
+		"a queued tick returns at once, not after %d ms (took %.2f ms)" % [Netplay.ATTENTIVE_WAIT_MS, per_tick])
+	server.send({"t": "ping", "n": 1}, true)
+	server.flush()
+	var pong := false
+	for i in 200:
+		guest.tick(0)
+		for m in server.poll():
+			pong = pong or String(m.get("t", "")) == "pong"
+		if pong:
+			break
+		OS.delay_usec(2000)
+	assert_true(pong, "the ping is answered")
+	assert_true(guest.attentive(), "and now its ticks wait on the socket for the next one")
+	guest.leave()
+	server.close()

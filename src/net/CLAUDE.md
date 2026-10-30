@@ -28,6 +28,10 @@ outcome must live in the sim, never here or in `main.gd`.
   ticks, so their lag is in ticks.
 - `ping_wait_ms` defaults to 400; tests where both ends share one loop set it to 0
   (`tests/test_online.gd`), or the host blocks waiting for a pong the other end can't send.
+  A guest waits on the socket (`ATTENTIVE_WAIT_MS`) only while `attentive()`: within
+  `ATTENTIVE_TICKS` of a handshake ping. Queued on the server it must return at once, or the
+  menu runs at a few frames a second (Oct 2026); `OnlineLobby._refresh_status` runs every tick
+  while searching, so nothing slow (like `IP.get_local_addresses`) goes in it unguarded.
 - ENet throttling is off (`EnetLink.tune`) because it dropped bursts. Input packets carry
   the last 8 inputs, up to `MAX_PACKET_INPUTS` = 60 to fill the gap to the lowest ack.
 - `Referee` ignores inputs more than `MAX_AHEAD` = 600 frames ahead and keeps `HISTORY` =
@@ -98,7 +102,7 @@ plain-UDP JSON: `creature-arena?` / `creature-arena`.
 - Desync detection → `online_match.gd:_on_final` (every `DIGEST_EVERY` = 60), `_check_digest`
 - Input delay → `netplay.gd:pick_delay` (1 under 100 ms, 2 under 170, else 3;
   `forced_delay` / `--net-delay`)
-- Ping → `netplay.gd:_ping_step` (handshake, blocking), `_live_ping_step` (every 60 ticks)
+- Ping → `netplay.gd:_ping_step` (handshake, blocking), the guest's `attentive()` wait, `_live_ping_step` (every 60 ticks)
 - Version / data refusal → `netplay.gd:_handle` "hello", `data_hash`
 - Ready check → client `netplay.gd:accept_match`, `decline_match`; server
   `relay_server.gd:_found`, `_accept`, `_check_step`, `_requeue`
