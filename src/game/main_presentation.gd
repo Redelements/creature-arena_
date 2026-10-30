@@ -284,13 +284,20 @@ func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 	if main.sim == null or main.watch != null or main._replaying() or main.mode == Main.REPLAY_MODE \
 			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false) 			or main._cpu_vs_cpu:  # --cpu-vs-cpu (demos, captures, soak runs): online too, where the sides stay human
 		return none
+	# Only player 1 earns (Kevin, Oct 2026): the account is theirs, the other seats are
+	# guests. `locals` still counts everyone here for the kind (local play pays at the full
+	# rate unless CPUs play too).
 	var humans: Array = []
+	var locals := 0
 	if main.online != null:
 		humans = [main.online.local_slot]
+		locals = 1
 	else:
 		for i in main.sides.size():
 			if main.sides[i] in Main.LOCAL_SIDES:
-				humans.append(i)
+				locals += 1
+				if main.sides[i] == Main.Side.PLAYER:
+					humans.append(i)
 	if humans.is_empty():
 		return none
 	var players: Array = []
@@ -309,7 +316,7 @@ func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 			fighters.append(String(main.sim.creatures[slot].def.get("id", "")))
 		players.append({Progress.P_SLOT: slot, Progress.P_FIGHTERS: fighters, Progress.P_KOS: int(main.stats.row(slot)["kos"]),
 			Progress.P_WON: bool(won) if won != null else _slot_won(slot)})
-	var r := {Progress.R_KIND: "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
+	var r := {Progress.R_KIND: "online" if main.online != null else ("local" if locals > 1 else "cpu"),
 		Progress.R_CPU_LEVEL: main._cpu_level_override if main._cpu_level_override >= 0 else main.level, Progress.R_PLAYERS: players}
 	if main.online == null and main.sides.has(Main.Side.CPU):
 		r[Progress.R_CPUS] = true  # local players with CPUs in the match: paid at the CPU level, like one human

@@ -25,6 +25,13 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   placeholders from `tools/gen_ending_cards.py` (the fighter's victory pose on a plain backdrop with the title). Real
   art goes at the same path and size (or a new `art` path in `data/endings/<fighter>.json`); the card's words in
   those files are a first draft for Kevin to edit.
+- **Local play (couch), built Oct 29 2026** (`docs/local-multiplayer-plan.md`, PRs #317-#325): four
+  controller seats, the join screen, a pick column a seat, stacked HUD panels, Brawl 1-4, 2v2 local
+  with sides, 4v4 co-op vs CPU. Left for later: a combo counter per slot (it stays per column), Caravan
+  Pass local (the camera frames a crew only on Twin Keeps so far), a per-seat pad layout and remap,
+  the Deathmatch 4v4 target (18, a guess to playtest), couch + online hybrid (the seat table carries
+  it; the wire, `RollbackSession.local_player` and the server's one slot a client don't), per-seat
+  palettes and titles (only player 1 progresses, Kevin's ruling).
 - **Progression, known and left as is** (the QC of 2026-10-28, `docs/autonomy-log-2.md`): an idle second pad in
   "Versus: 2 players" pays player 1 a full-rate win and feeds the flawless and combo challenges (WONTFIX: rewards are
   cosmetic, and requiring both players to press would punish a real but passive partner; revisit if a leaderboard ever

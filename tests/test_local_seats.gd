@@ -421,3 +421,36 @@ func test_the_coop_join_screen_never_asks_for_a_side() -> void:
 	assert_eq(g.sides.slice(0, 4), [g.Side.PLAYER, g.Side.PLAYER2, g.Side.CPU, g.Side.CPU], "")
 	assert_eq(g.sides.slice(4), [g.Side.CPU, g.Side.CPU, g.Side.CPU, g.Side.CPU], "")
 	g.free()
+
+
+# ------------------------------------------------------------------ polish
+
+func test_a_pad_unplugged_mid_fight_pauses_an_offline_match() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(g.mode_index("Versus: 2 players"))
+	g.seats.inputs[1].pad_device = 5  # player 2 holds pad 5
+	g.flow = g.Flow.FIGHT
+	g._on_pad_changed(5, false)
+	assert_true(g.paused, "the fight waits for player 2's controller")
+	assert_true(g.ui.top() is PauseScreen, "")
+	assert_eq(g.seats.device_of(1), PlayerInput.NO_PAD, "")
+	g._close_ui()
+	g.paused = false
+	g._on_pad_changed(5, true)
+	assert_eq(g.seats.device_of(1), 5, "back in their seat")
+	assert_false(g.paused, "plugging in never pauses")
+	g.free()
+
+
+func test_only_player_1_earns_in_local_play() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._cli_locals = 3
+	g._start_match(g.mode_index("Brawl"))
+	var r: Dictionary = g.show_ctl.progress_report(false)
+	assert_eq(String(r[Progress.R_KIND]), "local", "three people here: local play")
+	assert_eq((r[Progress.R_PLAYERS] as Array).size(), 1, "but one earns:")
+	assert_eq(int(r[Progress.R_PLAYERS][0][Progress.P_SLOT]), 0, "player 1")
+	assert_true(bool(r.get(Progress.R_CPUS, false)), "with a CPU in the match")
+	g.free()

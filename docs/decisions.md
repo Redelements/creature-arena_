@@ -97,3 +97,8 @@ Format: `## YYYY-MM-DD — short title` then **Decision**, **Why**, **Replaces**
 **Decision:** Couch play is capped at four local seats. In a 3- or 4-player local game every seat is a controller (no keyboard seat); Duel 2P and Versus 2P keep player 1 on keyboard and mouse. The camera stays one shared zoom-to-fit camera; split-screen is out. Local players joining an online match together from one machine is designed for (the seat table carries N local slots) but not built.
 **Why:** Kevin, Oct 29, while ruling on `docs/local-multiplayer-plan.md`: the four seats already exist in code, pads keep aim, cursor and camera simple, split-screen fights the pixel resolution policy, and the online wire stays untouched until the offline modes have been played.
 **Affects:** `docs/local-multiplayer-plan.md`, `src/input/` (the planned `local_seats.gd`), `src/game/main_camera.gd`, `src/ui/character_select.gd`, `src/view/hud.gd`.
+
+## 2026-10-29 — A side's size: what the sim seats and what the server allows are two keys
+**Decision:** A rules file's `max_size` is the most a side the sim seats (the team battle, Deathmatch and Capture the Flag say 4, for the local co-op modes); `online_max_size` (default 3, Capture the Flag 4) is what the dedicated server caps a request with and what `TeamSim.rules_for_size` reads, so a 4 v 4 online stays Capture the Flag only.
+**Why:** The local co-op modes seat four a side on any team rules, but raising `max_size` alone would have let a modified client ask the server for a 4 v 4 Deathmatch (`tests/test_server_teams.gd` pins the online rule).
+**Affects:** `data/rules/team.json`, `deathmatch.json`, `ctf.json`, `src/sim/team_sim.gd` (`max_size_for`, `online_max_size_for`), `src/net/relay_server.gd`.

@@ -310,6 +310,12 @@ prompts and tests use.
 
 ## 4. Implementation plan (one PR each, in order)
 
+Status, 2026-10-29: all eight are open, stacked (merge in order): the plan #317, then
+1 #318 (seats), 2 #319 (join screen), 3 #320 (N pickers), 4 #321 (HUD), 5 #322
+(free-for-all, mode 55), 6 #323 (2v2 local, modes 56-59), 7 #324 (co-op, modes 60-62; the
+server needs `update.sh` after it merges: `data_hash`), 8 #325 (polish). What was left out
+on the way is listed in `docs/open-items.md` ("Local play").
+
 1. **Seats** (`src/input/local_seats.gd`, `PadMap`, hot-plug, per-seat rumble and
    `pad_layout`, `_local_input` via the table, `_assign_devices` reimplemented on it, events
    routed by device). Pure logic with an `Input` adapter so `tests/test_local_seats.gd` drives
