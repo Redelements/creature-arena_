@@ -35,55 +35,65 @@ skirmisher); 0 of 32 is not.
   back-line term, and the poke is aimed at the current target with no check for a body in the
   line. Nothing on main makes any CPU prefer a mage. (#269's front line / peel is not merged.)
 
+## Kevin's rulings (Oct 29)
+- **No lock-on. Cast Line stays a skill shot**: the player aims it past the front line through
+  the gap; nothing steers it or passes a body for him.
+- **It's a grab**: blocking doesn't stop it; a guarding foe is hooked and reeled like anyone else.
+- **Thicker**: a fatter hook so an aimed cast lands.
+- **Flop Dash longer** ("I think it's pretty short"). Data: it is 109 px over 16 ticks, the
+  second-longest dash in the roster (Digby's Burrow 136, Sno's Slide 76, Pete's Pickpocket 69,
+  Craglash's Charge 68). What makes it feel short is more likely the 12-tick `windup` it gets
+  when thrown raw and that it stops dead on the first body it hits. A bump is in lever 3 as a
+  ruling, with that caveat.
+
 ## Levers, in the order to try them
 
-### 1. Cast Line picks its mark (sim; the main lever)
-The hook flies past foes that aren't its mark and bites the one it was cast at. Two shapes:
-- **A. Lock-on hook (recommended).** A `lock_on` key on a ground shot: the mark is the foe the aim
-  points at (`aimed_opponent`, dot 0.92, already used by Pete's dives) within the shot's reach;
-  other bodies are passed the way `pierce` passes them, without a hit; no mark in the cone = the
-  old first-body rule. Reads as "he casts at who he looks at"; the aim mark on the floor already
-  shows the target, so the counterplay (step out of the cone, dodge the hook) is visible.
-- **B. Lobbed hook.** Cast Line becomes a lob (`lob` + `lock_on`, Crease's Surge shape): the rod
-  arcs over the front line and hooks where it lands. Bigger change to the look and the feel
-  (travel time, no straight-line dodge), and the reel then pulls him over the tank.
-Either is a data key + a few lines in `_step_projectiles`, NET_VERSION bump, MECHANICS.md,
-`tests/test_projectiles.gd` (a tank between Gillbert and a mage: the hook passes the tank, bites
-the mage, never passes with no mark) and `tests/test_gillbert.gd`.
+### 1. Cast Line: a thick grab hook (data; the main lever)
+`gillbert.json` skill_2: `grab: true` (ignores guard, armor and counters, `MECHANICS.md` grab
+row; Culvert's Gulp, Barkley's Branch Grab and Cerebro's Skill 2 are the other grabs) and a
+fatter head: projectile `radius` 8 -> 11 (x the 1.6 `radius_mult` = 17.6 px, the Maw's size at
+full reach; `radius_end` could grow it along the flight like the other two hooks). Still the
+first body it overlaps, still dodgeable: the counterplay becomes the dodge, not the block, and
+the red "can't be blocked" tell applies (`tell: "unblockable"`, `tests/test_counterplay.gd`
+minimum warning). Rulings inside this lever: `grab_air` (keep snagging an airborne / juggled
+foe, as Barkley's grab does; a plain grab can't hit airborne) and the exact radius.
+No sim code: all three keys exist. Tests: `tests/test_gillbert.gd` (a guarding foe is hooked
+and reeled; armor doesn't stop it), `test_counterplay` for the tell, `test_projectiles` for
+the size. NET bump (data hash), README kit line, `docs/fighters/gillbert.md`.
 
-### 2. The CPU looks for the back line (CPU, Normal)
-So the benches measure the kit, not a nearest-target pilot: a skirmisher target rule
-(`_pick_target`) that, with the poke ready and a foe in the poke band, prefers the reachable foe
-with the **shortest lights** (the mage) over the nearest; the poke aim uses that foe; the skirmish
-plan keeps its band instead of collapsing to 50 px (find out why it does: `_engage_t` fires on
-"foe can't dodge", which Normal foes with an empty bar trigger often; check with `--detail`).
+### 2. The CPU casts through the gap, not into the tank (CPU, Normal)
+So the benches measure the kit and not a pilot that hooks the front line: before a poke with
+a projectile, check the line to the target for a foe body (`poke_lined` at ~1606 does a crude
+version for one branch only); if blocked, don't cast, sidestep along the orbit until the lane
+opens, or cast at the blocker only when it's the better mark (stuck, low, or alone). A
+skirmisher target rule that prefers the reachable foe with the shortest lights (the mage) when
+the lane is open. Keep the poke band instead of collapsing to 50 px (find out why it does:
+`_engage_t` fires on "foe can't dodge", which Normal foes with an empty bar trigger often).
 No Rage changes. `bench_cpu --slot=assassin` and `--matrix --only=gillbert` before and after.
 
-### 3. Range (data, small, after 1)
-Only once the hook can choose: +10-15% (`life` 18 -> 20 or 21, ~230-245 px), so a cast from
-outside the tank's reach still lands past him. He already out-ranges every mage's lights
-(Cerebro 110-120, Crease 110-124), so range alone changes nothing today.
+### 3. Flop Dash and range (data, rulings)
+- Flop Dash: +25% to about 135 px (speed 6.8 -> 8.5 over the same 16 ticks, or 20 ticks at 6.8:
+  the first keeps it snappy), or leave it and cut the raw windup instead. Bench both.
+- Cast Line range: +10-15% (`life` 18 -> 20 or 21, ~230-245 px) is a small, safe lever once the
+  hook is a grab; he already out-ranges every mage's lights (Cerebro 110-120, Crease 110-124).
 
-### 4. Flop Dash through bodies (data, ruling)
-`ghost` on Flop Dash (the key exists): he slides through the front line the way Pete's dive does,
-keeping "dives only when the foe is stuck". Cheap to bench; may be too much with lever 1.
-
-### 5. 1v1 numbers last (data)
-With 1-4 in, re-bench; if the 1v1 field is still under target, the honest levers are Cast Line's
+### 4. 1v1 numbers last (data)
+With 1-3 in, re-bench; if the 1v1 field is still under target, the honest levers are Cast Line's
 hitstun/damage as a combo starter and Splash Zone's slow, not HP or lights (a jab bot that wins
 trades is the thing he must never be). Pins: `tests/test_balance.gd` adds nothing new unless
 Kevin wants one.
 
-## Rulings needed from Kevin
-- R1. Lever 1: lock-on hook (A) or lobbed hook (B)?
+## Rulings still needed from Kevin
 - R2. Targets: 1v1 field at least 35%, mages at least ~30% (they should still beat him), Culvert
   above 45%, assassin slot stays 45-55%?
-- R3. Flop Dash through bodies: yes / no / bench it and see?
-- R4. Range: +10-15% after lever 1, or leave at 210?
+- R3. Flop Dash: +25% distance, or cut its raw windup, or both? (And through bodies with
+  `ghost`? Not asked for; off the table unless Kevin wants it.)
+- R4. Cast Line range: +10-15% after lever 1, or leave at 210?
+- R5. `grab_air` on the hook: yes (snags juggled foes too) or no (a plain grab, like Gulp)?
 
 ## PRs
-1. `gillbert-hook-mark`: lever 1 + tests + MECHANICS (sim, NET bump).
-2. `gillbert-cpu-backline`: lever 2 (CPU only), benches in the PR.
-3. `gillbert-tune`: levers 3-5 as data, benched against main with 1-2 merged, same tables as
+1. `gillbert-grab-hook`: lever 1 (data, NET bump) + tests + README + fighter file.
+2. `gillbert-cpu-lane`: lever 2 (CPU only), benches in the PR.
+3. `gillbert-tune`: levers 3-4 as data, benched against main with 1-2 merged, same tables as
    the Craglash tune (#307).
 Each benched Normal vs Normal, both sides, `--seeds=12` for anything acted on.
