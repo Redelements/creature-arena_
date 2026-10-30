@@ -19,8 +19,12 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   stops is data, not a guess: `"neck_end"` / `"neck_dir"` per view, written by the generator
   (`gen_craglash.py maw`). While the part is away from the body (`CreatureView.head_out`, set
   by FxView), a row with a headless twin `<row>_nohead` shows the twin (Craglash hit mid-Maw:
-  `hurt_nohead`, `guard_nohead`), and the flying part is drawn only while the sprite shows a
-  headless frame, never beside a frame that has its own (no twin: the part is not drawn).
+  `hurt_nohead`, `guard_nohead`, `ko_nohead`), and the flying part is drawn only while the sprite
+  shows a headless frame, never beside a frame that has its own (no twin: the part is not drawn).
+  A part that comes home during a reaction stays on the twin until that reaction ends
+  (`fx_view.gd:_maw_out`, `MAW_HOLD`; a knockout until `MAW_KO_BURST`), and the pieces read the
+  `neck_end` and frames of the sheet actually showing (`CreatureView.sheet_view()`: "side" for a
+  side-only twin seen facing down).
   Facing down or sideways the part is in front of the body, facing up
   behind it. Its timing keys on the sim (`sim.tick`, the projectile's `life`, its serial),
   never wall time, so a rollback redraws it the same.

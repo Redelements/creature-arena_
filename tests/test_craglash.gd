@@ -401,8 +401,8 @@ func test_landslide_charge_cancels_from_the_rake() -> void:
 
 func test_hit_while_the_head_flies_shows_the_headless_hurt_row() -> void:
 	# Mountain Maw, phase 2: while his head is out (CreatureView.head_out, set by FxView) the
-	# hurt and guard rows swap for their headless twins, so the flying head stays the only one;
-	# a row without a twin (the knockdown's ko) keeps its own head.
+	# hurt, guard and (phase 3) ko rows swap for their headless twins, so the flying head stays
+	# the only one; a row without a twin (a dodge) keeps its own head.
 	var sim := MatchFactory.training("craglash")
 	var c: CreatureSim = sim.creatures[0]
 	var v := CreatureView.new()
@@ -416,7 +416,12 @@ func test_hit_while_the_head_flies_shows_the_headless_hurt_row() -> void:
 	var heads: Dictionary = c.def["sprite"]["headless"]
 	assert_eq(heads.get("hurt_nohead", []).size(), 4, "every hurt frame has a headless twin")
 	assert_eq(heads.get("guard_nohead", []).size(), 4, "every guard frame has a headless twin")
+	assert_eq(heads.get("ko_nohead", []).size(), 6, "every ko frame has a headless twin")
 	c.enter_knockdown(40, Vector2.ZERO)
 	v.refresh()
-	assert_false(v.headless(), "the knockdown has no twin: FxView drops the flying head instead")
+	assert_true(v.headless(), "the knockdown with the head out is the headless ko twin")
+	assert_eq(v.sheet_view(), "side", "the ko twin is side only")
+	v.head_out = false
+	v.refresh()
+	assert_false(v.headless(), "the knockdown with the head home draws its head")
 	v.free()
