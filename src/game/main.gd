@@ -524,6 +524,8 @@ var paused := false
 var _menu_ko_t := 0
 
 var player_input := PlayerInput.new()
+## The seats at this machine (player 1 is `player_input`): which pad feeds each local player.
+var seats := LocalSeats.new(player_input)
 var dummy_mode := 0
 ## Training options (pause > Training options; saved under [training]): the sim flags
 ## every training match starts with (MatchSim.TRAINING_FLAGS).
@@ -554,9 +556,10 @@ var team_battle: TeamSim = null
 ## Combo Trials or a Reaction Drill: drives the partner and judges the player.
 var coach = null
 var _row_choice: Array = []
-var player2_input := PlayerInput.new()
-var player3_input := PlayerInput.new()
-var player4_input := PlayerInput.new()
+## Players 2-4's inputs: seats 1-3 of `seats` (kept under their old names).
+var player2_input: PlayerInput = seats.inputs[1]
+var player3_input: PlayerInput = seats.inputs[2]
+var player4_input: PlayerInput = seats.inputs[3]
 ## A Brawl in progress (null outside one), its Chaos Cup mutator names for the banner,
 ## and a replay being watched (its frames feed every REPLAY side).
 var brawl: BrawlSim = null
@@ -887,9 +890,7 @@ func _ready() -> void:
 	top.add_child(perf_overlay)
 	_row_choice.resize(MENU_ROWS.size())
 	_row_choice.fill(0)
-	for pin in [player2_input, player3_input, player4_input]:
-		(pin as PlayerInput).keyboard = false
-		(pin as PlayerInput).pad_device = PlayerInput.NO_PAD
+	Input.joy_connection_changed.connect(_on_pad_changed)
 
 	settings_ctl._load_settings()
 	if UiTheme.smooth:
@@ -1546,39 +1547,50 @@ func _humans(cfg: Dictionary) -> int:
 	return n
 
 
-func _local_input(side: int) -> PlayerInput:
+## The seat (0-3, player 1-4) a local side plays from; -1 for a side nobody here plays.
+static func seat_of(side: int) -> int:
 	match side:
-		Side.PLAYER2: return player2_input
-		Side.PLAYER3: return player3_input
-		Side.PLAYER4: return player4_input
-	return player_input
+		Side.PLAYER: return 0
+		Side.PLAYER2: return 1
+		Side.PLAYER3: return 2
+		Side.PLAYER4: return 3
+	return -1
 
 
-## Local players: with a controller each, everyone gets one (player 1 keeps the
-## keyboard too); one short, player 1 uses keyboard and mouse and the controllers go
-## to players 2 and up; fewer than that and someone is asked to plug one in.
+## The side seat `seat` plays (player 1's for any other seat number).
+static func side_of_seat(seat: int) -> int:
+	return LOCAL_SIDES[clampi(seat, 0, LOCAL_SIDES.size() - 1)]
+
+
+func _local_input(side: int) -> PlayerInput:
+	return seats.input_of(maxi(seat_of(side), 0))
+
+
+## Local players: the seat table hands the connected controllers out (with one each,
+## everyone gets one and player 1 keeps the keyboard too; one short, player 1 uses keyboard
+## and mouse and the controllers go to players 2 and up); fewer than that and someone is
+## asked to plug one in (a pad plugged in later takes the empty seat, `_on_pad_changed`).
 func _assign_devices(humans: int) -> void:
 	var pads := Input.get_connected_joypads()
-	player_input.keyboard = true
-	player_input.pad_device = PlayerInput.ANY_PAD
-	var others: Array[PlayerInput] = [player2_input, player3_input, player4_input]
-	for pin in others:
-		pin.pad_device = PlayerInput.NO_PAD
-	if humans <= 1:
-		return
-	var need := humans - 1
-	var first := 0
-	if pads.size() >= humans:
-		player_input.pad_device = pads[0]
-		first = 1
+	var guids := {}
+	for id in pads:
+		guids[id] = Input.get_joy_guid(id)
+	var short := seats.assign(humans, pads, guids)
+	if short != "":
+		hud.show_toast(short)
+
+
+## A controller plugged in or unplugged mid-match: its seat lets go of what it held and
+## waits; the same pad, or the next one plugged in, takes the seat back.
+func _on_pad_changed(device: int, connected: bool) -> void:
+	if connected:
+		var k := seats.pad_found(device, Input.get_joy_guid(device))
+		if k >= 0:
+			_toast("Player %d: controller connected" % (k + 1))
 	else:
-		player_input.pad_device = PlayerInput.NO_PAD
-	for k in need:
-		if first + k < pads.size():
-			others[k].pad_device = pads[first + k]
-	if pads.size() < need:
-		hud.show_toast("Connect %d controller%s for players %s" % [need - pads.size(), "" if need - pads.size() == 1 else "s",
-			"2-%d" % humans if humans > 2 else "2"])
+		var k := seats.pad_lost(device)
+		if k >= 0:
+			_toast("Player %d: controller disconnected" % (k + 1))
 
 
 func _start_round() -> void:
@@ -2780,8 +2792,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
-	for pin in [player_input, player2_input, player3_input, player4_input]:
-		(pin as PlayerInput).reset()
+	seats.reset_all()
 	_apply_device()
 
 
@@ -3715,7 +3726,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause") and showcase != null:
 		_back_to_row()  # a demo: straight back to the row it came from
 	elif event.is_action_pressed("pause"):
-		_open_pause()
+		if seats.owner_of_event(event) == 0:  # player 1 pauses (Kevin, Oct 2026); another seat's Start does nothing
+			_open_pause()
 	elif event.is_action_pressed("debug_hitboxes"):
 		debug.visible = not debug.visible
 		debug.queue_redraw()
@@ -4215,8 +4227,7 @@ func _won_standing(c: CreatureSim) -> bool:
 
 
 func _set_pad_layout(lay: String) -> void:
-	player_input.pad_layout = lay
-	player2_input.pad_layout = lay
+	seats.set_pad_layout(lay)
 
 
 ## Updates prompts, help text and the mouse cursor for the current device and layout.
@@ -4250,26 +4261,31 @@ func _apply_device() -> void:
 			Input.CURSOR_CROSS if player_input.layout == "league" and flow != Flow.MENU else Input.CURSOR_ARROW)
 
 
-## Controller rumble: a light buzz when you land a hit, a heavier one when you get hit.
+## Controller rumble: a light buzz when you land a hit, a heavier one when you get hit, on
+## the controller of the seat it happened to (a slam or a KO shakes every seated pad).
 func _rumble(e: Dictionary) -> void:
-	if not rumble or player_input.device != PlayerInput.Device.GAMEPAD or flow != Flow.FIGHT:
-		return
-	var me := sides.find(Side.PLAYER)
-	if me < 0:
+	if not rumble or flow != Flow.FIGHT:
 		return
 	match String(e["type"]):
 		"hit":
-			if int(e["target"]) == me:
-				Input.start_joy_vibration(player_input.pad_id, 0.4, 0.6, 0.18)
-			elif int(e["attacker"]) == me:
-				Input.start_joy_vibration(player_input.pad_id, 0.3, 0.0 if float(e["power"]) < 9.0 else 0.4, 0.08)
+			_buzz(int(e["target"]), 0.4, 0.6, 0.18)
+			_buzz(int(e["attacker"]), 0.3, 0.0 if float(e["power"]) < 9.0 else 0.4, 0.08)
 		"surge":
-			if int(e.get("who", -1)) == me:
-				Input.start_joy_vibration(player_input.pad_id, 0.5, 0.5, 0.4)
+			_buzz(int(e.get("who", -1)), 0.5, 0.5, 0.4)
 		"slam":
-			Input.start_joy_vibration(player_input.pad_id, 0.2, 0.5 if float(e["power"]) >= 1.0 else 0.2, 0.15)
+			_buzz(-1, 0.2, 0.5 if float(e["power"]) >= 1.0 else 0.2, 0.15)
 		"ko":
-			Input.start_joy_vibration(player_input.pad_id, 0.8, 0.8, 0.5)
+			_buzz(-1, 0.8, 0.8, 0.5)
+
+
+## Rumbles the controller of the seat playing slot `slot` (-1: every seated controller).
+func _buzz(slot: int, weak: float, strong: float, dur: float) -> void:
+	for k in seats.humans:
+		if slot >= 0 and (slot >= sides.size() or seat_of(sides[slot]) != k):
+			continue
+		var dev := seats.rumble_device(k)
+		if dev >= 0:
+			Input.start_joy_vibration(dev, weak, strong, dur)
 
 
 ## The Lighting tier in force: `--lighting=` this session, else the setting.

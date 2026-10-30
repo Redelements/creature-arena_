@@ -14,11 +14,12 @@ func _init(p_main: Main) -> void:
 	main = p_main
 
 
-## One event for player 1's devices: which device is in use (the prompts and the touch
-## controls follow it), and the screen's touches for the touch pad.
+## One event for the seats' devices: which device each is using (player 1's prompts and
+## touch controls follow theirs; a pad event goes to the seat holding that pad), and the
+## screen's touches for the touch pad.
 func _note_input(event: InputEvent) -> void:
 	var before := main.player_input.label_set()
-	main.player_input.note_event(event)
+	main.seats.note_event(event)
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		main.player_input.touch.feed(event)
 	if main.player_input.label_set() != before:

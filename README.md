@@ -182,6 +182,8 @@ sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
 keyboard). With one controller, player 1 uses keyboard and mouse and player 2 the controller.
+A controller plugged in later takes the empty seat, one unplugged mid-match gets its seat
+back when it returns, and the gamepad remaps apply to every seat. Player 1 alone can pause.
 CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
 
 **Rage** is the top tier, absurdly good on purpose. It presses buttons like any CPU, but:

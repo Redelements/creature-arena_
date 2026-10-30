@@ -1,64 +1,51 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27
-Branch: qa-sweep
+Stamped: 2026-10-29
+Branch: local-seats (stacked on local-mp-plan = PR #317)
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
 this and CLAUDE.md, states the next step in one line and continues (no re-exploration).
 
-## Phase
+## Current state
 
-**Unattended run of 2026-10-27** (Kevin's standing approval; the task list, rules and progress
-are in `docs/autonomy-log.md` on branch `autonomy-log`). Seventeen tasks, one PR each off
-`main`: QA sweep, docs drift, rollback fuzz, nightly CI, the `main.gd` split, CPU team play,
-Caravan wagon goal, Burrow pit crossing, accessibility options, a Kenney CC0 audio pass, the
-dummy at 2x, replay tools, mode-idea evidence, Digby vs Cerebro numbers, a view-draw perf pass,
-Android scripts, a trailer/gallery capture. Non-behavioral PRs are merged by Claude once green;
-behavioral ones stay open for Kevin.
+Job: the eight implementation PRs of `docs/local-multiplayer-plan.md` (section 4), each
+stacked on the previous branch, Kevin playtests and merges. PR 0 (the plan + rulings) is #317
+on branch `local-mp-plan`.
 
-What main holds (6eba0d0, **NET_VERSION 58**): the whole roster at 2x density (#237-#248),
-packed sheets (#240), all six maps tiled, raised and hand-dressed (#234, #254-#258), Barkley
-roots + Cerebro pan fire (#250) and its rulings (#253), CI in three shards with an import cache
-(#251, #252), the context bundle (#249), the Odin at 120 Hz (#226), touch controls (#201),
-menus that fit phones (#200), voice chat (#218), security hardening (#212, #213, #215),
-hazards, shrines, sprees, the crown, the combo meter (#205-#216).
+Rulings (Kevin, Oct 29, in the plan's section 5 and `docs/decisions.md`): four seats at most,
+pads only in 3-4 player games (2P modes keep keyboard for player 1), one shared camera, hybrid
+later, **player 1 alone pauses**, **only player 1 earns progression**, one gamepad remap and one
+pad layout for every seat, FFA single round + Rematch, mode C on stadium maps + Twin Keeps,
+Brawl 2/3/4 rows become aliases.
+
+Now: PR 1 "seats" on `local-seats`: `src/input/local_seats.gd` (LocalSeats: assign, pad_lost /
+pad_found hot-plug, seat_of_device, owner_of_event, rumble_device), `PlayerInput.pad_map()` so
+`_device_pad_bits` follows the gamepad remaps (`Controls.version`), main: `seats`, `seat_of`,
+`_on_pad_changed`, rumble per seat, pause from seat 0 only, `tests/test_local_seats.gd`.
+
+Next: run `TEST_ONLY=local_seats,ui,touch,player_input,twinstick`, smoke `--mode=44`, push, open
+PR 1 with base `local-mp-plan`; then PR 2 (join screen, `seating` templates, `--locals=N`) on
+branch `local-join` based on `local-seats`.
 
 ## Decisions
 
-- Fighters: route A (our own rigs at 2x). PixelLab animation rejected (Oct 27).
 - Balance and benches: Normal CPUs only, never Rage (Oct 25). No mage buffs. No parry.
-- Normal CPUs were nerfed Oct 29 2026 (`docs/plans/cpu-tiers.md`): every balance or pacing
-  number taken before that (matrix, pins, mode metrics, CTF / Caravan benches, nightly
-  artifacts) is not comparable with one taken after.
-- The game is "Ready 4 Rambles" to players; internals, user dir, package id, server paths keep
-  creature-arena.
+- The game is "Ready 4 Rambles" to players; internals keep creature-arena.
 - Chaos Cup always may draw hazards; Arena options govern the normal modes only.
-- During visual work, no server-update reminders (NET bumps still noted in PRs and here).
+- Stacked PRs: merge the base first; a stacked PR merged via the button lands on its base.
 
 ## Gate
 
-No kit, rule or balance number changes during the unattended run. Fighter art is not touched.
-Behavioral PRs wait for Kevin's playtest.
+No sim rule or balance number changes in PRs 1-4. Behavioral PRs wait for Kevin's playtest.
 
 ## Open questions (for Kevin)
 
-- Margin / hoarding props and a second buildings pack on one map (dressing PR bodies).
-- Touch targeting spec (cancel zone, default priority, objective button).
-- Kit rows in the C3 design doc (Sno, Digby, Pete, ...); Pete vs Crease; Hissy's class.
-- Mode merges, the Versus pick, "scrap affinities?", mode-ideas.md decision column.
-- Server update to protocol 58 when convenient; the Szadi written OK.
+- Server update to the current protocol when convenient (main NET bumps since Oct 28).
+- Margin / hoarding props; touch targeting spec; kit rows; mode merges (unchanged from before).
 
-## Next step
+## Files touched this phase
 
-Follow `docs/autonomy-log.md`: the first task not marked DONE / SKIPPED / BLOCKED.
-
-## Files touched this session
-
-docs/STATUS.md, docs/open-items.md (task 1); see the log for the rest.
-
-## Context readings
-
-| When | Reading |
-| --- | --- |
-| run start | fresh |
+docs/STATUS.md, src/input/local_seats.gd, src/input/player_input.gd, src/game/controls.gd,
+src/game/main.gd, src/game/main_touch.gd, tests/test_local_seats.gd, src/input/CLAUDE.md,
+docs/codebase-map.md, README.md.

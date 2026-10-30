@@ -24,8 +24,10 @@ extends RefCounted
 ## The prompts on screen follow whichever device was used last (a touch shows the touch
 ## controls; a key or a pad button hides them again).
 ##
-## For local 2-player, each player gets their own PlayerInput: `pad_device` picks which
-## controller it reads (or none), and `keyboard` turns keyboard and mouse off for player 2.
+## For local play, each seat gets its own PlayerInput (LocalSeats): `pad_device` picks which
+## controller it reads (or none), and `keyboard` turns keyboard and mouse off for players
+## 2-4. A seat's own pad is read directly (`_device_pad_bits`) through `pad_map()`, the
+## gamepad group's bindings, so remaps reach every seat.
 
 enum Device { KEYBOARD, GAMEPAD, TOUCH }
 
@@ -156,6 +158,13 @@ func reset() -> void:
 	target.clear()
 
 
+## Lets go of everything the seat's own controller held (it was unplugged, or the seat
+## changed hands), so no guard or charge stays down and the next press is a fresh edge.
+func release_pad() -> void:
+	_pad_prev.clear()
+	_pad_aim_t = 0
+
+
 ## The bitmask for this tick. `cursor` is the mouse position in arena coordinates.
 func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 	var me := sim.creatures[me_idx]
@@ -278,16 +287,59 @@ func _gamepad_bits(me: CreatureSim) -> int:
 	return out
 
 
-## One specific controller, read directly (the pad_* actions listen to every controller).
+## The gamepad buttons that can be remapped, read per controller through `pad_map`.
+const PAD_ACTIONS := ["light", "heavy", "skill_1", "skill_2", "surge", "dodge", "guard", "tag"]
+const PAD_AXIS_ON := 0.5  ## a trigger or stick bound to a button counts as held past this
+static var _pad_map := {}
+static var _pad_map_version := -1
+
+
+## What each gamepad action is bound to right now, for reading one controller directly:
+## action -> {"buttons": [JoyButton...], "axes": [[JoyAxis, sign]...]}, from the `pad_*`
+## actions' InputMap events (so it follows the gamepad remaps; rebuilt when
+## `Controls.version` changes).
+static func pad_map() -> Dictionary:
+	if _pad_map_version == Controls.version and not _pad_map.is_empty():
+		return _pad_map
+	var out := {}
+	for a in PAD_ACTIONS:
+		var buttons: Array = []
+		var axes: Array = []
+		var action: String = "pad_" + String(a)
+		if InputMap.has_action(action):
+			for ev in InputMap.action_get_events(action):
+				if ev is InputEventJoypadButton:
+					buttons.append((ev as InputEventJoypadButton).button_index)
+				elif ev is InputEventJoypadMotion:
+					var m := ev as InputEventJoypadMotion
+					axes.append([m.axis, 1.0 if m.axis_value >= 0.0 else -1.0])
+		out[a] = {"buttons": buttons, "axes": axes}
+	_pad_map = out
+	_pad_map_version = Controls.version
+	return out
+
+
+## Whether controller `dev` holds any binding of one `pad_map` entry.
+static func pad_action_held(dev: int, bound: Dictionary) -> bool:
+	for b in bound.get("buttons", []):
+		if Input.is_joy_button_pressed(dev, b):
+			return true
+	for ax in bound.get("axes", []):
+		if Input.get_joy_axis(dev, ax[0]) * float(ax[1]) > PAD_AXIS_ON:
+			return true
+	return false
+
+
+## One specific controller, read directly (the pad_* actions listen to every controller),
+## with the gamepad group's bindings, so a remap reaches this seat too.
 func _device_pad_bits(me: CreatureSim, dev: int) -> int:
-	var buttons := {"light": JOY_BUTTON_A, "heavy": JOY_BUTTON_X, "skill_1": JOY_BUTTON_Y,
-		"skill_2": JOY_BUTTON_B, "dodge": JOY_BUTTON_RIGHT_SHOULDER, "guard": JOY_BUTTON_LEFT_SHOULDER}
+	var map := pad_map()
 	var held := {}
 	var pressed := {}
-	for a in buttons:
-		held[a] = Input.is_joy_button_pressed(dev, buttons[a])
-	held["surge"] = Input.get_joy_axis(dev, JOY_AXIS_TRIGGER_RIGHT) > 0.5
-	var tag := Input.get_joy_axis(dev, JOY_AXIS_TRIGGER_LEFT) > 0.5
+	for a in PAD_ACTIONS:
+		if a != "tag":
+			held[a] = pad_action_held(dev, map[a])
+	var tag := pad_action_held(dev, map["tag"])
 	for a in held:
 		pressed[a] = bool(held[a]) and not bool(_pad_prev.get(a, false))
 	_pad_prev = held.duplicate()
