@@ -1464,7 +1464,7 @@ func _blink(bl: Dictionary, aim: Vector2, sim: MatchSim) -> void:
 	var room := sim.floor_rect().grow(-float(radius) - 2.0)
 	var from := pos
 	for spot in [foe.pos - foe.facing * gap, foe.pos + away * gap]:
-		if room.has_point(spot) and not sim.terrain.is_hole_at(spot) and not sim.terrain.solid_at(spot):
+		if room.has_point(spot) and not sim.terrain.footprint_falls(spot, radius) and not sim.terrain.solid_at(spot):
 			pos = spot
 			break
 	var to_foe := foe.pos - pos
@@ -1831,11 +1831,13 @@ func clamp_to_floor() -> void:
 func _move(delta: Vector2, sim: MatchSim, voluntary: bool, bounce := false) -> void:
 	var lo := floor_min()
 	var hi := floor_max()
-	var standing_on_hole := sim.terrain.is_hole_at(pos)
+	# The same footprint rule as the fall (TerrainGrid.footprint_falls): a walk stops short
+	# of any spot it would fall from, and may go anywhere it wouldn't.
+	var standing_on_hole := sim.terrain.footprint_falls(pos, radius)
 	var fences := not passes_fences()
 
 	var nx := pos.x + delta.x
-	if voluntary and not standing_on_hole and sim.terrain.is_hole_at(Vector2(nx, pos.y)):
+	if voluntary and not standing_on_hole and sim.terrain.footprint_falls(Vector2(nx, pos.y), radius):
 		nx = pos.x
 	var hit_wall := nx < lo.x or nx > hi.x
 	nx = clampf(nx, lo.x, hi.x)
@@ -1851,7 +1853,7 @@ func _move(delta: Vector2, sim: MatchSim, voluntary: bool, bounce := false) -> v
 	pos.x = nx
 
 	var ny := pos.y + delta.y
-	if voluntary and not standing_on_hole and sim.terrain.is_hole_at(Vector2(pos.x, ny)):
+	if voluntary and not standing_on_hole and sim.terrain.footprint_falls(Vector2(pos.x, ny), radius):
 		ny = pos.y
 	hit_wall = ny < lo.y or ny > hi.y
 	ny = clampf(ny, lo.y, hi.y)

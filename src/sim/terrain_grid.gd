@@ -56,6 +56,8 @@ func _init(c: int = SimDefs.GRID_COLS, r: int = SimDefs.GRID_ROWS) -> void:
 	map_base.resize(cols * rows)
 	map_base.fill(INTACT)
 	base.fill(INTACT)
+	if _fall_need == 0:
+		set_fall_rules()  # here, on the main thread, before any CPU thread reads them
 
 
 ## Lays an arena map's pieces: `pieces` is a list of {kind, rect: [cx, cy, w, h]} in
@@ -183,6 +185,55 @@ static func walk_mult_of(v: int) -> float:
 
 func is_hole_at(p: Vector2) -> bool:
 	return is_pit(get_cell(world_to_cell(p)))
+
+
+# ---------------------------------------------------------------- falls by footprint
+
+const FALLS_PATH := "res://data/rules/falls.json"
+## 1/sqrt(2) as a constant: the footprint's diagonal points (no trig at run time).
+const DIAG := 0.70710678118654752
+## The footprint's sample points as unit offsets: the centre first, then eight round the
+## body circle. Scaled by radius x fall_radius_mult (`footprint_falls`).
+const FOOTPRINT: Array[Vector2] = [Vector2(0, 0), Vector2(1, 0), Vector2(DIAG, DIAG), Vector2(0, 1),
+	Vector2(-DIAG, DIAG), Vector2(-1, 0), Vector2(-DIAG, -DIAG), Vector2(0, -1), Vector2(DIAG, -DIAG)]
+## How many footprint points over a pit make a fall (from fall_fraction), and the circle's
+## scale on the body radius. Not match state: fixed rules, loaded once (the TerrainGrid
+## constructor loads them on the main thread, so CPU threads only ever read them).
+static var _fall_need := 0
+static var _fall_mult := 1.0
+
+
+## The fall rules (data/rules/falls.json), or `d` in their place (tests); {} reloads the file.
+static func set_fall_rules(d: Dictionary = {}) -> void:
+	var r := d
+	if r.is_empty():
+		var f := FileAccess.open(FALLS_PATH, FileAccess.READ)
+		var j = JSON.parse_string(f.get_as_text()) if f != null else null
+		r = j if j is Dictionary else {}
+	var n := FOOTPRINT.size()
+	_fall_need = clampi(ceili(float(r.get("fall_fraction", 0.5)) * float(n) - 0.0001), 1, n)
+	_fall_mult = maxf(0.0, float(r.get("fall_radius_mult", 1.0)))
+
+
+## Whether a body of `radius` at `p` falls: at least fall_fraction of its footprint (the
+## centre and eight points round its circle, FOOTPRINT) is over pit cells. The one rule for
+## falls (MatchSim._check_falls), the walking guard (CreatureSim._move) and the CPU.
+func footprint_falls(p: Vector2, radius: float) -> bool:
+	if _fall_need == 0:
+		set_fall_rules()
+	var r := radius * _fall_mult
+	var need := _fall_need
+	var left := FOOTPRINT.size()
+	var pits := 0
+	for o in FOOTPRINT:
+		left -= 1
+		if is_pit(get_cell(world_to_cell(p + o * r))):
+			pits += 1
+			if pits >= need:
+				return true
+		elif pits + left < need:
+			return false
+	return false
 
 
 func solid_at(p: Vector2) -> bool:

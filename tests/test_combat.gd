@@ -135,8 +135,11 @@ func test_walking_stops_at_a_hole_edge() -> void:
 	var sim := MatchFactory.training()
 	var p := sim.creatures[0]
 	p.pos = Vector2(100, 164)
+	# Three cells wide (x 136..160): a crack one cell wide drops nobody since the footprint
+	# rule (data/rules/falls.json), so a walk crosses it; tests/test_pit_footprint.gd.
 	for r in sim.terrain.rows:
-		sim.terrain.set_cell(Vector2i(15, r), TerrainGrid.HOLE)  # x 136..144
+		for x in range(15, 18):
+			sim.terrain.set_cell(Vector2i(x, r), TerrainGrid.HOLE)
 	var fell := run_until(sim, func(): return p.state == CreatureSim.State.FALLING, 120, RIGHT)
 	assert_false(fell, "walking should never step into a hole")
 	assert_lt(p.pos.x, 136.0, "stopped at the edge:")

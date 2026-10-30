@@ -13,6 +13,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 | `rules/shrines.json` | Shrine defaults for any mode whose rules have a `shrines` block (its keys win): `first_seconds`, `claim_seconds`, `buff_seconds`, `cooldown_seconds`, `announce_seconds`, `haste_mult`, `might_mult`, `radius`, `spots` (floor fractions, for maps without `shrines`), `kinds` (a cycle), `reward` (buff / boost), `boosts` (the permanent-buff pool), `max_boosts`, `follow_zone`, `zone_gap`, `cpu_range`, `cpu_engaged`. On in `crater.json` (permanent buffs, opposite the zone), `brawl.json` and `ctf.json` |
 | `rules/stamina.json` | Stamina every fighter shares: `dodge_cost_share` (0.6 of the bar) and `dodge_cost_share_by_fighter`, `block_drain_mult` per move type, `block_regen_pause_seconds`, `exhaust_delay_seconds` |
 | `rules/energy.json` | Surge energy: `per_damage_dealt` (0.8) × `per_type_mult` (light 0.45, heavy and skill 1.0) × `variety_energy` (by move types in the combo: 1.0, 1.0, 1.3, 1.6, 1.9), `per_damage_taken` (0.5), `carry_between_rounds` (the meter carries into the next round of a best-of-three) |
+| `rules/falls.json` | Pit falls by footprint (`TerrainGrid.footprint_falls`): `fall_fraction` (0.5: five of the nine footprint points over a pit), `fall_radius_mult` (1.0 x the fighter's `radius`; 0 = the old centre-point rule). Falls, the walking guard and the CPU's landing checks all read it |
 | `rules/projectiles.json` | `radius_mult`: every straight projectile's hit radius (and `radius_end`) × this |
 | `rules/mutators.json` | Match mutators (`air_mult`, `speed_mult`, `damage_mult`, `surge_every`, `pit_floor`, `hazards`); the Daily Challenge draws two, Chaos Cup stacks them |
 | `rules/hazards.json` | Arena hazards a mutator's `hazards` list switches on (`tidal_wave`, `meteor_shower`, `rolling_boulder`, `fault_line`): `shape`, schedule (`first_seconds`, `every_seconds`, `warn_seconds` / `warn_ticks`), effects (`damage_pct`, `role_mult`, `min_hp`, `push`, `stun`, `knockdown`, `crack`, `pit`, `pit_core`, `pickup`), the wave's `shelter`, `breakwaters`, `shallows`, the shower's `count`, `spread_seconds`, `radius`, `aimed_share`, `aim_jitter`, `big`, the boulders' `count`, `sides`, `inset`, `radius`, `speed`, `reverse_types`, `reverse_max`, `reverse_speed_mult`, `ricochet_speed_mult`, `ricochet_cooldown_ticks`, `min_speed`, `wall_bounces`, `preview_ticks`, the fault's `axes`, `width`, `wander`, `wander_every`, `inset`, `spawn_clear`, `open_seconds` (keys in `docs/MECHANICS.md`, "Arena hazards") |
@@ -51,7 +52,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 - `endings/` — barkley, cairn, cerebro, craglash, crease, culvert, digby, gillbert, hissy, pete, sno
 - `online.json`
 - `progression.json`
-- `rules/` — brawl, caravan, crater, ctf, deathmatch, duel, duel_1v1, energy, hazards, mutators, projectiles, shrines, sinkhole, stamina, team
+- `rules/` — brawl, caravan, crater, ctf, deathmatch, duel, duel_1v1, energy, falls, hazards, mutators, projectiles, shrines, sinkhole, stamina, team
 - `trials.json`
 - `voice.json`
 - `weather.json`

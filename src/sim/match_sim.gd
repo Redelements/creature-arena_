@@ -1525,5 +1525,5 @@ func _check_falls() -> void:
 			continue
 		if c.hitstop > 0:
 			continue  # held in its freeze-frame: the fall waits, as it did when everyone froze
-		if terrain.is_hole_at(c.pos):
+		if terrain.footprint_falls(c.pos, c.radius):  # enough of its body over a pit (falls.json)
 			c.start_fall(self)

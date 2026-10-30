@@ -123,10 +123,15 @@ func test_big_heist_never_lands_in_a_pit() -> void:
 	var foe := sim.creatures[1]
 	foe.facing = Vector2.LEFT
 	var behind := foe.pos + Vector2(foe.radius + pete.radius + 2.0, 0)
-	sim.terrain.set_cell(sim.terrain.world_to_cell(behind), TerrainGrid.HOLE)
+	# A 3x3 hole: one cell drops nobody since the footprint rule (data/rules/falls.json).
+	var at := sim.terrain.world_to_cell(behind)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			sim.terrain.set_cell(at + Vector2i(dx, dy), TerrainGrid.HOLE)
 	pete.energy = 100.0
 	_count(sim, "blink", 60, SU)
-	assert_false(sim.terrain.is_hole_at(pete.pos), "he picks the other side instead")
+	assert_false(sim.terrain.footprint_falls(pete.pos, pete.radius), "he picks the other side instead")
+	assert_true(pete.state != CreatureSim.State.FALLING, "and doesn't fall")
 
 
 func test_rollback_with_stealth_and_steal() -> void:
