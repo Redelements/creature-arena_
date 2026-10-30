@@ -40,17 +40,21 @@ Done: PR 5 "free-for-all" on branch `local-ffa` (base `local-hud`): mode 55 Braw
 (`"seating": "ffa"`, need 1, most 4, `_seated_sides`, `_wanted_humans`), Chaos Cup 46 the same
 seating, hub group "Local play", the Brawl row → [55], modes 42-45 aliases, `--locals=N`.
 
-Now: PR 6 "teams 2v2 with four seats" on branch `local-teams` (base `local-ffa`): a mode
-`{"label": "Team battle: local 2v2", "team": 2, "seating": "teams", "sides": [P1, P2, P3, P4]}`
-(+ Deathmatch / Sinkhole / Crater variants, or one row with a rules choice), the join screen's
-Left / Right team columns (`SeatScreen` with `teams` on: each seat picks a side; `LocalSeats`
-keeps `side_pick`), `_start_team` builds sides from the seats (side 0 seats first, then side 1,
-TeamSim slot order; CPU fill when a side is short), `_relation` already uses side colours
-when locals span both teams, `_viewer_team` -1, the pick screen with a column per seat
-(team_size 1 each) → `_teams` per side from the seats' picks. Banners: "RED / BLUE TEAM WINS"
-when locals are on both sides (`main.gd:2293`).
+Done: PR 6 "teams 2v2 with four seats" on branch `local-teams` (base `local-ffa`): modes 56-59
+(`"seating": "teams"`), the row "Teams: 2 v 2 local" (choices = rules), `SeatScreen.teams` /
+`side_cap` (Left / Right picks a side), `LocalSeats.side_pick` / `set_side` / `seats_on`,
+`_seated_team_sides`, `_seated_team_picks`, the RED / BLUE banner when people are on both sides.
 
-Next: PR 7 four seats vs four CPUs on `local-coop` (base `local-teams`).
+Now: PR 7 "four seats vs four CPUs" on branch `local-coop` (base `local-teams`): modes
+`"seating": "coop"` (everyone on side 0, CPUs on side 1): Team battle 4v4, Team Deathmatch 4v4,
+CTF 4v4 local (`team.json` `max_size` 4; a size-4 Deathmatch `score_to_win` entry; both change
+`data_hash` → server rebuild after merge); `team_sim.gd:85, 1302` "slot 0 of a side is the
+human" guards with a CPU-only side 1; CPU team intent vs four humans; the camera on Twin Keeps:
+`_cam_anchor` -1 with 2+ locals → frame the locals' box (`_frame_fight` anchors list, min zoom
+~0.4), pointers for foes. Caravan Pass stays out (Kevin's ruling).
+
+Next: PR 8 polish (pause owner prompt, per-seat palettes/titles, progression seat 0 only,
+Discord presence "N players", MECHANICS / README / map sweep).
 
 ## Decisions
 

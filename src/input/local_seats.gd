@@ -19,6 +19,8 @@ var inputs: Array[PlayerInput] = []
 var humans := 1
 ## The most the join screen lets in (`begin`).
 var most := MAX_SEATS
+## Team modes: the side (0 red, 1 blue) each seat plays on; seats alternate by default.
+var side_pick: Array[int] = [0, 1, 0, 1]
 ## Seats whose controller was unplugged mid-match (seat -> the pad's GUID), kept so the
 ## same pad, or the next one plugged in, takes the seat back.
 var lost := {}
@@ -58,6 +60,7 @@ func seated(seat: int) -> bool:
 func assign(p_humans: int, pads: Array, pad_guids := {}) -> String:
 	humans = clampi(p_humans, 1, MAX_SEATS)
 	lost.clear()
+	side_pick = [0, 1, 0, 1]
 	for id in pad_guids:
 		guids[int(id)] = String(pad_guids[id])
 	inputs[0].keyboard = true
@@ -92,6 +95,7 @@ func begin(p_most: int) -> void:
 	most = clampi(p_most, 1, MAX_SEATS)
 	humans = 1
 	lost.clear()
+	side_pick = [0, 1, 0, 1]
 	inputs[0].keyboard = true
 	inputs[0].pad_device = PlayerInput.ANY_PAD
 	for k in range(1, MAX_SEATS):
@@ -163,16 +167,39 @@ func unclaim(seat: int) -> void:
 		inputs[seat].release_pad()
 
 
+## Team modes: seat `seat` plays on `side` (0 red, 1 blue).
+func set_side(seat: int, side: int) -> void:
+	if seat >= 0 and seat < MAX_SEATS:
+		side_pick[seat] = clampi(side, 0, 1)
+
+
+func side_of_seat(seat: int) -> int:
+	return side_pick[clampi(seat, 0, MAX_SEATS - 1)]
+
+
+## The seats playing (`humans`) on `side`, in seat order.
+func seats_on(side: int) -> Array[int]:
+	var out: Array[int] = []
+	for k in humans:
+		if side_pick[k] == side:
+			out.append(k)
+	return out
+
+
 ## The join screen is done: the seats that joined are packed into 0..n-1 (a seat given
-## back in the middle leaves no hole) and `humans` is their number. Returns it.
+## back in the middle leaves no hole, their side picks move with them) and `humans` is
+## their number. Returns it.
 func finish() -> int:
 	var pads: Array[int] = []
+	var picks: Array[int] = []
 	for k in range(1, most):
 		if inputs[k].pad_device >= 0:
 			pads.append(inputs[k].pad_device)
+			picks.append(side_pick[k])
 	for k in range(1, MAX_SEATS):
 		inputs[k].pad_device = pads[k - 1] if k - 1 < pads.size() else PlayerInput.NO_PAD
 		inputs[k].release_pad()
+		side_pick[k] = picks[k - 1] if k - 1 < picks.size() else (k % 2)
 	if inputs[0].pad_device == PlayerInput.ANY_PAD:
 		inputs[0].pad_device = PlayerInput.NO_PAD if not pads.is_empty() else PlayerInput.ANY_PAD
 	humans = 1 + pads.size()

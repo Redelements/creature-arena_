@@ -20,6 +20,10 @@ var mode_title := "VERSUS"
 ## Seats that must join before the match can start, and the most the screen lets in.
 var need := 2
 var most := 2
+## Team modes: each seat picks a side with Left / Right (red or blue), at most `side_cap`
+## a side (the team size; CPUs fill what's left).
+var teams := false
+var side_cap := 2
 var seats: LocalSeats = null
 var _o := Vector2.ZERO
 var _font: Font
@@ -41,7 +45,29 @@ func rows() -> Array:
 
 
 func ready_to_go() -> bool:
-	return seats != null and seats.joined() >= need
+	if seats == null or seats.joined() < need:
+		return false
+	if teams:
+		for side in 2:
+			if _on_side(side) > side_cap:
+				return false
+	return true
+
+
+## How many joined seats picked `side`.
+func _on_side(side: int) -> int:
+	var n := 0
+	for k in most:
+		if seats.decided(k) and seats.side_of_seat(k) == side:
+			n += 1
+	return n
+
+
+## A seat's side is 0 or 1 (`dir` flips it); only the seat's own device changes it.
+func _pick_side(seat: int, dir: int) -> void:
+	if not teams or seat < 0:
+		return
+	seats.set_side(seat, 1 if dir > 0 else 0)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -66,6 +92,8 @@ func _gui_input(event: InputEvent) -> void:
 		elif b == JOY_BUTTON_START:
 			if held >= 0 and ready_to_go():
 				_finish()
+		elif b == JOY_BUTTON_DPAD_LEFT or b == JOY_BUTTON_DPAD_RIGHT:
+			_pick_side(held, -1 if b == JOY_BUTTON_DPAD_LEFT else 1)
 		else:
 			return
 		accept_event()
@@ -82,6 +110,8 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("pause"):
 		if ready_to_go():
 			_finish()
+	elif event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
+		_pick_side(0 if seats.decided(0) else -1, -1 if event.is_action_pressed("ui_left") else 1)
 	else:
 		return
 	accept_event()
@@ -103,15 +133,26 @@ func seat_lines(k: int) -> Array:
 	if seats == null:
 		return []
 	var pad := seats.device_of(k)
+	var side := ""
+	if teams and seats.decided(k):
+		side = "< RED >" if seats.side_of_seat(k) == 0 else "< BLUE >"
 	if k == 0:
 		if pad == PlayerInput.ANY_PAD:
 			return ["Enter: keyboard + mouse", "A: a controller"]
 		if pad == PlayerInput.NO_PAD:
-			return ["Keyboard + mouse", "Ready"]
-		return ["Keyboard + controller %d" % (pad + 1), "Ready"]
+			return ["Keyboard + mouse", side, "Ready"] if teams else ["Keyboard + mouse", "Ready"]
+		return ["Keyboard + controller %d" % (pad + 1), side, "Ready"] if teams else ["Keyboard + controller %d" % (pad + 1), "Ready"]
 	if pad >= 0:
-		return ["Controller %d" % (pad + 1), "Ready"]
+		return ["Controller %d" % (pad + 1), side, "Ready"] if teams else ["Controller %d" % (pad + 1), "Ready"]
 	return ["Press A on a", "controller to join"]
+
+
+## The side's colour for a seat's side line (the card's other lines are dim or accent).
+func _line_color(k: int, i: int, lines: Array) -> Color:
+	var in_seat := seats != null and seats.decided(k)
+	if teams and in_seat and i == 1 and lines.size() == 3:
+		return Accessibility.side_color(seats.side_of_seat(k))
+	return UiTheme.C_ACCENT if in_seat and i == lines.size() - 1 else UiTheme.C_DIM
 
 
 func _draw() -> void:
@@ -132,12 +173,16 @@ func _draw() -> void:
 			UiTheme.C_TEXT if in_seat else UiTheme.C_DIM, r.size.x)
 		var lines := seat_lines(k)
 		for i in lines.size():
-			_text(Vector2(r.position.x, r.position.y + 40 + i * 10), String(lines[i]), 5,
-				UiTheme.C_ACCENT if in_seat and i == lines.size() - 1 else UiTheme.C_DIM, r.size.x)
+			_text(Vector2(r.position.x, r.position.y + 40 + i * 10), String(lines[i]), 5, _line_color(k, i, lines), r.size.x)
 	if ready_to_go():
 		draw_rect(Rect2(0, 196, w, 22), Color(0, 0, 0, 0.6))
 		_text(Vector2(0, 212), "Enter / Start: pick your fighters", 10, UiTheme.C_ACCENT, w)
-	_text(Vector2(0, 258), "B: give a seat back   Esc / B (player 1): back", 6, UiTheme.C_DIM, w)
+	elif teams and seats != null and seats.joined() >= need:
+		_text(Vector2(0, 212), "At most %d a side" % side_cap, 8, UiTheme.C_DIM, w)
+	var foot := "B: give a seat back   Esc / B (player 1): back"
+	if teams:
+		foot = "Left / Right: your side   " + foot
+	_text(Vector2(0, 258), foot, 6, UiTheme.C_DIM, w)
 
 
 func _text(pos: Vector2, s: String, size_px: int, col: Color, width: float) -> void:

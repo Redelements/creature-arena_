@@ -50,9 +50,10 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - "label < value >" rows → `option_row.gd`; hub cards → `card_button.gd`
 - Who's playing (a local mode with a `seating` key: before the pick, each controller presses A
   for a seat, Enter is player 1 on the keyboard alone, B gives a seat back, Enter / Start goes
-  on once `need` have joined) → `seat_screen.gd` (`SeatScreen`: `need`, `most`, `seats`,
-  signals `done` / `cancelled`; it only talks to `LocalSeats.begin` .. `finish`); opened by
-  `main.gd:_open_seats`, then `_open_pick`; `tests/test_local_seats.gd`
+  on once `need` have joined; a team mode: Left / Right picks each seat's side, at most
+  `side_cap` a side) → `seat_screen.gd` (`SeatScreen`: `need`, `most`, `teams`, `side_cap`,
+  `seats`, signals `done` / `cancelled`; it only talks to `LocalSeats.begin` .. `finish`,
+  `set_side`); opened by `main.gd:_open_seats`, then `_open_pick`; `tests/test_local_seats.gd`
 - Character select (a cursor, pad and stick per local player: `set_pickers(pads)`, `players`,
   `_pad_of`; a column (team list) per side, or one per player past two: `columns`, compact
   panels `compact()`, `_panel_w`, `_side_col`; `unique_across` for a Brawl; `solo` for online)
