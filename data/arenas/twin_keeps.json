@@ -12,26 +12,6 @@
 			"fence": "fenceline:wood",
 			"brush": "bush:green"
 		},
-		"restyle": [
-			{
-				"rect": [
-					40,
-					28,
-					2,
-					8
-				],
-				"style": "wall:grove"
-			},
-			{
-				"rect": [
-					108,
-					28,
-					2,
-					8
-				],
-				"style": "wall:grove"
-			}
-		],
 		"shoulder": true,
 		"dressing": "res://assets/arenas/twin_keeps_dressing.tscn",
 		"scatter": [
@@ -779,15 +759,6 @@
 			]
 		},
 		{
-			"kind": "wall",
-			"rect": [
-				40,
-				28,
-				2,
-				8
-			]
-		},
-		{
 			"kind": "fence",
 			"rect": [
 				44,
@@ -883,15 +854,6 @@
 				110,
 				52,
 				10,
-				8
-			]
-		},
-		{
-			"kind": "wall",
-			"rect": [
-				108,
-				28,
-				2,
 				8
 			]
 		},

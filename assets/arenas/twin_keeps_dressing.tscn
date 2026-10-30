@@ -1297,71 +1297,6 @@ texture = ExtResource("9_f8725")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="tree_b_trunk_52" type="AnimatedSprite2D" parent="Props" unique_id=1070243409]
-position = Vector2(662, 467)
-sprite_frames = SubResource("SpriteFrames_i2a4g")
-autoplay = "default"
-centered = false
-offset = Vector2(-32, -61)
-flip_h = true
-metadata/kind = "tree_b_trunk"
-
-[node name="Shadow" type="Sprite2D" parent="Props/tree_b_trunk_52" unique_id=1475283896]
-show_behind_parent = true
-position = Vector2(2, -1)
-texture = ExtResource("9_f8725")
-region_enabled = true
-region_rect = Rect2(117, 0, 46, 12)
-
-[node name="tree_b_trunk_53" type="AnimatedSprite2D" parent="Props" unique_id=83591120]
-position = Vector2(1738, 467)
-sprite_frames = SubResource("SpriteFrames_i2a4g")
-autoplay = "default"
-frame = 1
-centered = false
-offset = Vector2(-48, -61)
-metadata/kind = "tree_b_trunk"
-
-[node name="Shadow" type="Sprite2D" parent="Props/tree_b_trunk_53" unique_id=483616980]
-show_behind_parent = true
-position = Vector2(2, -1)
-texture = ExtResource("9_f8725")
-region_enabled = true
-region_rect = Rect2(117, 0, 46, 12)
-
-[node name="tree_a_trunk_54" type="AnimatedSprite2D" parent="Props" unique_id=1365384987]
-position = Vector2(652, 575)
-sprite_frames = SubResource("SpriteFrames_ws0xs")
-autoplay = "default"
-frame = 3
-centered = false
-offset = Vector2(-46, -53)
-metadata/kind = "tree_a_trunk"
-
-[node name="Shadow" type="Sprite2D" parent="Props/tree_a_trunk_54" unique_id=1760031972]
-show_behind_parent = true
-position = Vector2(2, -1)
-texture = ExtResource("9_f8725")
-region_enabled = true
-region_rect = Rect2(164, 0, 64, 16)
-
-[node name="tree_a_trunk_55" type="AnimatedSprite2D" parent="Props" unique_id=651958688]
-position = Vector2(1748, 575)
-sprite_frames = SubResource("SpriteFrames_ws0xs")
-autoplay = "default"
-frame = 2
-centered = false
-offset = Vector2(-48, -53)
-flip_h = true
-metadata/kind = "tree_a_trunk"
-
-[node name="Shadow" type="Sprite2D" parent="Props/tree_a_trunk_55" unique_id=160398265]
-show_behind_parent = true
-position = Vector2(2, -1)
-texture = ExtResource("9_f8725")
-region_enabled = true
-region_rect = Rect2(164, 0, 64, 16)
-
 [node name="lantern_56" type="AnimatedSprite2D" parent="Props" unique_id=595422618]
 position = Vector2(892, 239)
 sprite_frames = SubResource("SpriteFrames_gr5ud")
@@ -1635,43 +1570,6 @@ flip_h = true
 metadata/kind = "drop_blue"
 
 [node name="Canopies" type="Node2D" parent="." unique_id=458465144]
-
-[node name="tree_b_crown_0" type="AnimatedSprite2D" parent="Canopies" unique_id=1498861762]
-position = Vector2(662, 467)
-sprite_frames = SubResource("SpriteFrames_igmuk")
-autoplay = "default"
-centered = false
-offset = Vector2(-50, -151)
-flip_h = true
-metadata/kind = "tree_b_crown"
-
-[node name="tree_b_crown_1" type="AnimatedSprite2D" parent="Canopies" unique_id=555374841]
-position = Vector2(1738, 467)
-sprite_frames = SubResource("SpriteFrames_igmuk")
-autoplay = "default"
-frame = 1
-centered = false
-offset = Vector2(-78, -151)
-metadata/kind = "tree_b_crown"
-
-[node name="tree_a_crown_2" type="AnimatedSprite2D" parent="Canopies" unique_id=490491499]
-position = Vector2(652, 575)
-sprite_frames = SubResource("SpriteFrames_5ijqp")
-autoplay = "default"
-frame = 3
-centered = false
-offset = Vector2(-80, -151)
-flip_h = true
-metadata/kind = "tree_a_crown"
-
-[node name="tree_a_crown_3" type="AnimatedSprite2D" parent="Canopies" unique_id=367026409]
-position = Vector2(1748, 575)
-sprite_frames = SubResource("SpriteFrames_5ijqp")
-autoplay = "default"
-frame = 2
-centered = false
-offset = Vector2(-80, -151)
-metadata/kind = "tree_a_crown"
 
 [node name="tree_a_canopy_4" type="AnimatedSprite2D" parent="Canopies" unique_id=648045811]
 position = Vector2(524, 168)
