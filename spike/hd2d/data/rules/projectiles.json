@@ -1,0 +1,4 @@
+{
+	"_doc": "Hit size of every straight projectile (knives, darts, venom, Gulp's tongue, Mountain Maw's head, Cast Line's rod; not lobs, whose burst is their own). radius_mult scales each projectile's \"radius\" and \"radius_end\" from data/creatures/<id>.json. A projectile with \"radius_end\" grows from radius to radius_end over its flight, so a hook is widest at the end of its reach. Hit size only: what's drawn doesn't change.",
+	"radius_mult": 1.6
+}

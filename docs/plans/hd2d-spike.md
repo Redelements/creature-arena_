@@ -7,7 +7,8 @@ Rambles, and what would it cost us? The main project is not touched.
 
 ## Current state
 
-- Step: 0 (plan) written. Next: Step 1 (mini-project, floor, camera).
+- Step 1 copy done (5.5 MB mirrored; `src/sim` copy diff-identical). Steps 1b + 2 (scene,
+  camera, environment) in progress with a Sonnet agent. Next: commit Step 1-2, then Step 3.
 - Branch `spike/hd2d` from `origin/main` fa7724b. Nothing outside `spike/` and
   `docs/plans/` is modified.
 - Checkpoint for a resume: this file; `spike/hd2d/CHECKPOINT.md` only if a run had to stop early.
@@ -159,6 +160,10 @@ mode (Digby, Stadium) for the side by side.
 - D4. "MatchFactory.training, Digby vs CPU Digby": training gives Digby vs the dummy, so the
   driver uses `MatchFactory.versus("digby", "digby")` with a `CpuController` on P2 (a training
   flag has no bearing on the view). If `src/ai/` does not run standalone, P2 stands idle.
+- D5. The main `project.godot` has no `[input]` section (`Controls`, `src/game/controls.gd`,
+  builds the InputMap in code), so the spike copies all of `src/input/`, `controls.gd` and
+  `perf_log.gd` (needed by `PlayerInput` and `CpuController`) and calls Controls' setup from
+  its own `_ready`. View/UI classes they touch get stubs under `spike/hd2d/src/stubs/`.
 
 ## QC results
 

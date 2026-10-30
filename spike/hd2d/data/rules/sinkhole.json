@@ -1,0 +1,17 @@
+{
+	"_doc": "Sinkhole (1v1, 2v2, 3v3): one life each and the floor falls away from the edges. Every shrink_every ticks the outermost ring of cells cracks as a warning, and shrink_warn ticks later it drops into a chasm for good. A ring takes shrink_cols cells off the left and right and shrink_rows off the top and bottom; an axis stops shrinking at min_cols / min_rows cells, so the floor ends as a block in the middle (28 x 16 cells after 14 rings), not a strip. A fall into a chasm is a knockout (fall_ko); a fall into an ordinary hole (a creature's) only hurts, as anywhere. Last side standing wins, or the healthier side at time. Times are in ticks (60 per second) unless named _seconds.",
+	"sinkhole": true,
+	"fall_ko": true,
+	"time_seconds": 180,
+	"intro_ticks": 100,
+	"over_ticks": 150,
+	"mid_ko_slowmo": 30,
+	"spawn_spread": 60,
+	"shrink_every": 300,
+	"shrink_warn": 120,
+	"shrink_cols": 2,
+	"shrink_rows": 1,
+	"min_cols": 28,
+	"min_rows": 16,
+	"max_rings": 14
+}

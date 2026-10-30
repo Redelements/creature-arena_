@@ -1,0 +1,8 @@
+{
+	"_doc": "Surge energy. A hit earns its attacker damage x per_damage_dealt x per_type_mult[move type] x variety_energy[move types the combo has used, this hit included] (clean hits, blocked chip and armor chip alike; a Surge's own hits never charge the next one). So lights alone barely fill the meter and combos that mix move types fill it fastest. A missing type is 1.0; a missing table is 1.0 throughout. per_damage_taken: energy the defender gains per point taken (no type or variety factor). carry_between_rounds: in a best-of-three the meter you ended a round with is the one you start the next with (damage and stamina still reset). Read by MatchSim.energy_rules() / energy_dealt(); part of Netplay.data_hash. Tuned with tests/bench_cpu.gd --combat (docs/plans/combat-metrics.md).",
+	"per_damage_dealt": 0.8,
+	"per_type_mult": {"light": 0.45, "heavy": 1.0, "skill": 1.0},
+	"variety_energy": [1.0, 1.0, 1.3, 1.6, 1.9],
+	"per_damage_taken": 0.5,
+	"carry_between_rounds": true
+}

@@ -1,0 +1,39 @@
+{
+  "id": "dummy",
+  "name": "Training Dummy",
+  "affinity": "none",
+  "max_hp": 250,
+  "speed": 0.78,
+  "accel": 0.13,
+  "radius": 10,
+  "weight": 1.0,
+  "stamina": 100,
+  "stamina_regen": 0.6,
+  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 11, "speed": 2.6, "anim_at": [[0, 0], [2, 1], [4, 2], [7, 3], [10, 4], [13, 5], [15, 6], [17, 7]] },
+  "guard": { "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 50 },
+  "sprite": {
+    "path": "res://assets/sprites/dummy_2x.png", "ppu": 2,
+    "frame": 192,
+    "cols": 8,
+    "origin": [104, 168],
+    "idle_ticks": 10,
+    "run_ticks": 3,
+    "step_frames": [2, 6],
+    "anims": {
+      "idle": [0, 0, 4],
+      "run": [1, 0, 8],
+      "dodge": [2, 0, 8],
+      "hurt": [3, 0, 4],
+      "guard": [4, 0, 2],
+      "ko": [5, 0, 6]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/dummy_2x_down.png", "ppu": 2, "origin": [96, 160] },
+      "up": { "path": "res://assets/sprites/dummy_2x_up.png", "ppu": 2, "origin": [96, 168] },
+      "down_side": { "path": "res://assets/sprites/dummy_2x_down_side.png", "ppu": 2, "origin": [96, 164] },
+      "up_side": { "path": "res://assets/sprites/dummy_2x_up_side.png", "ppu": 2, "origin": [96, 168] }
+    }
+  },
+  "moves": {}
+}

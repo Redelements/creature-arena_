@@ -1,0 +1,18 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="HD-2D spike"
+run/main_scene="res://scenes/spike.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+textures/canvas_textures/default_texture_filter=0
