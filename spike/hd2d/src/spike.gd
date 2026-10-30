@@ -42,6 +42,13 @@ var cpu_vs_cpu := false
 var facing_test := false
 var toggle_test := false  ## QC: press every toggle key twice from code, then quit
 var perf := false  ## evidence: the average frame time over 10 s of the match, printed once
+var _key_script: Array = []  ## [tick, keycode] pairs from --keys
+var _rec_name := ""
+var _rec_start := 0
+var _rec_end := 0
+var _rec_every := 3
+var _rec_last := -1
+var _rec_n := 0
 var _perf_frames := 0
 var _perf_t0 := 0.0
 var _perf_open := false
@@ -92,6 +99,19 @@ func _ready() -> void:
 		elif a.begins_with("--frame="):
 			frame_w = float(a.substr(8))
 			frame_set = true
+		elif a.begins_with("--keys="):
+			# a key script: tick:KEY pairs, e.g. 180:P,360:O (pressed through the key handler)
+			for pair in a.substr(7).split(","):
+				var kp: PackedStringArray = pair.split(":")
+				if kp.size() == 2:
+					_key_script.append([int(kp[0]), OS.find_keycode_from_string(kp[1])])
+		elif a.begins_with("--rec="):
+			# frames for a clip: NAME:START:END:EVERY ticks, 640 x 360 PNGs in shots/rec/NAME/
+			var rp: PackedStringArray = a.substr(6).split(":")
+			_rec_name = rp[0]
+			_rec_start = int(rp[1])
+			_rec_end = int(rp[2])
+			_rec_every = maxi(1, int(rp[3]))
 		elif a == "--toggle-test":
 			toggle_test = true
 		elif a == "--perf":
@@ -248,6 +268,13 @@ func _physics_process(_d: float) -> void:
 		var mid: Vector2 = (sim.creatures[0].pos + sim.creatures[1].pos) * 0.5
 		target = Vector3(mid.x, 0, mid.y)
 		frame_camera(pitch_deg)
+	for ks in _key_script:
+		if int(ks[0]) == sim.tick:
+			var e := InputEventKey.new()
+			e.keycode = ks[1]
+			e.pressed = true
+			print("spike: key %s at tick %d" % [OS.get_keycode_string(ks[1]), sim.tick])
+			_unhandled_input(e)
 	if toggle_test and sim.tick == 60:
 		_run_toggle_test()
 	if perf:
@@ -494,10 +521,27 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func _process(_d: float) -> void:
 	_perf_sample()
+	if _rec_name != "" and sim != null and sim.tick >= _rec_start and sim.tick <= _rec_end \
+			and sim.tick != _rec_last and (sim.tick - _rec_start) % _rec_every == 0:
+		_rec_last = sim.tick
+		_rec_frame()
 	var now := sim.tick if sim != null else Engine.get_process_frames()  # (ticks once a match runs)
 	if _shot_frame >= 0 and not _shot_pending and now >= _shot_frame:
 		_shot_pending = true
 		_save_shot(_shot_name)
+
+
+## One frame of a clip, scaled to 640 x 360 (--rec; tools/make_gifs.py assembles them).
+func _rec_frame() -> void:
+	await RenderingServer.frame_post_draw
+	var dir := "res://shots/rec/%s" % _rec_name
+	DirAccess.make_dir_recursive_absolute(dir)
+	var img := get_viewport().get_texture().get_image()
+	img.resize(640, 360, Image.INTERPOLATE_LANCZOS)
+	img.save_png("%s/%04d.png" % [dir, _rec_n])
+	_rec_n += 1
+	if _rec_n == 1 or sim.tick >= _rec_end:
+		print("spike: rec %s frame %d at tick %d" % [_rec_name, _rec_n, sim.tick])
 
 
 func _save_shot(n: String) -> void:
