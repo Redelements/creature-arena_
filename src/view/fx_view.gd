@@ -260,8 +260,15 @@ func clear() -> void:
 	_lost.clear()
 	_was_hidden = []
 	_trail.clear()
+	# Every mode object main hands in goes with the match, or the next one (a 1v1, the menu
+	# background) drew the last CTF's flags and shrines: main writes them back each tick of
+	# a team or Brawl fight (`_show_pads`, `_update_zone`).
 	pads.clear()
 	zone = {}
+	caravan = {}
+	flags = []
+	shrines = []
+	wanted = []
 	_incoming.clear()
 	_watch.clear()
 	_last_push.clear()

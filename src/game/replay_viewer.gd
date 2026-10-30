@@ -269,6 +269,8 @@ func _fix_main_state(target: int) -> void:
 		main.flow = Main.Flow.FIGHT
 		main.flow_t = 0
 	main.fx.clear()
+	main._show_pads()  # the mode's own marks (pads, flags, shrines, caravan) at the tick now shown,
+	main._update_zone()  # so a paused seek doesn't lose them until the next tick
 	if main.letterbox != null:
 		main.letterbox.clear()
 	for i in main.views.size():
