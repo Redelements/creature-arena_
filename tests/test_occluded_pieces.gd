@@ -76,7 +76,7 @@ static func report(map: String) -> Array:
 
 
 func test_no_solid_piece_is_hidden_under_a_crown() -> void:
-tassert_true(not crowns("twin_keeps").is_empty(), "Twin Keeps has no Canopies group: this test would check nothing")
+	assert_true(not crowns("twin_keeps").is_empty(), "Twin Keeps has no Canopies group: this test would check nothing")
 	for map in MAPS:
 		for r in report(map):
 			if r[1] == "brush":

@@ -299,7 +299,7 @@ func test_coop_cpus_are_foes_at_the_chosen_level_and_never_target_a_teammate() -
 				_tick(g, 1)
 				if t % 15 != 0:
 					continue
-t			g._join_cpus()  # CPUs think ahead on worker threads: never read a CPU mid-think
+				g._join_cpus()  # CPUs think ahead on worker threads: never read a CPU mid-think
 				for i in g.sim.creatures.size():
 					if g.cpus[i] == null:
 						continue
