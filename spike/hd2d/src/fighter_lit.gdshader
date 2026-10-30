@@ -19,6 +19,7 @@ uniform bool has_normal = true;
 uniform bool has_emissive = true;
 uniform float emissive_strength = 2.0;
 uniform float normal_strength = 1.0;
+uniform vec2 pivot = vec2(0.0);  // the quad's centre from the feet, in world units (billboard space)
 
 varying vec3 v_right;
 varying vec3 v_up;
@@ -34,6 +35,7 @@ void vertex() {
 		vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));
 	MODELVIEW_MATRIX = VIEW_MATRIX * bill * sc;
 	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+	VERTEX.xy += pivot;
 	// The sheet's normal axes in view space: the quad's right, world up, toward the camera.
 	v_right = normalize(mat3(VIEW_MATRIX) * right);
 	v_up = normalize(mat3(VIEW_MATRIX) * vec3(0.0, 1.0, 0.0));

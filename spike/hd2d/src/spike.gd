@@ -9,6 +9,8 @@ const PITCHES := [25.0, 35.0, 45.0]
 
 var pitch_deg := 35.0
 var ortho := false
+var lit_on := false  ## Step 4b: fighters on the normal-mapped quad instead of the Sprite3D
+var pitched_on := false  ## Step 4a: the sheets re-rendered at the camera's pitch
 var cam: Camera3D
 var env: Environment
 var attrs: CameraAttributesPractical
@@ -46,6 +48,10 @@ func _ready() -> void:
 			pitch_deg = float(a.substr(8))
 		elif a == "--ortho":
 			ortho = true
+		elif a == "--lit":
+			lit_on = true
+		elif a == "--pitched":
+			pitched_on = true
 		elif a == "--no-glow":
 			glow_on = false
 		elif a == "--no-ssao":
@@ -102,6 +108,7 @@ func _start_match() -> void:
 		var f := Fighter3D.new(def)
 		add_child(f)
 		fighters.append(f)
+	_apply_fighter_modes()
 	cpus[1] = _new_cpu(1)
 	if cpu_vs_cpu:
 		cpus[0] = _new_cpu(0)
@@ -327,8 +334,18 @@ func _apply_toggles() -> void:
 
 
 func print_state() -> void:
-	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s dist %.1f" % [
-		int(pitch_deg), ortho, glow_on, ssao_on, dof_on, shadows_on, dist])
+	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s dist %.1f" % [
+		int(pitch_deg), ortho, glow_on, ssao_on, dof_on, shadows_on, lit_on,
+		"pitched" if pitched_on else "orig", dist])
+
+
+## Step 4 toggles on both fighters: the lit quad (N) and the pitched sheets (R).
+func _apply_fighter_modes() -> void:
+	for f in fighters:
+		(f as Fighter3D).set_lit(lit_on)
+		(f as Fighter3D).set_sheets("pitched" if pitched_on else "orig")
+	if pitched_on and fighters.size() > 0 and (fighters[0] as Fighter3D).sheet_set != "pitched":
+		pitched_on = false
 
 
 func _unhandled_input(e: InputEvent) -> void:
@@ -342,7 +359,13 @@ func _unhandled_input(e: InputEvent) -> void:
 			var i: int = PITCHES.find(pitch_deg)
 			frame_camera(PITCHES[(i + 1) % PITCHES.size()])
 		KEY_H:
-			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, F12 screenshot")
+			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, N lit quad / Sprite3D, R pitched / original sheets, F12 screenshot")
+		KEY_N:
+			lit_on = not lit_on
+			_apply_fighter_modes()
+		KEY_R:
+			pitched_on = not pitched_on
+			_apply_fighter_modes()
 		KEY_1:
 			glow_on = not glow_on
 		KEY_2:

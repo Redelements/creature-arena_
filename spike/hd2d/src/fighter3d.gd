@@ -15,6 +15,11 @@ const VIEW_FILES := {
 }
 
 var sprite := Sprite3D.new()
+## Step 4b: the same frame on a QuadMesh lit per pixel from the normal and emissive sheets
+## (src/fighter_lit.gdshader); `lit` shows it instead of the Sprite3D.
+var quad := MeshInstance3D.new()
+var quad_mat := ShaderMaterial.new()
+var lit := false
 var def: Dictionary
 var layout: Dictionary
 var views := {}  ## name -> {tex, size Vector2, origin Vector2, cols, anims}
@@ -36,8 +41,21 @@ func _init(p_def: Dictionary) -> void:
 	sprite.centered = true
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	add_child(sprite)
+	quad.mesh = QuadMesh.new()
+	quad_mat.shader = load("res://src/fighter_lit.gdshader")
+	quad.material_override = quad_mat
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	quad.visible = false
+	add_child(quad)
 	_load_views("orig")
 	_apply_view("side")
+
+
+## Shows the lit quad (true) or the plain Sprite3D (false).
+func set_lit(on: bool) -> void:
+	lit = on
+	sprite.visible = not on
+	quad.visible = on
 
 
 func set_sheets(which: String) -> void:
@@ -66,8 +84,16 @@ func _load_views(which: String) -> void:
 
 func _mk(path: String, size: Vector2, origin: Array, anims: Dictionary) -> Dictionary:
 	var tex := _tex(path)
+	var base := path.get_basename()
 	return {"tex": tex, "size": size, "origin": Vector2(origin[0], origin[1]),
-		"cols": int(tex.get_width() / size.x), "rows": int(tex.get_height() / size.y), "anims": anims}
+		"cols": int(tex.get_width() / size.x), "rows": int(tex.get_height() / size.y), "anims": anims,
+		"normal": _tex_or_null(base + "_n.png"), "emissive": _tex_or_null(base + "_e.png")}
+
+
+static func _tex_or_null(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path):
+		return null
+	return _tex(path)
 
 
 func _apply_view(name: String) -> void:
@@ -77,6 +103,7 @@ func _apply_view(name: String) -> void:
 	sprite.hframes = v["cols"]
 	sprite.vframes = v["rows"]
 	_set_offset(v)
+	_apply_quad(v)
 
 
 func _set_offset(v: Dictionary) -> void:
@@ -86,6 +113,19 @@ func _set_offset(v: Dictionary) -> void:
 	if flip:
 		ox = -ox
 	sprite.offset = Vector2(ox, o.y - half.y)  # Sprite3D offset is y-up
+	quad_mat.set_shader_parameter("pivot", Vector2(ox, o.y - half.y) * sprite.pixel_size)
+
+
+## The quad takes the view's sheets and frame grid; its size is the frame in world units.
+func _apply_quad(v: Dictionary) -> void:
+	(quad.mesh as QuadMesh).size = v["size"] * sprite.pixel_size
+	quad_mat.set_shader_parameter("albedo_tex", v["tex"])
+	quad_mat.set_shader_parameter("normal_tex", v["normal"])
+	quad_mat.set_shader_parameter("emissive_tex", v["emissive"])
+	quad_mat.set_shader_parameter("has_normal", v["normal"] != null)
+	quad_mat.set_shader_parameter("has_emissive", v["emissive"] != null)
+	quad_mat.set_shader_parameter("cols", int(v["cols"]))
+	quad_mat.set_shader_parameter("rows", int(v["rows"]))
 
 
 static var _cache := {}
@@ -146,12 +186,15 @@ func sync(sim_c: CreatureSim, cam: Camera3D) -> void:
 		sprite.texture = v["tex"]
 		sprite.hframes = v["cols"]
 		sprite.vframes = v["rows"]
+		_apply_quad(v)
 	_set_offset(v)
 	sprite.flip_h = flip
 	var count := int(anim[2])
 	var idx: int = pick[1] % count if pick[2] else clampi(pick[1], 0, count - 1)
 	last_frame = int(anim[0]) * int(v["cols"]) + int(anim[1]) + idx
 	sprite.frame = last_frame
+	quad_mat.set_shader_parameter("frame", last_frame)
+	quad_mat.set_shader_parameter("flip", flip)
 	position = Vector3(c.pos.x, c.air_height(), c.pos.y)
 
 
