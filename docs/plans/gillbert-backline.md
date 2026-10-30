@@ -89,6 +89,10 @@ Kevin wants one.
 - R3. Flop Dash: +25% distance, or cut its raw windup, or both? (And through bodies with
   `ghost`? Not asked for; off the table unless Kevin wants it.)
 - R4. Cast Line range: +10-15% after lever 1, or leave at 210?
+- R6 (PR 2). The Normal skirmisher's band takes the field to 88% and the mages lose to him (the class triangle says
+  mage beats skirmisher). Keep the band and pull data in PR 3 (what? speed, lights, HP: none of the hook levers
+  move it much), turn it off (`ai.band` false: 20%), or ask for a weaker Normal band (e.g. kept only some `think`
+  ticks, like the walk-in's 40% retreat)?
 - R5. `grab_air` on the hook: yes (snags juggled foes too) or no (a plain grab, like Gulp)?
 
 ## PRs
@@ -101,7 +105,31 @@ Kevin wants one.
    same). Benches barely moved (1v1 field 12% -> 15%, the four pairs 3/96 -> 4/96, assassin slot
    50% -> 58%, skills 8.2% -> 9.4% of his damage): the Normal CPU casts at 50 px into whoever is
    nearest, so the hook's reach is PR 2's job.
-2. `gillbert-cpu-lane`: lever 2 (CPU only), benches in the PR.
+2. `gillbert-cpu-lane`: lever 2 (CPU only, NET 74). **Done, and it overshoots.** What the brief assumed was wrong
+   in one place: `_plan_skirmish` and its `_engage_t` dive on `not foe.can_dodge()` are Rage-only; below Rage
+   Gillbert played the fighter's walk-in to `ai.range` (30), which is why fights sat at ~45 px, and his cast was
+   gated by the 8-way-era `absf(to_foe.y) < 18` check. Built (`src/ai/CLAUDE.md`): a Normal/Hard skirmish plan
+   (`_neutral_skirmish`: circle at 120, lights on a foe that walks in, dive only on a stuck foe (hitstun, crumple,
+   rooted, 12+ ticks of recovery) or one under 30%), a lane check for every straight shot it casts and for any
+   CPU's hook (`_lane_blocker`; sidestep `_lane_side`; the blocker only when stuck or under 30%), a mark that
+   prefers the reachable foe with the shortest `_reach_of` down an open lane (`_cast_mark`), and every CPU below
+   Rage dodges an unguardable shot (grab, guard-break, red tell) out of its line instead of guarding it.
+   Benches (Normal vs Normal, before = PR 1, after = this branch):
+
+   | bench | before | after |
+   | --- | --- | --- |
+   | 1v1 field, `--matrix --only=gillbert --seeds=5` | 15% | **88%** (Cerebro 80, Crease 80, Pete 70, Sno 70, Digby 80, the rest 100) |
+   | pairs `--seeds=12`: Cerebro / Crease / Culvert / Pete | 0 / 0 / 2 / 2 of 24, dist 50 / 49 / 46 / 37 | 19 / 24 / 24 / 17 of 24, dist 71 / 77 / 72 / 50 |
+   | poke-band share (`--only=gillbert --detail --seeds=12`, past his lights, inside 200 px) | 7-24%, avg dist 43 | 24-58%, avg dist 66 |
+   | assassin slot, `--slot=assassin --seeds=6` | 58% | **83%** |
+   | skill share, `--combat --only=gillbert --seeds=2` | 9.4% | 10% (lights 79%, 261 dmg/min, was 207) |
+   | full matrix `--seeds=3`, other rows without their Gillbert games | | within -4..+6 points (noise is about 9) |
+
+   Where the win rate comes from (field, scratch runs): the band with **no** hook at all is already 62%; casting
+   twice as rarely (cooldown 360) 85%; the hook made blockable again 92%; Gillbert 2.4 speed 82%. So it's the
+   band, not the hook: Normal walk-ins never catch a fighter who waits at the edge and jabs what walks in (as with
+   the mages' kite, Normal mages 63-74%). `ai.band` false (the old walk-in, with the band's cast) is 20% / slot
+   50%; dropping only the stale y-check on main's walk-in was 31%. Ruling R6 below.
 3. `gillbert-tune`: levers 3-4 as data, benched against main with 1-2 merged, same tables as
    the Craglash tune (#307).
 Each benched Normal vs Normal, both sides, `--seeds=12` for anything acted on.
