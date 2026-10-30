@@ -24,6 +24,7 @@ This is a recreation for the soft launch; when the artist delivers final sprites
 the same layout they drop in with no code changes.
 """
 import copy
+import heapq
 import math
 import os
 import sys
@@ -608,6 +609,199 @@ def draw_spikes(T, spikes, w=5.0):
     return outline(shade(img, "body", band=1))
 
 
+# ------------------------------------------------------------------ spikes and neck in order
+#
+# Phase 3 of docs/plans/craglash-anim.md. In the up, down and diagonal views the parts sort by
+# (depth, order). The crown and flank spikes used to ride the torso's layer at the hip's depth
+# while each neck stone sorted by its own, so the stones at the neck's root (inside the crown
+# ring, at nearly the crown's depth) flipped from under every crown spike to over all of them in
+# one frame as the neck arced. Now the torso is cut into pieces (torso_pieces: the body and each
+# spike, disjoint, so together they are exactly the old torso layer) and compose() orders a
+# stone against a spike by their own depths, measured the same way (the rig's depth3 at the
+# stone's centre and at the spike's base), plus a tie rule (SPIKE_BIAS): within 9 rig px the
+# neck is drawn over the spike (it rises from the middle of the ring, and the stones at its root
+# sit in front of the crown, as the idle frames always drew them); past that, the nearer one.
+# Facing up the head rides over the crown with its stones (else it would close a loop with them).
+# Every other pair keeps the old (depth, order) sort, so a frame where no stone changes sides
+# of a spike is pixel for pixel what it was. The side view keeps its fixed order (_render:
+# neck, then the torso with the crown; ruling R5).
+SPIKE_ORDER = os.environ.get("CRAGLASH_SPIKE_ORDER", "view")  # "hip": the old order (for compares)
+# Rig px added to a neck stone's key against a spike, per view (+ the neck wins a near tie, -
+# the crown does). The crown and the neck's root sit at nearly the same depth, so pure geometry
+# (0) flips them as the neck arcs (the pops: 43 frames). Tried (docs/maw-range/phase3/findings.md):
+# the crown winning facing down (-9) pushed the stones in front of his chest under the crown in
+# idle, backhand and guard, and still popped in coil; +9 in every view: no pops in any row.
+SPIKE_BIAS = {v: float(os.environ.get("CRAGLASH_BIAS_" + v.upper(), "9"))
+              for v in ("down", "down_side", "up", "up_side")}
+TRACE = None  # a list: compose() appends each frame's [(tag, mask)] in draw order (craglash_phase0.py check)
+
+
+def spike_mask(T, base, tip, w):
+    """One spike's own pixels (unshaded, no outline), as spike() draws it in draw_spikes."""
+    img = layer()
+    spike(Draw(img), T(base), T(tip), w, "body")
+    return np.array(img)[:, :, 3] > 0
+
+
+def _label(group, masks):
+    """Each pixel of `group` (a spike layer: all its spikes shaded and outlined together) given
+    to the spike it belongs to: its own pixels, then the outline grown out from them."""
+    lab = np.full(group.shape, -1, np.int16)
+    for i, m in enumerate(masks):
+        lab[group & m & (lab < 0)] = i
+    for _ in range(8):
+        free = group & (lab < 0)
+        if not free.any():
+            break
+        for i in range(len(masks)):
+            mine = lab == i
+            grow = (_shift(mine, 1, 0) | _shift(mine, -1, 0) | _shift(mine, 0, 1) | _shift(mine, 0, -1)) & free
+            lab[grow] = i
+            free &= ~grow
+    lab[group & (lab < 0)] = 0
+    return lab
+
+
+def torso_pieces(P, crown, body, flank):
+    """The torso layer (crown spikes, then the body over them, then the flank spikes) cut into
+    disjoint pieces: [(("body", 0) | ("crown", i) | ("flank", i), layer)]. Composited in any
+    order they give the torso layer exactly; each spike piece is what shows of that spike."""
+    t = layer()
+    for lay in (crown, body, flank):
+        t.alpha_composite(lay)
+    ta = np.array(t)
+    ca, ba, fa = (np.array(lay)[:, :, 3] > 0 for lay in (crown, body, flank))
+
+    def piece(m):
+        a = np.zeros_like(ta)
+        a[m] = ta[m]
+        return Image.fromarray(a)
+
+    out = [(("body", 0), piece(ba & ~fa))]
+    for kind, table, w, group in (("crown", CROWN, 5.5, ca & ~ba & ~fa), ("flank", FLANK, 4.5, fa)):
+        lab = _label(group, [spike_mask(P, b, tp, w) for b, tp in table])
+        for i in range(len(table)):
+            m = lab == i
+            if m.any():
+                out.append(((kind, i), piece(m)))
+    return out
+
+
+def _spike_tag(rig, tag):
+    """A torso piece's tag for compose(): a spike carries its base's depth, read as the
+    stones' depth3 reads theirs."""
+    kind, i = tag
+    if kind == "body":
+        return None
+    base = (CROWN if kind == "crown" else FLANK)[i][0]
+    if isinstance(rig, DRig):
+        # the torso is drawn square to the camera: a torso-local x is read back as sideways
+        a = math.radians(rig.p.lean)
+        h = -base[1] * TS * rig.p.sy
+        dep = rig.depth(rig.hip3[2] + h * math.sin(a), base[0] * TS * rig.lx)
+    else:
+        dep = rig.depth3(rig.T3(base))
+    return (kind, i, dep)
+
+
+NECK = ("stone", "head")
+
+
+def _neck_spike(ti, tj, up):
+    """Whether a pair goes by the spike rule: a neck stone and a spike, or facing up (where
+    the neck comes over the crown) the head and a spike too, so the head rides over the crown
+    with the stones it sits on instead of closing a loop with them."""
+    if not ti or not tj or ti[0] == "head" and tj[0] == "head":
+        return False
+    a, b = ti[0] in NECK, tj[0] in NECK
+    if a == b or (ti[0] if a else tj[0]) == "head" and not up:
+        return False
+    return True
+
+
+def compose(parts, view):
+    """Composites (depth, order, layer[, tag]) parts: the (depth, order) sort, except that a
+    neck stone and a spike that overlap go by their own depths and the view's rule (above).
+    Every layer is opaque (alpha 0 or 255), so a pixel shows the last layer drawn there and
+    only overlapping pairs need an order: a topological sort of those pairs, earliest
+    (depth, order) first. The rule wins a loop: an old-order pair that would close one with
+    the rule's pairs is dropped."""
+    parts = [p if len(p) > 3 else p + (None,) for p in parts]
+    up = view in ("up", "up_side")
+    idx = sorted(range(len(parts)), key=lambda i: (parts[i][0], parts[i][1]))
+    rank = {i: r for r, i in enumerate(idx)}
+    masks, box = {}, {}
+    for i in idx:
+        al = np.array(parts[i][2])[:, :, 3]
+        if ((al > 0) & (al < 255)).any():
+            raise RuntimeError("compose() needs opaque layers")
+        masks[i] = al > 0
+        ys, xs = np.nonzero(masks[i])
+        box[i] = (ys.min(), ys.max(), xs.min(), xs.max()) if len(ys) else None
+    succ = {i: set() for i in idx}
+    rule, old = [], []
+    for a in range(len(idx)):
+        i = idx[a]
+        if box[i] is None:
+            continue
+        for b in range(a + 1, len(idx)):
+            j = idx[b]
+            bi, bj = box[i], box[j]
+            if bj is None or bi[1] < bj[0] or bj[1] < bi[0] or bi[3] < bj[2] or bj[3] < bi[2]:
+                continue
+            if not (masks[i] & masks[j]).any():
+                continue
+            (rule if _neck_spike(parts[i][3], parts[j][3], up) else old).append((i, j))
+
+    def reaches(a, b):
+        seen, todo = set(), [a]
+        while todo:
+            n = todo.pop()
+            if n == b:
+                return True
+            if n not in seen:
+                seen.add(n)
+                todo.extend(succ[n])
+        return False
+
+    # The rule's pairs first (they never loop among themselves: every one points from spike to
+    # neck, or every one from neck to spike), then the old order wherever it doesn't close a loop
+    # with them (say facing down: the root stone in front of the head, the head over the crown,
+    # the crown over the root stone: the head goes over that stone).
+    for i, j in rule:   # i is drawn first in the old order
+        lo, hi = i, j
+        if SPIKE_ORDER != "hip":
+            st, sp = (i, j) if parts[i][3][0] in NECK else (j, i)
+            stone_key = parts[st][3][2] + SPIKE_BIAS[view]
+            spike_key = parts[sp][3][2]
+            lo, hi = (sp, st) if stone_key > spike_key else (st, sp)
+        if not reaches(hi, lo):
+            succ[lo].add(hi)
+    for i, j in old:
+        if not reaches(j, i):
+            succ[i].add(j)
+    indeg = {i: 0 for i in idx}
+    for i in idx:
+        for j in succ[i]:
+            indeg[j] += 1
+    ready = [rank[i] for i in idx if indeg[i] == 0]
+    heapq.heapify(ready)
+    order = []
+    while ready:
+        i = idx[heapq.heappop(ready)]
+        order.append(i)
+        for j in succ[i]:
+            indeg[j] -= 1
+            if indeg[j] == 0:
+                heapq.heappush(ready, rank[j])
+    img = layer()
+    for i in order:
+        img.alpha_composite(parts[i][2])
+    if TRACE is not None and not NORMAL_PASS[0]:
+        TRACE.append([(parts[i][3], masks[i]) for i in order])
+    return img
+
+
 BELLY = [(-7, -3), (-9, -7), (-8, -12), (-4, -15), (0, -16), (4, -15), (8, -12), (9, -7), (7, -3), (0, -2)]
 
 
@@ -1119,9 +1313,9 @@ def _bezier3(p0, p1, p2, p3, t):
 
 
 def v_torso(vr):
+    """The torso as pieces (torso_pieces): the body, each crown spike and each flank spike."""
     P = lambda v: vr.P(vr.T3(v))
-    img = layer()
-    img.alpha_composite(draw_spikes(P, CROWN, 5.5))
+    crown = draw_spikes(P, CROWN, 5.5)
     body = layer()
     d = Draw(body)
     d.polygon([P(v) for v in TORSO], fill=C["body"])
@@ -1146,9 +1340,7 @@ def v_torso(vr):
             for v in [(-7, -14), (6, -13), (-3, -7), (8, -5)]:
                 dd.point(P(v), fill=C["glow"])
         body.alpha_composite(clip_to(det, body))
-    img.alpha_composite(outline(body))
-    img.alpha_composite(draw_spikes(P, FLANK, 4.5))
-    return img
+    return torso_pieces(P, crown, outline(body), draw_spikes(P, FLANK, 4.5))
 
 
 def _outward_ik(root, target, l1, l2, side):
@@ -1358,20 +1550,20 @@ def render_view(pose, view):
         parts.append((-100, 0, outline(lay, "stone")))
     for i in (0, 1):
         parts.append((vr.depth(vr.hip3[2]) - 0.5, 1, v_leg(vr, i)))  # tucked under the torso
-    parts.append((vr.depth(vr.hip3[2]), 2, v_torso(vr)))
+    hip = vr.depth(vr.hip3[2])
+    for tag, lay in v_torso(vr):
+        parts.append((hip, 2, lay, _spike_tag(vr, tag)))
     for i in (0, 1):
         # Arms hang behind the torso's edges unless they reach toward the camera.
         reach = vr.depth(vr.hand3(i)[2] - vr.shoulder3(i)[2])
         parts.append((vr.depth(vr.hip3[2]) + (reach * 0.6 + 0.3 if reach > 4 else -0.3), 3, v_arm(vr, i)))
     if not pose.scatter:
-        for dep, lay in v_neck_stones(vr):
-            parts.append((dep + 0.2, 4, lay))
+        for k, (dep, lay) in enumerate(v_neck_stones(vr)):
+            parts.append((dep + 0.2, 4, lay, ("stone", k, dep)))
     if not pose.headless:
-        parts.append((vr.depth(vr.head3()[2]) + 0.6, 5, v_head(vr)))
-    img = layer()
-    for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
-        img.alpha_composite(lay)
-    return finish(img)
+        dep = vr.depth(vr.head3()[2])
+        parts.append((dep + 0.6, 5, v_head(vr), ("head", 0, dep)))
+    return finish(compose(parts, view))
 
 
 # ------------------------------------------------------------------ the diagonals
@@ -1449,9 +1641,9 @@ class DRig(VRig):
 
 
 def d_torso(dr):
+    """The torso as pieces (torso_pieces), square to the camera."""
     P = dr.torso2
-    img = layer()
-    img.alpha_composite(draw_spikes(P, CROWN, 5.5))
+    crown = draw_spikes(P, CROWN, 5.5)
     body = layer()
     d = Draw(body)
     d.polygon([P(v) for v in TORSO], fill=C["body"])
@@ -1482,9 +1674,7 @@ def d_torso(dr):
             for v in [(-7, -14), (6, -13), (-3, -7), (8, -5)]:
                 dd.point(B(v), fill=C["glow"])
         body.alpha_composite(clip_to(det, body))
-    img.alpha_composite(outline(body))
-    img.alpha_composite(draw_spikes(P, FLANK, 4.5))
-    return img
+    return torso_pieces(P, crown, outline(body), draw_spikes(P, FLANK, 4.5))
 
 
 def d_leg(dr, i):
@@ -1647,7 +1837,8 @@ def render_diag(pose, view):
     for i in (0, 1):
         # under the torso, the near leg over the far one
         parts.append((body - 1.0 + 0.1 * i, 1, d_leg(dr, i)))
-    parts.append((body, 2, d_torso(dr)))
+    for tag, lay in d_torso(dr):
+        parts.append((body, 2, lay, _spike_tag(dr, tag)))
     for i in (0, 1):
         # The near arm hangs in front of the torso; the far one behind it, unless it swings
         # across the body or reaches well toward the camera.
@@ -1655,16 +1846,14 @@ def render_diag(pose, view):
         front = i == 1 or pose.arm0_front or reach > 8
         parts.append((body + (0.5 + max(0.0, reach) * 0.1 if front else -0.5), 3, d_arm(dr, i)))
     if not pose.scatter:
-        for dep, lay in v_neck_stones(dr):
-            parts.append((dep + 0.2, 4, lay))
+        for k, (dep, lay) in enumerate(v_neck_stones(dr)):
+            parts.append((dep + 0.2, 4, lay, ("stone", k, dep)))
     # From behind, the neck's top stones would hide most of the head; the head sits on them
     # instead, so the mane and the face's edge read.
     if not pose.headless:
-        parts.append((dr.depth3(dr.head3()) + (0.6 if view == "down_side" else 6.0), 5, d_head(dr)))
-    img = layer()
-    for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
-        img.alpha_composite(lay)
-    return finish(img)
+        dep = dr.depth3(dr.head3())
+        parts.append((dep + (0.6 if view == "down_side" else 6.0), 5, d_head(dr), ("head", 0, dep)))
+    return finish(compose(parts, view))
 
 
 # ------------------------------------------------------------------ animations
@@ -2090,13 +2279,22 @@ def nohead(poses):
     out = []
     for q in poses:
         q = copy.copy(q)
-        lift = q.head_lift
+        lift = HEAD_LIFT   # lash's own lift, even on a pose that lies on the floor (ko_nohead)
         q.headless = True
         q.head = (MAW_END["head"][0], MAW_END["head"][1] - lift)
         q.c2 = (MAW_END["c2"][0], MAW_END["c2"][1] - lift)
         q.c1 = (5, -50 - lift * 0.5)
         out.append(q)
     return out
+
+
+def ko_nohead():
+    """The knockout (and the knockdown, which shows ko 1-2) while his head is off flying: ko 0-2
+    with the neck stretched up to MAW_END and no head, then frame 2 held (the neck holds out
+    until the head is home; the game then shows the ko row, where the neck has burst). Side
+    only, like ko."""
+    rows = nohead(ko()[:3])
+    return rows + [rows[2]] * 3
 
 
 def bedrock_new():
@@ -2210,9 +2408,10 @@ ROWS = [
     ("hurt_nohead", nohead(hurt())),    # hurt and guard while the head flies (hit mid-Maw)
     ("guard_nohead", nohead(guard())),
     ("ko", ko()),
+    ("ko_nohead", ko_nohead()),   # the knockout while the head flies (KO mid-Maw); side only
 ]
-# Up and down sheets: every row but the knockout, which falls over sideways in any view.
-VIEW_ROWS = ROWS[:-1]
+# Up and down sheets: every row but the knockouts, which fall over sideways in any view.
+VIEW_ROWS = ROWS[:-2]
 
 
 # ------------------------------------------------------------------ animation tools
@@ -2459,7 +2658,7 @@ def maw_keys():
     finally:
         F, FH, OX, OY = saved
     out = {}
-    for name in ("lash", "hurt_nohead", "guard_nohead"):
+    for name in ("lash", "hurt_nohead", "guard_nohead", "ko_nohead"):
         row = rows[name]
         heads = [k for k, q in enumerate(row) if getattr(q, "headless", False)]
         if not all(whole_pixels(row[k]).head == pose.head and whole_pixels(row[k]).c2 == pose.c2 for k in heads):
