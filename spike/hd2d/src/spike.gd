@@ -22,6 +22,17 @@ var _shot_frame := -1
 var _shot_name := ""
 var _shot_n := 0
 var _shot_pending := false
+var sim: MatchSim
+var fighters: Array = []
+var cpus: Array = [null, null]
+var pin: PlayerInput
+var run_ticks := -1
+var cpu_vs_cpu := false
+var facing_test := false
+var determinism := false
+var anim_log := false
+var seed_base := 1
+var _quit_after_shot := false
 
 
 func _ready() -> void:
@@ -43,6 +54,18 @@ func _ready() -> void:
 			dof_on = false
 		elif a == "--no-shadows":
 			shadows_on = false
+		elif a.begins_with("--run="):
+			run_ticks = int(a.substr(6))
+		elif a == "--cpu-vs-cpu":
+			cpu_vs_cpu = true
+		elif a.begins_with("--seed="):
+			seed_base = int(a.substr(7))
+		elif a == "--facing-test":
+			facing_test = true
+		elif a == "--determinism":
+			determinism = true
+		elif a == "--anim-log":
+			anim_log = true
 		elif a == "--mobile":
 			glow_on = false
 			ssao_on = false
@@ -60,7 +83,125 @@ func _ready() -> void:
 	cam.current = true
 	frame_camera(pitch_deg)
 	_apply_toggles()
+	Engine.physics_ticks_per_second = SimDefs.TICK_RATE
+	_start_match()
 	print("spike: ready (pitch %d, fov %d, ortho %s)" % [int(pitch_deg), int(FOV), "on" if ortho else "off"])
+
+
+func _new_cpu(i: int) -> CpuController:
+	return CpuController.new(i, 1, seed_base * 101 + i * 7 + i)  # level 1 = Normal
+
+
+func _start_match() -> void:
+	if determinism:
+		_run_determinism()
+		return
+	sim = MatchFactory.versus("digby", "digby")
+	var def: Dictionary = sim.creatures[0].def
+	for i in 2:
+		var f := Fighter3D.new(def)
+		add_child(f)
+		fighters.append(f)
+	cpus[1] = _new_cpu(1)
+	if cpu_vs_cpu:
+		cpus[0] = _new_cpu(0)
+	else:
+		pin = PlayerInput.new()
+		pin.layout = "classic"
+		print("spike: P1 is keyboard (PlayerInput, classic layout)")
+	if facing_test:
+		_run_facing_test()
+		return
+	_sync_all()
+
+
+func _sync_all() -> void:
+	for i in 2:
+		(fighters[i] as Fighter3D).sync(sim.creatures[i], cam)
+
+
+func _mouse_world() -> Vector2:
+	var m := get_viewport().get_mouse_position()
+	var o := cam.project_ray_origin(m)
+	var d := cam.project_ray_normal(m)
+	if absf(d.y) < 0.0001:
+		return Vector2.ZERO
+	var t := -o.y / d.y
+	var h := o + d * t
+	return Vector2(h.x, h.z)
+
+
+func _run_facing_test() -> void:
+	var dirs := [["right", Vector2(1, 0)], ["down-right", Vector2(1, 1)], ["down", Vector2(0, 1)],
+		["down-left", Vector2(-1, 1)], ["left", Vector2(-1, 0)], ["up-left", Vector2(-1, -1)],
+		["up", Vector2(0, -1)], ["up-right", Vector2(1, -1)]]
+	var f: Fighter3D = fighters[0]
+	for d in dirs:
+		var v: Vector2 = (d[1] as Vector2).normalized()
+		sim.creatures[0].facing = v
+		f.flip = false  # (the dead band keeps the last flip; start clean per direction)
+		f.sync(sim.creatures[0], cam)
+		print("spike: facing (%.2f, %.2f) %s -> view %s flip %s" % [v.x, v.y, d[0], f.view, f.flip])
+	get_tree().quit()
+
+
+func _bits(i: int) -> int:
+	if cpus[i] != null:
+		return (cpus[i] as CpuController).bits(sim)
+	return pin.bits(sim, i, _mouse_world())
+
+
+func _physics_process(_d: float) -> void:
+	if sim == null or facing_test or determinism:
+		return
+	var inputs := PackedInt32Array([_bits(0), _bits(1)])
+	sim.step(inputs)
+	_sync_all()
+	if anim_log and sim.tick <= 600 and sim.tick % 30 == 0:
+		var f: Fighter3D = fighters[0]
+		print("spike: t=%d p1 state=%s view=%s frame=%d" % [sim.tick, CreatureSim.State.keys()[sim.creatures[0].state], f.view, f.last_frame])
+	if run_ticks >= 0 and sim.tick >= run_ticks and _shot_frame < 0:
+		get_tree().quit()
+
+
+## Plays two CPU-vs-CPU matches; returns {pos, digest, first_diff info} data for compare.
+func _play(ticks: int, with_view: bool) -> Array:
+	var s := MatchFactory.versus("digby", "digby")
+	var cs := [CpuController.new(0, 1, seed_base * 101), CpuController.new(1, 1, seed_base * 101 + 8)]
+	var fs: Array = []
+	if with_view:
+		for i in 2:
+			var f := Fighter3D.new(s.creatures[0].def)
+			add_child(f)
+			fs.append(f)
+	var trace: Array = []
+	for t in ticks:
+		s.step(PackedInt32Array([cs[0].bits(s), cs[1].bits(s)]))
+		if with_view:
+			for i in 2:
+				(fs[i] as Fighter3D).sync(s.creatures[i], cam)
+		trace.append([s.creatures[0].pos, s.creatures[1].pos])
+	for f in fs:
+		f.queue_free()
+	return [trace, s.state_digest()]
+
+
+func _cmp(a: Array, b: Array, label: String) -> void:
+	var n: int = a[0].size()
+	for t in n:
+		if a[0][t] != b[0][t]:
+			print("spike: determinism MISMATCH (%s) first differing tick %d" % [label, t + 1])
+			return
+	if a[1] != b[1]:
+		print("spike: determinism MISMATCH (%s) digest differs, positions equal" % label)
+		return
+	print("spike: determinism OK (%s) %d ticks, digest %s" % [label, n, str(a[1]).md5_text().substr(0, 8)])
+
+
+func _run_determinism() -> void:
+	_cmp(_play(600, false), _play(600, false), "no view x2")
+	_cmp(_play(600, true), _play(600, false), "view synced vs not")
+	get_tree().quit()
 
 
 func _build_floor() -> void:
@@ -227,7 +368,8 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func _process(_d: float) -> void:
-	if _shot_frame >= 0 and not _shot_pending and Engine.get_process_frames() >= _shot_frame:
+	var now := sim.tick if sim != null else Engine.get_process_frames()  # (ticks once a match runs)
+	if _shot_frame >= 0 and not _shot_pending and now >= _shot_frame:
 		_shot_pending = true
 		_save_shot(_shot_name)
 
