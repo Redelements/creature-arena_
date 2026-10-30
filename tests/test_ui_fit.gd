@@ -15,7 +15,7 @@ const TEST_SETTINGS := "user://test_ui_fit.cfg"
 const SIZES := [Vector2i(1920, 1080), Vector2i(1440, 810), Vector2i(2400, 1080), Vector2i(2340, 1080),
 	Vector2i(1280, 800), Vector2i(2048, 1536)]
 const PAGES := ["main", "single", "look", "settings", "game", "video", "audio", "accessibility", "controls",
-	"remap:classic", "remap:league", "remap:gamepad", "credits", "credits:godot", "credits:notices"]
+	"remap:classic", "remap:league", "remap:gamepad", "credits", "credits:justin", "credits:godot", "credits:notices"]
 ## The Profile's pages (Settings > Game > Progression on): the Profile, the account's and
 ## every fighter's; and the Single player hub (its today card) and Challenges (the Weekly's row).
 const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:challenges", "profile:endings", "ending:cairn", "ending:gillbert", "ending:crease", "profile:cairn", "profile:culvert", "profile:craglash",

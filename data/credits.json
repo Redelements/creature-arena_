@@ -1,0 +1,22 @@
+{
+	"sections": [
+		{
+			"heading": "Team",
+			"note": "Kevin, Jake, Justin and Anthony all drew the fighters by hand; the drawings were then adapted into the game's pixel art.",
+			"people": [
+				{"id": "kevin", "name": "Kevin Winstead", "handle": "Redelements", "role": "CTO", "tagline": "Benevolent Dictator"},
+				{"id": "jake", "name": "Jake Johnston", "handle": "Dirknasty", "role": "COO", "tagline": "Maverick Virtuoso"},
+				{"id": "justin", "name": "Justin Brown", "handle": "Cyanical", "role": "Lead Combat Designer", "tagline": "Combat Vision"},
+				{"id": "anthony", "name": "Anthony Smith", "handle": "Cheffy916", "role": "Chief Brand Officer", "tagline": "Head of Growth"}
+			]
+		},
+		{
+			"heading": "Consultants",
+			"note": "",
+			"people": [
+				{"id": "billcrittin", "name": "Justin Foster", "handle": "BillCrittin", "role": "Consultant", "tagline": "Chief Instigator"},
+				{"id": "broobs", "name": "David Taylor", "handle": "Broobs", "role": "Consultant", "tagline": "Secret Weapon"}
+			]
+		}
+	]
+}

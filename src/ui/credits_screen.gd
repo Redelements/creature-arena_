@@ -1,16 +1,17 @@
 class_name CreditsScreen
 extends UiScreen
-## Settings > Credits: who made the game, the bought art and the free font it uses, and
-## Godot Engine's copyright. Each row's credit shows in the panel on the right; pressing a
+## Settings > Credits: the people who make the game (data/credits.json), the bought art and
+## the free font it uses, and Godot Engine's copyright. Each row's credit shows in the panel on the right; pressing a
 ## row opens its full text (the licence terms, which files; Godot's MIT licence; the
 ## third-party notices of the libraries inside the engine) on a scrolling TextPage.
 ## LICENSES.md at the repo root says the same at length.
 
+## The people (the team, the consultants: names, handles, roles, taglines, the hand-drawn
+## art line): edit them there, not here.
+const PEOPLE_PATH := "res://data/credits.json"
+
 ## id, the row, the panel's text, and the full page (Godot's pages are built at runtime).
 const ENTRIES := [
-	{"id": "game", "row": "Ready 4 Rambles",
-		"short": "Made by Kevin (Redelements). The fighters, most of the arenas and effects, and all the sound and music are made by the game's own generators.",
-		"full": "Ready 4 Rambles\nMade by Kevin (Redelements).\n\nThe fighters, most of the arenas and effects, the logo, and all the sound and music are made by the game's own generators (the scripts in tools/).\n\nThe bought art, the font and the engine are credited on the other rows."},
 	{"id": "szadi", "row": "Szadi art",
 		"short": "Art by Szadi art: ground tiles and arena pieces from RPG Fantasy Worlds Set 1 (the RPG Worlds bundle) and Fantasy Lands Warrior. szadiart.itch.io",
 		"full": "Art by Szadi art\nszadiart.itch.io\n\nRPG Worlds bundle (RPG Fantasy Worlds Set 1) and Fantasy Lands Warrior, bought October 2026.\n\nUsed: the ground tiles, the crack and pit tiles and the arena pieces (boulders, tall grass) of the tiled arenas, cut from Set 1 and recoloured to the game's palette.\n\nLicence: commercial use, editing and selling works made with the art are allowed. Not allowed: reselling the art, original or modified, or using it in a logo, trademark or service mark. The cut files are not covered by the game's own terms and may not be reused."},
@@ -23,6 +24,8 @@ const ENTRIES := [
 	{"id": "godot", "row": "Godot Engine", "short": "", "full": ""},
 	{"id": "notices", "row": "Third-party notices", "short": "", "full": ""},
 ]
+
+static var _sections := []
 
 var _rows_by_id := {}
 
@@ -39,6 +42,14 @@ func _init() -> void:
 
 
 func build() -> void:
+	for sec in sections():
+		add_heading(String(sec["heading"]))
+		for p in sec["people"]:
+			var id := String(p["id"])
+			var b := add_button(String(p["name"]), func(): open_page(id), short_text(id))
+			_rows_by_id[id] = b
+		add_space(3)
+	add_heading("Made with")
 	for e in ENTRIES:
 		var id := String(e["id"])
 		var b := add_button(String(e["row"]), func(): open_page(id), short_text(id))
@@ -47,8 +58,50 @@ func build() -> void:
 	add_button("Back", back)
 
 
+## data/credits.json's sections, read once: {heading, note, people: [{id, name, handle,
+## role, tagline}]}, in the order the page lists them.
+static func sections() -> Array:
+	if _sections.is_empty():
+		var f := FileAccess.open(PEOPLE_PATH, FileAccess.READ)
+		var parsed = JSON.parse_string(f.get_as_text()) if f != null else null
+		if parsed is Dictionary:
+			_sections = parsed.get("sections", [])
+	return _sections
+
+
+## Everyone the page credits by name, in order.
+static func people() -> Array:
+	var out := []
+	for sec in sections():
+		out.append_array(sec["people"])
+	return out
+
+
+## A person's lines: handle, role, tagline, then their section's note (the hand-drawn art).
+static func _person_text(id: String) -> String:
+	for sec in sections():
+		for p in sec["people"]:
+			if String(p["id"]) == id:
+				var t := "%s
+%s
+\"%s\"" % [p["handle"], p["role"], p["tagline"]]
+				return t + ("
+
+" + String(sec["note"]) if String(sec.get("note", "")) != "" else "")
+	return ""
+
+
+static func _person_name(id: String) -> String:
+	for p in people():
+		if String(p["id"]) == id:
+			return String(p["name"])
+	return ""
+
+
 ## The panel's text for a row.
 static func short_text(id: String) -> String:
+	if _person_name(id) != "":
+		return _person_text(id)
 	match id:
 		"godot":
 			return "Made with Godot Engine (godotengine.org), MIT licence. %s Press for the licence." \
@@ -64,6 +117,9 @@ static func short_text(id: String) -> String:
 
 ## A row's full page text.
 static func full_text(id: String) -> String:
+	if _person_name(id) != "":
+		return "%s
+%s" % [_person_name(id), _person_text(id)]
 	match id:
 		"godot":
 			return "Godot Engine\ngodotengine.org/license\n\n" + Engine.get_license_text()
@@ -113,6 +169,6 @@ func open_page(id: String) -> void:
 	stack.push(p)
 
 
-## The row for `id` ("game", "szadi", "kiddolink", "font", "godot", "notices").
+## The row for `id` (a person's id from data/credits.json, "szadi", "kiddolink", "font", "godot", "notices").
 func row(id: String) -> Button:
 	return _rows_by_id.get(id)

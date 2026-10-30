@@ -26,6 +26,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 | `voice.json` | Proximity voice chat (`VoiceChat`, `VoiceView`; not read by the sim): `sample_rate` (Hz on the wire), `frame_ms` (one codec frame), `frames_per_packet`, `full_radius` / `silent_radius` (world px: full volume inside, silent past it, squared fade between), `team_floor` (a teammate's least gain), `pan_width` (px to the side for full left/right), `gate_db` / `gate_hold_ms` (open mic: the level that opens it, how long it stays open), `ptt_release_ms` (push to talk keeps sending after the key is let go), `jitter_ms` (wait before a burst plays), `max_buffer_ms` (most queued per speaker), `talk_show_ms` (how long the speaker icon stays after a packet) |
 | `online.json` | The game's server host; `rematch_pick_seconds`, `rematch_locked_seconds`; `server_replays_keep` (match replays a dedicated server keeps on disk, oldest deleted first; not in the data hash) |
 | `accessibility.json` | Settings > Accessibility (views only; not read by the sim, not in the online data hash; `src/view/accessibility.gd`): `teams` (`default`, the game's own colours, and `colour_safe`, Okabe & Ito's palette: each with `sides` [left, right], `brawl` (four), `self`, `ally`, `enemy`, `neutral`), `outlines` (`team` / `high_contrast`: `outer` a colour or `"team"` for the fighter's marker colour, `inner` a colour or `""` for none, `alpha`), `hit_markers` (`default` / `high_contrast`, the same keys: `spark_scale`, `spark_width_add`, `spark_outline`, `spark_outline_width`, `number_size_add`, `number_outline_add`, `number_shadow` [x, y], `number_shadow_color`, `full_flash`) |
+| `credits.json` | Settings > Credits' people (`src/ui/credits_screen.gd`; not read by the sim, not in the online data hash): `sections` in page order, each `heading`, `note` (shown under every person's lines in that section; "" for none) and `people` (`id` stable, used by `--menu=credits:<id>`; `name`, `handle`, `role`, `tagline`) |
 | `discord.json` | Discord Rich Presence: `client_id` (empty turns it off), `large_image`, `fighter_images` |
 
 ## Gotchas
@@ -45,6 +46,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 - `audio.json`
 - `challenges.json`
 - `creatures/` — barkley, cairn, cerebro, craglash, crease, culvert, digby, dummy, gillbert, hissy, pete, sno
+- `credits.json`
 - `discord.json`
 - `endings/` — barkley, cairn, cerebro, craglash, crease, culvert, digby, gillbert, hissy, pete, sno
 - `online.json`

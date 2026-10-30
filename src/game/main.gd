@@ -84,7 +84,7 @@ extends Node2D
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
-##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
+##                         remap:classic|league|gamepad, credits, credits:<row> (a person's id in data/credits.json, szadi,
 ##                         kiddolink, font, godot, notices), profile, profile:account, profile:challenges,
 ##                         profile:endings, profile:<fighter>, ending:<fighter> (one Arcade ending card)
 ##                         (with Settings > Game > Progression on) (captures)
@@ -995,6 +995,13 @@ func _open_menu(page := "", focus := "") -> void:
 		if Progress.enabled() and ef in MatchFactory.FIGHTERS:
 			ui.push(EndingScreen.new(ef, true))
 		return
+	if page.begins_with("credits:"):  # one row's full page: a person's id in data/credits.json, szadi, godot...
+		settings_ctl._open_settings()
+		settings_ctl._open_credits()
+		var cs := ui.top() as CreditsScreen
+		if cs.row(page.get_slice(":", 1)) != null:
+			cs.open_page(page.get_slice(":", 1))
+		return
 	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
 		_open_single()
 		_open_single_group(page.get_slice(":", 1))
@@ -1020,10 +1027,6 @@ func _open_menu(page := "", focus := "") -> void:
 		"credits":
 			settings_ctl._open_settings()
 			settings_ctl._open_credits()
-		"credits:game", "credits:szadi", "credits:kiddolink", "credits:font", "credits:godot", "credits:notices":
-			settings_ctl._open_settings()
-			settings_ctl._open_credits()
-			(ui.top() as CreditsScreen).open_page(page.get_slice(":", 1))
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
 			settings_ctl._open_settings()
 			settings_ctl._open_controls()
