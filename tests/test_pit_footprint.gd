@@ -229,3 +229,35 @@ func test_a_hole_with_a_chasm_corner_stays_a_hole() -> void:
 	t.sink(ANCHOR + Vector2i(2, 0))
 	var p := t.cell_rect(ANCHOR).position + Vector2(4, 0)
 	assert_false(t.footprint_chasm(p, 13.0), "more hole than chasm, centre on a hole")
+
+
+func _sunk_top_row() -> MatchSim:
+	var sim := MatchFactory.versus("cairn", "culvert")
+	sim.fall_ko = true
+	for cx in sim.terrain.cols:
+		sim.terrain.sink(Vector2i(cx, 0))
+	sim.creatures[1].pos = sim.terrain.cell_center(Vector2i(45, 20))
+	for c in sim.creatures:
+		c.invuln = 0
+	return sim
+
+
+func test_hugging_the_top_wall_over_a_sunk_top_row_falls() -> void:
+	# Sinkhole's ring 0 sinks the top row. A body hugging the top wall (its centre EDGE_TOP
+	# px into row 0) has its three upward points past the grid: they read the edge row (a
+	# chasm), not floor, so it falls and is knocked out, as under the centre-point rule.
+	var sim := _sunk_top_row()
+	var c := sim.creatures[0]
+	c.pos = Vector2(sim.terrain.cell_center(Vector2i(20, 0)).x, SimDefs.GRID_Y + CreatureSim.EDGE_TOP)
+	assert_true(sim.terrain.footprint_falls(c.pos, c.radius), "the footprint over the sunk row falls")
+	assert_eq(_fall_pit(sim, 200), "chasm", "the fall event's pit:")
+	assert_eq(c.state, CreatureSim.State.KO, "knocked out:")
+
+
+func test_a_walk_up_never_steps_onto_a_sunk_top_row() -> void:
+	var sim := _sunk_top_row()
+	var c := sim.creatures[0]
+	c.pos = Vector2(sim.terrain.cell_center(Vector2i(20, 0)).x, SimDefs.GRID_Y + 30.0)
+	var fell := run_until(sim, func(): return c.state == CreatureSim.State.FALLING, 90, SimDefs.IN_UP)
+	assert_false(fell, "walking up stops at the lip")
+	assert_gt(c.pos.y, SimDefs.GRID_Y + SimDefs.CELL - 0.01, "its centre stays off the sunk row:")
