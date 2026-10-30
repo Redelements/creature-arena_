@@ -655,6 +655,17 @@ func _plan_column(slots: Array, loc: Array, all: bool, panels: Array, cards: Arr
 				cards.append(i)
 
 
+## How far down the screen the tallest column of panels and cards reaches (the camera keeps
+## the fighters out from under it).
+func panels_height() -> float:
+	var plan := panel_plan()
+	var most := 0.0
+	for col in 2:
+		var h := 3.0 + 38.0 * (plan["panels"][col] as Array).size() + 13.0 * (plan["cards"][col] as Array).size()
+		most = maxf(most, h)
+	return most
+
+
 func _draw_panels() -> void:
 	var plan := panel_plan()
 	for col in 2:

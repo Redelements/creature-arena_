@@ -377,3 +377,47 @@ func test_the_join_screen_sides_feed_the_team_pick_and_the_match() -> void:
 		"red: seats 2 and 3; blue: seat 1 and a CPU:")
 	assert_eq(String(g.sim.creatures[2].def["id"]), String(cs.teams[0][0]), "player 1 plays their own pick, on blue")
 	g.free()
+
+
+# ------------------------------------------------------------------ co-op: everyone vs the CPU
+
+func test_coop_puts_everyone_on_one_side_against_a_cpu_side() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(g.mode_index("Team battle: 4v4 co-op vs CPU"))
+	var P: int = g.Side.PLAYER
+	assert_eq(g.sides, [P, g.Side.PLAYER2, g.Side.PLAYER3, g.Side.PLAYER4, g.Side.CPU, g.Side.CPU, g.Side.CPU, g.Side.CPU],
+		"four people on red, four CPUs on blue:")
+	assert_eq(g.team_battle.size, 4, "a 4v4 on the team rules (max_size 4)")
+	assert_eq(g._viewer_team(), 0, "one team here: its vision")
+	g._cli_locals = 2
+	g._start_match(g.mode_index("Capture the Flag: 4v4 co-op vs CPU"))
+	assert_eq(g.sides, [P, g.Side.PLAYER2, g.Side.CPU, g.Side.CPU, g.Side.CPU, g.Side.CPU, g.Side.CPU, g.Side.CPU],
+		"two people and two CPU teammates:")
+	assert_true(g.team_battle.ctf, "")
+	assert_eq(g.local_slots(), [0, 1], "")
+	g._start_match(g.mode_index("Team Deathmatch: 4v4 co-op vs CPU"))
+	assert_eq(g.team_battle.score_to_win(), 18, "a 4v4 Deathmatch has its own target")
+	g.free()
+
+
+func test_the_coop_join_screen_never_asks_for_a_side() -> void:
+	var g := _game()
+	g._start_match(g.mode_index("Team battle: 4v4 co-op vs CPU"))
+	var ss: SeatScreen = g.ui.top()
+	assert_false(ss.teams, "no sides to pick")
+	assert_eq(ss.need, 1, "")
+	_press("ui_accept")
+	g.seats.claim(3)
+	_pad(3, JOY_BUTTON_DPAD_RIGHT)
+	assert_eq(g.seats.side_of_seat(1), 0, "Right changes nothing: everyone is red")
+	_press("ui_accept")
+	var cs: CharacterSelect = g.ui.top()
+	assert_eq(cs.players, 2, "")
+	assert_eq(String(cs.labels[1]), "PLAYER 2", "no side on the label")
+	for p in 2:
+		cs.pick(p, true)
+	cs._process(CharacterSelect.START_DELAY + 0.1)
+	assert_eq(g.sides.slice(0, 4), [g.Side.PLAYER, g.Side.PLAYER2, g.Side.CPU, g.Side.CPU], "")
+	assert_eq(g.sides.slice(4), [g.Side.CPU, g.Side.CPU, g.Side.CPU, g.Side.CPU], "")
+	g.free()

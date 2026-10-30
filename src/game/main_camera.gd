@@ -110,6 +110,11 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 	var any := false
 	var big := size.x > SimDefs.ARENA_W * 1.15 or size.y > SimDefs.ARENA_H * 1.15
 	var anchor := _cam_anchor() if big else -1
+	# Several people here on a big map (co-op): no one to follow, so the camera frames the
+	# people here, and a foe only when it is near one of them (the HUD points at the rest).
+	var crew: Array = main.local_slots() if big and anchor < 0 else []
+	if crew.size() < 2:
+		crew = []
 	var n := main.sim.creatures.size()
 	if main._cam_prev.size() != n:
 		main._cam_prev.resize(n)
@@ -130,6 +135,8 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 			continue
 		if anchor >= 0 and i != anchor and c.pos.distance_to(main.sim.creatures[anchor].pos) > Main.FOLLOW_R:
 			continue
+		if not crew.is_empty() and not (i in crew) and not _near_any(c, crew):
+			continue
 		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
 		body = body.expand(c.pos)
 		box = body if not any else box.merge(body)
@@ -139,7 +146,9 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 	if not any:
 		return
 	var tight := box  # the fighters alone, heads to feet
-	box = box.grow_individual(Main.CAM_PAD.x, Main.CAM_PAD.y + 24.0, Main.CAM_PAD.x, Main.CAM_PAD.y)  # the HUD sits up top
+	# The HUD sits up top: one panel's worth, more when panels stack (several people here).
+	var hud_room := 24.0 + maxf(0.0, main.hud.panels_height() - 41.0)
+	box = box.grow_individual(Main.CAM_PAD.x, Main.CAM_PAD.y + hud_room, Main.CAM_PAD.x, Main.CAM_PAD.y)
 	var whole := minf(view.x / size.x, view.y / size.y)  # zoom that shows the whole stadium
 	var least := minf(whole, 1.0)
 	if anchor >= 0:
@@ -353,8 +362,17 @@ static func _lead_room(lead: Vector2, follow: Vector2, tight: Rect2, half: Vecto
 		clampf(lead.y, minf(lo.y, 0.0), maxf(hi.y, 0.0)))
 
 
+## Whether `c` is within FOLLOW_R of any of the slots in `crew`.
+func _near_any(c: CreatureSim, crew: Array) -> bool:
+	for k in crew:
+		if c.pos.distance_to(main.sim.creatures[int(k)].pos) <= Main.FOLLOW_R:
+			return true
+	return false
+
+
 ## Whose fighter a big map's camera follows: the one player here (online, the local
-## slot). -1 with nobody here playing, or players here on both sides.
+## slot). -1 with nobody here playing, or several people here (then `_frame_fight` frames
+## them all, and foes near them).
 func _cam_anchor() -> int:
 	if main.online != null:
 		return main.online.local_slot

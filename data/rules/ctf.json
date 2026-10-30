@@ -4,6 +4,7 @@
 	"ctf": true,
 	"arena": "twin_keeps",
 	"max_size": 4,
+	"online_max_size": 4,
 	"time_seconds": 360,
 	"captures_to_win": 3,
 	"pickup_radius": 14,

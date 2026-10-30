@@ -219,18 +219,25 @@ static func rules_by_id(id: String) -> Dictionary:
 	return {}
 
 
-## The most players a side the rules `id` names can take (Capture the Flag: 4).
+## The most players a side the rules `id` names can take (4 for the team battle, Deathmatch
+## and Capture the Flag: the local co-op modes seat four).
 static func max_size_for(id: String) -> int:
 	return clampi(int(rules_by_id(id).get("max_size", 3)), 1, MOST_PER_SIDE)
 
 
-## `id` if its rules take `size` a side, else the first rules that do (a 4 v 4 asked
-## for under the plain team battle plays Capture the Flag).
+## The most a side online under rules `id` (`online_max_size`, 3 unless the rules say:
+## Capture the Flag 4). The server caps a request with it; a local co-op match isn't bound.
+static func online_max_size_for(id: String) -> int:
+	return clampi(int(rules_by_id(id).get("online_max_size", 3)), 1, max_size_for(id))
+
+
+## `id` if its rules take `size` a side online, else the first rules that do (a 4 v 4
+## asked for under the plain team battle plays Capture the Flag).
 static func rules_for_size(id: String, size: int) -> String:
-	if max_size_for(id) >= size:
+	if online_max_size_for(id) >= size:
 		return id
 	for r in RULE_IDS:
-		if max_size_for(String(r)) >= size:
+		if online_max_size_for(String(r)) >= size:
 			return String(r)
 	return id
 
