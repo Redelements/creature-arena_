@@ -13,6 +13,11 @@ var lit_on := false  ## Step 4b: fighters on the normal-mapped quad instead of t
 var pitched_on := false  ## Step 4a: the sheets re-rendered at the camera's pitch
 var height_on := false  ## Step 4c: walls and a chasm
 var height: HeightPreview
+const SidesS := preload("res://src/sides.gd")
+var sides: SidesS
+var sides_mode := "stands"
+var frame_set := false
+var fore_on := false  ## --fore shows the front rail strip (hidden by default)
 var cam: Camera3D
 var env: Environment
 var attrs: CameraAttributesPractical
@@ -86,10 +91,15 @@ func _ready() -> void:
 			determinism = true
 		elif a.begins_with("--frame="):
 			frame_w = float(a.substr(8))
+			frame_set = true
 		elif a == "--toggle-test":
 			toggle_test = true
 		elif a == "--perf":
 			perf = true
+		elif a.begins_with("--sides="):
+			sides_mode = a.substr(8)
+		elif a == "--fore":
+			fore_on = true
 		elif a == "--anim-log":
 			anim_log = true
 		elif a == "--mobile":
@@ -97,10 +107,15 @@ func _ready() -> void:
 			ssao_on = false
 			dof_on = false
 			shadows_on = false
+	if sides_mode != "none" and not frame_set:
+		frame_w = 900.0  # wide enough to show the side dressing
 	_build_floor()
 	_build_backdrop()
 	_build_env()
 	_build_lights()
+	sides = SidesS.new()
+	sides.mode = sides_mode
+	add_child(sides)
 	height = HeightPreview.new()
 	add_child(height)
 	height.visible = height_on
@@ -165,7 +180,7 @@ func _mouse_world() -> Vector2:
 ## handler a real key press reaches; the state line after each shows it flipped and flipped back.
 func _run_toggle_test() -> void:
 	var keys := [KEY_O, KEY_O, KEY_P, KEY_P, KEY_P, KEY_1, KEY_1, KEY_2, KEY_2, KEY_3, KEY_3,
-		KEY_4, KEY_4, KEY_M, KEY_M, KEY_N, KEY_N, KEY_R, KEY_R, KEY_T, KEY_T]
+		KEY_4, KEY_4, KEY_M, KEY_M, KEY_N, KEY_N, KEY_R, KEY_R, KEY_T, KEY_T, KEY_S, KEY_S, KEY_S]
 	for k in keys:
 		var e := InputEventKey.new()
 		e.keycode = k
@@ -333,6 +348,7 @@ func _build_backdrop() -> void:
 	# fore: front wall at the near edge, nearest fans' heads, 72 tall, facing the camera
 	var f := _strip("res://assets/sprites/arena_stadium_fore.png", 72, 0.0, 354.0)
 	f.position.y = 72.0 * 0.5 - 8.0
+	f.visible = fore_on
 
 
 func _build_env() -> void:
@@ -408,9 +424,9 @@ func _apply_toggles() -> void:
 
 
 func print_state() -> void:
-	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s height %s frame %d dist %.1f" % [
+	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s height %s frame %d dist %.1f sides %s fore %s" % [
 		int(pitch_deg), ortho, glow_on, ssao_on, dof_on, shadows_on, lit_on,
-		"pitched" if pitched_on else "orig", height_on, int(frame_w), dist])
+		"pitched" if pitched_on else "orig", height_on, int(frame_w), dist, sides.mode, fore_on])
 
 
 ## Step 4 toggles on both fighters: the lit quad (N) and the pitched sheets (R).
@@ -433,9 +449,9 @@ func _unhandled_input(e: InputEvent) -> void:
 			var i: int = PITCHES.find(pitch_deg)
 			frame_camera(PITCHES[(i + 1) % PITCHES.size()])
 		KEY_H:
-			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, Z frame width (whole floor / 400 / 260, following the fight), N lit quad / Sprite3D, R pitched / original sheets, T height preview, F12 screenshot")
+			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, Z frame width (whole floor / 900 / 400 / 260, following the fight), N lit quad / Sprite3D, R pitched / original sheets, S side dressing (none / stands / hills), T height preview, F12 screenshot")
 		KEY_Z:
-			var widths := [672.0, 400.0, 260.0]
+			var widths := [672.0, 900.0, 400.0, 260.0]
 			var wi: int = widths.find(frame_w)
 			frame_w = widths[(wi + 1) % widths.size()]
 			if frame_w >= FLOOR_SIZE.x:
@@ -444,6 +460,8 @@ func _unhandled_input(e: InputEvent) -> void:
 		KEY_N:
 			lit_on = not lit_on
 			_apply_fighter_modes()
+		KEY_S:
+			sides.next_mode()
 		KEY_T:
 			height_on = not height_on
 			height.visible = height_on

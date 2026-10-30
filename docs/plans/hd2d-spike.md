@@ -70,6 +70,25 @@ next spike should be the expensive unknown, not more of this one: port the floor
 **Decisions** are listed under "Decisions" below (D0-D13); **incomplete** items under
 "Incomplete / stretch".
 
+## Follow-up (Oct 30, Kevin's first look)
+
+Kevin asked for a hill and a tree, something in the black space beside the floor, and the
+front rail with the fans' silhouettes gone. Added on the branch:
+
+- Key `S` / `--sides=none|stands|hills` (default `stands`): **stands** lays the arena
+  picture's side columns as planes sloping up 30 degrees from the floor's edges with 6 rows
+  of 24 crowd billboards each, and its near rows (432..526) as a bank sloping down toward
+  the camera at the near edge over a dark green ground; **hills** is open ground instead: a
+  grass plane under everything, three rounded mounds, seven trees (`grassland_anim_tree_canopy`
+  frame 0 on a cylinder trunk, billboards that cast shadows).
+- The front rail (`arena_stadium_fore.png`) is hidden; `--fore` shows it.
+- With sides on, the default framing is 900 units wide so they are in shot; `--frame=` and
+  key Z (672, 900, 400, 260) still override.
+- Shots: `g_stands.png`, `g2_stands_fight.png`, `g_hills.png`, `g2_hills_fight.png`.
+- What goes at the sides in the real game: the side stands are already there in 2D (part of
+  the arena picture plus `CrowdView`'s fans), so `stands` is the faithful answer; `hills` is
+  what an open-air map (Greenhouse, Quarry) would look like under this camera.
+
 ## Facts the spike is built on (from the read-first list)
 
 - Sim units: the Stadium floor is `GRID_COLS * CELL` x `GRID_ROWS * CELL` = 672 x 288 units
