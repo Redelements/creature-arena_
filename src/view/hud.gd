@@ -123,6 +123,9 @@ var _ports := {}  ## sprite path + portrait key -> {tex, src, scale}
 var palettes := {}
 var _port_layers := {}  ## creature id -> PortraitLayer
 var _draw_count := 0
+## How far down the panel being drawn sits below the top one (stacked panels: the HUD's
+## own draws are shifted by a transform, a portrait layer by this).
+var _py := 0.0
 
 
 ## A portrait in a palette: drawn on the HUD's draw it was asked for, nothing otherwise.
@@ -130,12 +133,13 @@ class PortraitLayer extends Node2D:
 	var hud: Hud
 	var c: CreatureSim
 	var x := 0.0
+	var y := 0.0
 	var right := false
 	var drawn_at := -1
 
 	func _draw() -> void:
 		if hud != null and c != null and drawn_at == hud._draw_count:
-			hud._paint_portrait(self, c, x, right)
+			hud._paint_portrait(self, c, x, right, y)
 
 
 ## The per-slot labels (tags, key prompts) have one entry per creature slot: 2, or up
@@ -370,12 +374,14 @@ func _draw_portrait(c: CreatureSim, x: float, col: Color, right: bool) -> void:
 		CreatureView.PALETTE_HUES[clampi(pal, 0, CreatureView.PALETTE_HUES.size() - 1)])
 	layer.c = c
 	layer.x = x
+	layer.y = _py
 	layer.right = right
 	layer.drawn_at = _draw_count
 
 
-## The portrait's picture (and the KO shade over it) on `ci`: the HUD, or a palette's layer.
-func _paint_portrait(ci: CanvasItem, c: CreatureSim, x: float, right: bool) -> void:
+## The portrait's picture (and the KO shade over it) on `ci`: the HUD, or a palette's layer
+## (`oy`: a stacked panel's offset; the HUD's own draws are already shifted).
+func _paint_portrait(ci: CanvasItem, c: CreatureSim, x: float, right: bool, oy := 0.0) -> void:
 	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
 	var info := _portrait_info(c)
 	if not info.is_empty():
@@ -384,15 +390,16 @@ func _paint_portrait(ci: CanvasItem, c: CreatureSim, x: float, right: bool) -> v
 		var dw := src.size.x * sc
 		var dh := src.size.y * sc
 		var dx := x + 1.0 + floorf((PORT_W - dw) / 2.0)
-		var dy := 4.0 + floorf((PORT_H - dh) / 2.0)
+		var dy := 4.0 + oy + floorf((PORT_H - dh) / 2.0)
 		if right:  # face the middle
-			ci.draw_set_transform(Vector2(dx + dw, dy), 0.0, Vector2(-1, 1))
+			ci.draw_set_transform(Vector2(dx + dw, dy + (_py if ci == self else 0.0)), 0.0, Vector2(-1, 1))
 			ci.draw_texture_rect_region(info["tex"], Rect2(0, 0, dw, dh), src)
-			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			# Back to the panel's own shift (a stacked panel on the HUD itself).
+			ci.draw_set_transform(Vector2(0.0, _py if ci == self else 0.0), 0.0, Vector2.ONE)
 		else:
 			ci.draw_texture_rect_region(info["tex"], Rect2(dx, dy, dw, dh), src)
 	if down:
-		ci.draw_rect(Rect2(x + 1, 4, PORT_W, PORT_H + 1), Color(0, 0, 0, 0.6))
+		ci.draw_rect(Rect2(x + 1, 4 + oy, PORT_W, PORT_H + 1), Color(0, 0, 0, 0.6))
 
 
 ## Training: feeds the dummy's health to the DPS meter (a new match starts it over).
@@ -581,17 +588,18 @@ func _locals() -> Array:
 
 
 ## Which panels show. Where a side has several fighters (team battles, Deathmatch, Caravan,
-## CTF, Brawl, Duel's tag teams) you see your own side only: `panel[col]` is the slot with
-## the full panel in the left (0) or right (1) column (-1 none) and `cards[col]` the slots
-## with a compact card under it. Local players on different sides each keep a full panel
-## (the focus's, plus the first local on the other side); a second local on the same side is
-## a card. Nobody local (replay, spectating, demo): both sides, as before. A plain 1v1
-## shows both panels. Enemies keep the small bars over their heads in the world.
+## CTF, Brawl, Duel's tag teams) you see your own side only: `panels[col]` are the slots
+## with a full panel in the left (0) or right (1) column, stacked (every player at this
+## screen gets one, the focus's first; a Brawl's column is slots 0-1 left, 2-3 right), and
+## `cards[col]` the slots with a compact card under them (your CPU teammates). `panel[col]`
+## is the first full panel (-1 none). Nobody local (replay, spectating, demo): both sides, one
+## panel each and the rest cards. A plain 1v1 shows both panels. Enemies keep the small
+## bars over their heads in the world.
 func panel_plan() -> Dictionary:
-	var panel := [-1, -1]
+	var panels := [[], []]
 	var cards := [[], []]
 	if sim == null:
-		return {"panel": panel, "cards": cards}
+		return {"panel": [-1, -1], "panels": panels, "cards": cards}
 	var loc := _locals()
 	var all := loc.is_empty()
 	var n := sim.creatures.size()
@@ -601,48 +609,50 @@ func panel_plan() -> Dictionary:
 			for i in n:
 				if sim.creatures[i].team == side:
 					mine.append(i)
-			var has_local := false
-			for i in mine:
-				has_local = has_local or loc.has(i)
-			if not all and not has_local:
-				continue
-			var p := -1
-			if mine.has(focus):
-				p = focus
-			elif not all:
-				for i in mine:
-					if loc.has(i):
-						p = i
-						break
-			panel[side] = p
-			for i in mine:
-				if i != p:
-					cards[side].append(i)
+			_plan_column(mine, loc, all, panels[side], cards[side], true)
 	elif brawl != null:
 		for col in 2:
 			var slots := []
 			for sl in [col * 2, col * 2 + 1]:
 				if sl < n:
 					slots.append(sl)
-			var p := -1
-			if slots.has(focus):
-				p = focus
-			else:
-				for sl in slots:
-					if loc.has(sl):
-						p = sl
-						break
-			panel[col] = p
-			for sl in slots:
-				if sl != p and (all or loc.has(sl)):
-					cards[col].append(sl)
+			_plan_column(slots, loc, all, panels[col], cards[col], all)
 	elif duel != null:
 		for side in 2:
 			if all or loc.has(side):
-				panel[side] = side
+				(panels[side] as Array).append(side)
 	else:
-		panel = [0, 1]
-	return {"panel": panel, "cards": cards}
+		panels = [[0], [1]]
+	var panel := []
+	for col in 2:
+		panel.append(int((panels[col] as Array)[0]) if not (panels[col] as Array).is_empty() else -1)
+	return {"panel": panel, "panels": panels, "cards": cards}
+
+
+## One column's share of `slots`: the locals among them get full panels (the focus first),
+## the rest cards (`others_as_cards`; a Brawl shows no CPU at all while someone local
+## plays). Nobody local anywhere (`all`: a replay, spectating): the focus's panel, everyone
+## else a card. A column with no local and someone local elsewhere shows nothing.
+func _plan_column(slots: Array, loc: Array, all: bool, panels: Array, cards: Array, others_as_cards: bool) -> void:
+	if all:
+		for i in slots:
+			if i == focus:
+				panels.append(i)
+			else:
+				cards.append(i)
+		return
+	for i in slots:
+		if loc.has(i):
+			panels.append(i)
+	if panels.is_empty():
+		return
+	if panels.has(focus):
+		panels.erase(focus)
+		panels.push_front(focus)
+	if others_as_cards:
+		for i in slots:
+			if not panels.has(i):
+				cards.append(i)
 
 
 func _draw_panels() -> void:
@@ -651,24 +661,28 @@ func _draw_panels() -> void:
 		var right := col == 1
 		var x := _hl + 4.0 if not right else _hr - 164.0
 		var y := 3.0
-		var slot := int(plan["panel"][col])
-		if slot >= 0:
+		var full: Array = plan["panels"][col]
+		if not full.is_empty():
 			if team != null or brawl != null or duel != null:
 				x += -_pw() if right else _pw()
 			else:
 				x += -PW if right else PW
+		for s in full:
+			var slot := int(s)
 			var cs := -1
 			if team != null:
 				cs = col
-			elif brawl != null:
-				cs = slot % 2
+			# Stacked panels: the whole panel is drawn as if at the top, shifted down.
+			_py = y - 3.0
+			draw_set_transform(Vector2(0.0, _py))
 			_panel(slot, x, right, cs)
-			y = 39.0
+			draw_set_transform(Vector2.ZERO)
+			_py = 0.0
+			y += 38.0
 		for i in plan["cards"][col]:
 			_card(int(i), x, y, right)
 			y += 13.0
-		if team != null:
-			_combo_dy[col] = maxf(0.0, y - 74.0)
+		_combo_dy[col] = maxf(0.0, y - 74.0)
 
 
 ## A teammate (or second local player): a name, a slim health bar and a Surge pip.
@@ -730,9 +744,17 @@ func _dps(x: float, w: float) -> void:
 func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
-	# red left, blue right, like the markers
+	# red left, blue right, like the markers; in a Brawl each fighter's own colour
 	var team_col: Color = Accessibility.side_color(side if color_side < 0 else color_side)
+	if brawl != null:
+		team_col = Accessibility.brawl_color(side)
 	draw_rect(Rect2(x, 3, 160, 2), team_col)
+	# Team Deathmatch: a stacked panel's fighter on its way back says so in the panel (the
+	# big "BACK IN" under the clock is the focus's).
+	if team != null and team.deathmatch and side != focus and side < team.respawn_t.size() \
+			and int(team.respawn_t[side]) > 0:
+		_text(Vector2(x + 5, 35), "BACK IN %d" % ceili(int(team.respawn_t[side]) / 60.0), 5, C_HP_LO,
+			HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	if _pw() > 0.0:
 		_draw_portrait(c, x + 162.0 if right else x - PW, team_col, right)
 	var name := String(c.def.get("name", "?")).to_upper()
