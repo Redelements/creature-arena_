@@ -26,7 +26,7 @@ update the map in the same change.
 | Rules | `data/rules/` | `data/rules/duel.json` | mode rules, stamina, projectile size, mutators |
 | Arena maps | `data/arenas/` | `data/arenas/stadium.json` | walls, fences, chasms, shallows, brush per arena |
 | Arcade endings | `data/endings/` | `data/endings/cairn.json` | each fighter's Arcade ending card: title, lines, art path, title reward (`src/game/endings.gd`) |
-| Tests and benches | `tests/` | `tests/run_tests.gd` | the test runner, per-topic tests, CPU benches |
+| Tests and benches | `tests/` | `tests/run_tests.gd` | the test runner, per-topic tests, CPU benches; the whole verification set in one command: `tools/run_tests.sh` / `tools/run_tests.ps1` |
 | Generators | `tools/` | `tools/splat3d.py` | sprite and audio generators, this map's generator |
 | Docs | `docs/` | `docs/MECHANICS.md` | data keys, netcode, server, sprite and audio specs, plans; open items in `docs/open-items.md` |
 | Art and sound files | `assets/` | `assets/sprites/` | generated sheets, placeholder audio, the pixel font (`assets/fonts/`) |

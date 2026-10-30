@@ -243,6 +243,7 @@ tools, so a fighter's pass is posing work only.
 - `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
 - `pack_sheets.py` — Packs each fighter sheet's frames tight, so the game holds a fraction of the texture memory.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
+- `qa_shapes.py` — QA: sim body radius vs idle-sprite footprint, per fighter (read-only report).
 - `seed_dressing.gd` — Seeds a map's hand-dressing scene (assets/arenas/<id>_dressing.tscn) from a first-draft spec, tools/dressing/<id>.json.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `showcase_lengths.gd` — How long each showcase plays, for tools/capture_gallery.py (which picks the frames to capture from it, so a retune that…
