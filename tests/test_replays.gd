@@ -139,8 +139,9 @@ func test_the_menu_rows_start_the_modes_they_name() -> void:
 		var row: Dictionary = g.MENU_ROWS.filter(func(r): return r["label"] == name)[0]
 		assert_eq(int(row["modes"][0]), g.mode_index(name), "%s row:" % name)
 	var brawl: Dictionary = g.MENU_ROWS.filter(func(r): return r["label"] == "Brawl")[0]
-	assert_eq(brawl["modes"], [g.mode_index("Brawl: you vs 3 CPUs"), g.mode_index("Brawl: 2 players"),
-		g.mode_index("Brawl: 3 players"), g.mode_index("Brawl: 4 players")], "Brawl rows:")
+	assert_eq(brawl["modes"], [g.mode_index("Brawl")], "Brawl row: the seating Brawl (the join screen says how many play)")
+	for alias in ["Brawl: you vs 3 CPUs", "Brawl: 2 players", "Brawl: 3 players", "Brawl: 4 players"]:
+		assert_true(g.mode_index(alias) >= 0, alias + " stays a --mode alias")
 	assert_eq(g.REPLAY_MODE, g.mode_index("Replay"), "the replay mode:")
 	assert_eq(g.ONLINE_MODE, g.mode_index("Online 1v1"), "the online mode:")
 	for row in g.MENU_ROWS:

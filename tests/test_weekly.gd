@@ -242,7 +242,7 @@ func test_the_weekly_plays_in_the_game_to_a_score() -> void:
 	g._cpu_vs_cpu = true
 	g.level = 3
 	var m: int = MAIN.mode_index("Weekly Challenge")
-	assert_eq(m, MAIN.MODES.size() - 1, "appended: no mode renumbered")
+	assert_eq(m, 54, "the Weekly stays mode 54: nothing before it renumbered (the local play modes come after)")
 	g._start_match(m)
 	assert_true(g.arcade is Weekly, "a Weekly")
 	var w: Weekly = g.arcade

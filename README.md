@@ -177,7 +177,7 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
 31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU, 48 Mister Crease vs CPU Chef Cerebro,
-49 training as Mister Crease, 50 Caravan 2v2 vs CPU, 51 Caravan 3v3 vs CPU, 52 Capture the Flag 3v3 vs CPU, 53 Capture the Flag 4v4 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+49 training as Mister Crease, 50 Caravan 2v2 vs CPU, 51 Caravan 3v3 vs CPU, 52 Capture the Flag 3v3 vs CPU, 53 Capture the Flag 4v4 vs CPU, 55 Brawl (the menu's: the join screen seats 1-4 players; headless `--locals=N`). `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU (`--view-team=N` then shows it as team N sees it: brush, fences and walls hide the other side).
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the

@@ -178,11 +178,13 @@ split into tick and no-tick frames, ticks held 3+ frames; `perf_log.gd`), `--fig
 (this session's fight cap), `--fps-pacing=cap|vsync` (vsync, the mobile default: vsync paces a cap
 at the screen's rate, `pace_cap`), `--cpu-think=threads|gap` (gap, the mobile default: the
 next tick's CPU inputs are thought on the main thread in the frame between ticks, within
-`gap_budget_us`, the rest in the tick: `_think_in_gap`), `--cpu-threads=off`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
+`gap_budget_us`, the rest in the tick: `_think_in_gap`), `--cpu-threads=off`, `--locals=N` (how many people play a `"seating": "ffa"` mode started
+with `--mode=` and so without its join screen: Brawl 55, Chaos Cup 46; default one; the seats
+get no controllers headless, they just exist). Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
 8 Versus 2P, 9 Combo Trials, 10/11 Reaction Drills, 12–19 and 21–28 each fighter's "vs CPU"
 and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, Sno), 20 Online,
 29/30 Team 2v2/3v3 vs CPU,
-31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl (2/3/4 players, you vs 3 CPUs), 46 Chaos Cup, 47 a replay being watched (Replay theater), 48 Mister Crease vs CPU, 49 training as Mister Crease, 50/51 Caravan 2v2/3v3 vs CPU, 52/53 Capture the Flag 3v3/4v4 vs CPU, 54 Weekly Challenge (`--fighter=ID` picks yours; its menu row only with Settings > Game > Progression on, a MENU_ROWS entry with `"progression": true`). Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
+31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl with a fixed seat count (2/3/4 players, you vs 3 CPUs; `--mode` aliases since Oct 2026, the menu's Brawl is 55), 46 Chaos Cup (seating "ffa"), 47 a replay being watched (Replay theater), 48 Mister Crease vs CPU, 49 training as Mister Crease, 50/51 Caravan 2v2/3v3 vs CPU, 52/53 Capture the Flag 3v3/4v4 vs CPU, 54 Weekly Challenge (`--fighter=ID` picks yours; its menu row only with Settings > Game > Progression on, a MENU_ROWS entry with `"progression": true`), 55 Brawl (the menu's: `"seating": "ffa"`, the join screen seats 1-4 people, `_seated_sides` puts CPUs in the empty seats). Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Files
 

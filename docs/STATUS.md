@@ -36,14 +36,21 @@ Done: PR 4 "HUD for four" on branch `local-hud` (base `local-select`): `panel_pl
 Brawl stripes per fighter, "BACK IN n" per stacked panel. Screenshot pr-media `local-mp/hud-four.png`.
 (Four panels in a row don't fit the 480 canvas with the clock: two stacked columns instead.)
 
-Now: PR 5 "free-for-all" on branch `local-ffa` (base `local-hud`): one Brawl mode with
-`"seating": "ffa"` (the join screen chooses 2-4 humans, `most` 4, `need` 2; sides = seats then
-CPU fill to 4), the hub group "Two players" → "Local play" (rows: Free-for-all, Duel 2P,
-Versus 2P; Brawl rows 42-44 kept as aliases for `--mode`), Chaos Cup gets the same seating,
-`--locals=N` (headless: the human count a seating mode would ask for), results / banners
-naming seats. Keep `test_journey`, `test_menu_contract`, `test_progression_flow` green.
+Done: PR 5 "free-for-all" on branch `local-ffa` (base `local-hud`): mode 55 Brawl
+(`"seating": "ffa"`, need 1, most 4, `_seated_sides`, `_wanted_humans`), Chaos Cup 46 the same
+seating, hub group "Local play", the Brawl row → [55], modes 42-45 aliases, `--locals=N`.
 
-Next: PR 6 teams 2v2 with four seats on `local-teams` (base `local-ffa`).
+Now: PR 6 "teams 2v2 with four seats" on branch `local-teams` (base `local-ffa`): a mode
+`{"label": "Team battle: local 2v2", "team": 2, "seating": "teams", "sides": [P1, P2, P3, P4]}`
+(+ Deathmatch / Sinkhole / Crater variants, or one row with a rules choice), the join screen's
+Left / Right team columns (`SeatScreen` with `teams` on: each seat picks a side; `LocalSeats`
+keeps `side_pick`), `_start_team` builds sides from the seats (side 0 seats first, then side 1,
+TeamSim slot order; CPU fill when a side is short), `_relation` already uses side colours
+when locals span both teams, `_viewer_team` -1, the pick screen with a column per seat
+(team_size 1 each) → `_teams` per side from the seats' picks. Banners: "RED / BLUE TEAM WINS"
+when locals are on both sides (`main.gd:2293`).
+
+Next: PR 7 four seats vs four CPUs on `local-coop` (base `local-teams`).
 
 ## Decisions
 
