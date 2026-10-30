@@ -10,8 +10,13 @@ Rambles, and what would it cost us? The main project is not touched.
 - Steps 1-2 committed (c6a992b: scene, camera at (352, 421, 809) pitch 35 FOV 30, environment,
   keys O/P/H/F12/1-4/M, flags `--shot-at`, `--pitch`, `--ortho`, `--no-*`, `--mobile`).
   Step 4a committed (pitched sheets in `spike/hd2d/assets/sprites/pitched/`, 221 s render).
-  Step 3 (Fighter3D + sim driver) in progress with a Sonnet agent. Next: 4b (shader, main
-  session, draft at `spike/hd2d/src/fighter_lit.gdshader`), 4c, QC, evidence.
+  Step 3 committed (59b5cc1: `Fighter3D`, keyboard P1 via `PlayerInput` classic layout + a
+  floor-plane mouse raycast, CPU P2 Normal, flags `--run`, `--cpu-vs-cpu`, `--seed`,
+  `--facing-test`, `--determinism`, `--anim-log`; facing test 8/8, determinism OK x2).
+  Step 4b committed (b581374: `fighter_lit.gdshader` quad, key N / `--lit`; key R /
+  `--pitched`; verified by a pixel diff: only the fighters' pixels change). Step 4c (height
+  preview) in progress with a Sonnet agent; `current.png` capture with a Haiku agent.
+  Next: QC (Step 5), evidence (Step 6), summary, push.
 - Known: Godot's `--quit-after` did not end a spike run (hung; killed); the spike quits itself
   after a `--shot-at` capture and, from Step 3, after `--run=N` ticks.
 - Branch `spike/hd2d` from `origin/main` fa7724b. Nothing outside `spike/` and
@@ -168,7 +173,18 @@ mode (Digby, Stadium) for the side by side.
 - D5. The main `project.godot` has no `[input]` section (`Controls`, `src/game/controls.gd`,
   builds the InputMap in code), so the spike copies all of `src/input/`, `controls.gd` and
   `perf_log.gd` (needed by `PlayerInput` and `CpuController`) and calls Controls' setup from
-  its own `_ready`. View/UI classes they touch get stubs under `spike/hd2d/src/stubs/`.
+  its own `_ready`. No stubs were needed in the end.
+- D6. The Digby grid PNGs are import-skipped in the main project (`importer="skip"`, their
+  `.import` files came with the copy), so `load()` cannot see them: `Fighter3D._tex` reads
+  them with `Image.load_from_file` into an `ImageTexture`. Fine for a spike; the real game
+  loads packed sheets.
+- D7. Step 3's agent reported the R key wired; it was not (no `KEY_R` in spike.gd). Wired in
+  Step 4b together with N, as `_apply_fighter_modes`.
+- D8. The lit quad's pivot (frame centre to feet) is a shader uniform added in billboard
+  space, not a node offset, so it would still be right at any camera yaw.
+- D9. Step 4b took well under its 2 h box (the shader compiled first time; the Sprite3D and
+  quad renders differ only at the fighters' pixels). With the Stadium's near-vertical sun
+  (`light.length` 0.38) the per-pixel shading is subtle; a lower sun would show it more.
 
 ## QC results
 

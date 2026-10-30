@@ -11,6 +11,8 @@ var pitch_deg := 35.0
 var ortho := false
 var lit_on := false  ## Step 4b: fighters on the normal-mapped quad instead of the Sprite3D
 var pitched_on := false  ## Step 4a: the sheets re-rendered at the camera's pitch
+var height_on := false  ## Step 4c: walls and a chasm
+var height: HeightPreview
 var cam: Camera3D
 var env: Environment
 var attrs: CameraAttributesPractical
@@ -48,6 +50,8 @@ func _ready() -> void:
 			pitch_deg = float(a.substr(8))
 		elif a == "--ortho":
 			ortho = true
+		elif a == "--height":
+			height_on = true
 		elif a == "--lit":
 			lit_on = true
 		elif a == "--pitched":
@@ -81,6 +85,9 @@ func _ready() -> void:
 	_build_backdrop()
 	_build_env()
 	_build_lights()
+	height = HeightPreview.new()
+	add_child(height)
+	height.visible = height_on
 	cam = Camera3D.new()
 	cam.fov = FOV
 	cam.far = 3000.0
@@ -334,9 +341,9 @@ func _apply_toggles() -> void:
 
 
 func print_state() -> void:
-	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s dist %.1f" % [
+	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s height %s dist %.1f" % [
 		int(pitch_deg), ortho, glow_on, ssao_on, dof_on, shadows_on, lit_on,
-		"pitched" if pitched_on else "orig", dist])
+		"pitched" if pitched_on else "orig", height_on, dist])
 
 
 ## Step 4 toggles on both fighters: the lit quad (N) and the pitched sheets (R).
@@ -359,10 +366,13 @@ func _unhandled_input(e: InputEvent) -> void:
 			var i: int = PITCHES.find(pitch_deg)
 			frame_camera(PITCHES[(i + 1) % PITCHES.size()])
 		KEY_H:
-			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, N lit quad / Sprite3D, R pitched / original sheets, F12 screenshot")
+			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, N lit quad / Sprite3D, R pitched / original sheets, T height preview, F12 screenshot")
 		KEY_N:
 			lit_on = not lit_on
 			_apply_fighter_modes()
+		KEY_T:
+			height_on = not height_on
+			height.visible = height_on
 		KEY_R:
 			pitched_on = not pitched_on
 			_apply_fighter_modes()
