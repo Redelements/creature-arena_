@@ -689,8 +689,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Cast Line (6f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Tenderize (8f), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -781,7 +781,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Light | Snout Jab, Tail Whip, Rod Flail | A nose bonk, a half turn that lashes the tail across, then a jerk of the head swings the rod over him onto the foe |
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A long skidding belly-flop forward (about 100 px in a quarter of a second), kicking up water; keeps a juggle going |
-| Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss still leaves him open for a moment |
+| Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. A **grab**: it **can't be blocked** (a guard, armor or a counter doesn't stop it, and it snags a foe in the air too), so it has to be **dodged**; a thick hook head that widens along the flight, so an aimed cast lands. Still a skill shot: it takes the first body in its path, so aim it past the front line through the gap. A miss still leaves him open for a moment |
 | Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down (65 px wide) and leaves a slowing pool where he lands. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)

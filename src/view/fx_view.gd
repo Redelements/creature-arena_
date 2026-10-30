@@ -4306,7 +4306,8 @@ func _draw_thrown_rod(ci: CanvasItem, pr: Dictionary) -> void:
 	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
 	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.28))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var d := Vector2.from_angle(_tick * 0.7) * 13.0
+	# The spinning rod sweeps about the hit's size (its radius widens along the flight).
+	var d := Vector2.from_angle(_tick * 0.7) * maxf(13.0, float(pr.get("radius", 0.0)) * 0.8)
 	var butt := at - d
 	var tip := at + d
 	ci.draw_line(butt, tip, C_OUTLINE, 4.0)

@@ -125,11 +125,12 @@
       "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets", "move_fx": {"path": "res://assets/vfx/water_wings.tres", "on": "start", "follow": true} }
     },
     "skill_2": {
-      "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 180,
+      "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "unblockable", "cooldown": 180,
       "startup": 10, "active": 0, "recovery": 18,
       "damage": 4, "knockback": 0.2, "hitstun": 46, "hitstop": 6,
       "reel": 2, "reel_speed": 10.0,
-      "projectile": { "speed": 11.0, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
+      "grab": true, "grab_air": true, "juggle": true,
+      "projectile": { "speed": 11.0, "life": 18, "radius": 10, "radius_end": 13, "offset": 12, "crack_trail": false },
       "anim_at": [[0, 0], [2, 1], [5, 2], [8, 3], [11, 4], [14, 5], [18, 6], [23, 7], [32, 9], [36, 10], [40, 11]],
       "anim_reel": 8,
       "fx": { "cast": true, "projectile": "rod", "move_fx": {"path": "res://assets/vfx/water_spout.tres", "on": "projectile_end", "ticks_per_frame": 3} }

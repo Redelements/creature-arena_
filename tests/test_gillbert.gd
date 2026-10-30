@@ -81,13 +81,83 @@ func test_cast_line_links_into_his_string() -> void:
 	assert_gt(dmg, 24.0, "Cast Line, the light string and Splash Zone should all connect")
 
 
-func test_a_guarded_cast_line_reels_nobody() -> void:
-	var sim := _duel("cairn", 60.0)
-	var start := sim.creatures[0].pos
-	var blocked := run_until(sim, func(): return not _events(sim, "block").is_empty(), 60, S2, GUARD)
-	assert_true(blocked, "Cairn blocks the hook")
-	run(sim, 0, 20, GUARD)
-	assert_lt(sim.creatures[0].pos.x - start.x, 3.0, "a blocked line doesn't haul him over")
+## Kevin, Oct 29: Cast Line is a grab. A guard doesn't stop it: the guarding foe is hooked
+## and Gillbert reels in to him like on a clean hit.
+func test_a_guarding_foe_is_hooked_and_reeled_anyway() -> void:
+	var sim := _duel("cairn", 120.0)
+	var gill := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	var hooked := run_until(sim, func(): return not _events(sim, "reel").is_empty(), 60, S2, GUARD)
+	assert_true(hooked, "a guarding Cairn 120 px away is hooked")
+	assert_true(_events(sim, "block").is_empty(), "not blocked")
+	assert_eq(cairn.state, CreatureSim.State.HITSTUN, "the guard is gone: hitstun")
+	assert_lt(cairn.hp, cairn.max_hp, "the hook's damage lands")
+	var arrived := run_until(sim, func(): return not _events(sim, "reeled_in").is_empty(), 40, 0, GUARD)
+	assert_true(arrived, "and Gillbert is reeled in to him")
+	assert_lt(_gap(sim), float(gill.def["moves"]["skill_2"]["reel"]) + 0.5, "to point-blank:")
+	assert_true(cairn.is_stunned(), "with the target still stunned")
+
+
+func test_armor_doesnt_stop_the_hook() -> void:
+	var sim := _duel("craglash", 120.0)
+	var crag := sim.creatures[1]
+	crag.energy = 100.0
+	var armored := run_until(sim, func(): return crag.is_armored(), 80, 0, SU)
+	assert_true(armored, "Craglash sets Bedrock")
+	var hooked := run_until(sim, func(): return not _events(sim, "reel").is_empty(), 60, S2)
+	assert_true(hooked, "Cast Line hooks Craglash through Bedrock's armor")
+	assert_true(_events(sim, "armor").is_empty(), "not soaked by the armor")
+	assert_eq(crag.state, CreatureSim.State.HITSTUN, "hooked out of the stance:")
+
+
+func test_a_dodge_beats_the_hook() -> void:
+	var sim := _duel("cairn", 100.0)
+	var cairn := sim.creatures[1]
+	var dodged := false
+	for i in 80:
+		var p1 := 0
+		if not dodged and not sim.projectiles.is_empty():
+			if Vector2(sim.projectiles[0]["pos"]).distance_to(cairn.pos) < 70.0:
+				p1 = SimDefs.IN_DODGE | SimDefs.IN_DOWN
+				dodged = true
+		sim.step(PackedInt32Array([S2 if i < 3 else 0, p1]))
+		assert_true(_events(sim, "reel").is_empty(), "nothing reeled")
+	assert_true(dodged, "Cairn dodged")
+	assert_near(cairn.hp, cairn.max_hp, 0.001, "the dodge is the answer now, not the block:")
+
+
+## Still a skill shot: the hook takes the first body in its path, so a tank standing in
+## the lane takes it, not the mage behind him.
+func test_the_hook_bites_the_first_body_in_its_path() -> void:
+	var sim := _duel("cairn", 50.0)
+	var tank := sim.creatures[1]
+	var mage := sim.add_creature(MatchFactory.load_def("cerebro"), tank.pos + Vector2(tank.radius + 60.0, 0))
+	mage.team = tank.team
+	mage.facing = Vector2.LEFT
+	var hooked := run_until(sim, func(): return not _events(sim, "reel").is_empty(), 60, S2)
+	assert_true(hooked, "the hook bites")
+	assert_eq(int(_events(sim, "reel")[0]["target"]), tank.id, "the tank in the lane takes it:")
+	assert_near(mage.hp, mage.max_hp, 0.001, "the mage behind is untouched:")
+
+
+## R5 (grab_air, with juggle): a juggled foe can still be snagged out of the air.
+func test_the_hook_snags_an_airborne_foe() -> void:
+	var sim := _duel("cairn", 90.0)
+	var cairn := sim.creatures[1]
+	cairn.enter_air(60, Vector2.ZERO)
+	var hooked := run_until(sim, func(): return not _events(sim, "reel").is_empty(), 40, S2)
+	assert_true(hooked, "a foe in the air is hooked too")
+
+
+## Kevin, Oct 29: a thicker head, so an aimed cast lands. It widens along the flight like
+## the other two hooks (Gulp, Mountain Maw): the aim's error grows with the distance.
+func test_the_head_is_thicker_than_the_old_rod() -> void:
+	var p: Dictionary = MatchFactory.load_def("gillbert")["moves"]["skill_2"]["projectile"]
+	assert_gt(float(p["radius"]), 8.0, "wider than the old 8 at the start:")
+	assert_gt(float(p.get("radius_end", 0.0)), float(p["radius"]), "and wider still at full reach:")
+	var mv: Dictionary = MatchFactory.load_def("gillbert")["moves"]["skill_2"]
+	assert_true(bool(mv.get("grab", false)), "a grab:")
+	assert_eq(String(mv.get("tell", "")), "unblockable", "with the red tell:")
 
 
 func test_splash_zone_slows_everyone_around_him() -> void:
