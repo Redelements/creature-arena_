@@ -63,7 +63,7 @@ def arcing_rows():
 # ------------------------------------------------------------------ rendering
 
 def views_for(row):
-    return ["side"] if row == "ko" else list(G.VIEWS)
+    return ["side"] if row in ("ko", "ko_nohead") else list(G.VIEWS)
 
 
 def frame(row, f, view):
@@ -107,11 +107,11 @@ def render_row(row):
 # layer, as the generator draws them. Where a stone's pixels overlap a spike's, compare
 #   drawn:      which one the generator composites later (side: the fixed part order in
 #               _render, neck before torso, the spikes inside the torso; down/up/diagonals:
-#               the (depth, order) sort, the spikes riding the torso's key),
-#   geometric:  which one is nearer the camera in the rig's own 3D reading of the pose
-#               (VRig / DRig: the neck curve from base3, side_to3(c1, c2), head3; the
-#               spikes at the midpoint of base and tip through T3, or on the diagonals the
-#               torso's square-to-camera placement with its screen-x offset read as sideways).
+#               the generator's own order, traced from gen_craglash.compose (phase 3), with
+#               each spike as the piece of it that shows),
+#   geometric:  which one is nearer the camera (side: the rig's 3D reading below; the other
+#               views: the depths compose() orders by, depth3 at the stone's centre and the
+#               spike's base). Run with CRAGLASH_SPIKE_ORDER=hip for the order before phase 3.
 # In the side view the camera looks along "sideways": a stone's depth is the VRig neck
 # curve's sideways coordinate at the same fraction along the neck (+ = the near side, the
 # side the sheet shows arm 1 on); the spikes are drawn in profile, on the midline (0).
@@ -152,37 +152,15 @@ def _neck3(vr):
     return [G._bezier3(base3, c1, c2, head3, i / 200) for i in range(201)]
 
 
-def _stones_view(vr):
-    """(3D point, mask) per stone, matching v_neck_stones' spacing and order."""
-    pts3 = _neck3(vr)
-    pts = [vr.P(q) for q in pts3]
-    seg2 = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(200)]
-    seg3 = [math.dist(pts3[i + 1], pts3[i]) for i in range(200)]
-    length = sum(seg3)
-    n = max(4, int(round(length / G.SLAB_SPACING)))
-    out, acc, j = [], 0.0, 0
-    for k in range(n - 1):
-        tgt = length * k / n
-        while j < 199 and acc + seg3[j] < tgt:
-            acc += seg3[j]
-            j += 1
-        a, b = pts[j], pts[j + 1]
-        fore = min(1.0, seg2[j] / max(seg3[j], 1e-6))
-        lay = G.layer()
-        G.stone_disc(a, (b[0] - a[0] + 1e-6, b[1] - a[1]), k / max(1, n - 1), lay, along=2.9 + (1.0 - fore) * 2.0)
-        out.append((pts3[j], _mask(lay)))
-    return out
-
-
 def _judge(stones, spikes, drawn_over_fn):
     flags, judged = [], 0
     rel = {}   # spike -> pixels of it the neck covers ("over") / that cover the neck ("under")
     for k, (sdep, sm) in enumerate(stones):
-        drawn_over = drawn_over_fn(sdep)
         for kind, i, km, kdep in spikes:
             ov = int((sm & km).sum())
             if ov < MIN_OVERLAP:
                 continue
+            drawn_over = drawn_over_fn(k, kind, i)
             judged += 1
             r = rel.setdefault("%s%d" % (kind, i), {"over": 0, "under": 0})
             r["over" if drawn_over else "under"] += ov
@@ -214,25 +192,21 @@ def check_frame(pose, view):
             stones.append((p3[int(round(200 * k / max(1, len(pts) - 1)))][0], _mask(lay)))
         spikes = [("crown", i, m, 0.0) for i, m in enumerate(_spike_masks(rig.T, G.CROWN, 5.5))]
         spikes += [("flank", i, m, 0.0) for i, m in enumerate(_spike_masks(rig.T, G.FLANK, 4.5))]
-        return _judge(stones, spikes, lambda _d: False)   # neck always before the torso
-    diag = view in ("down_side", "up_side")
-    vr = G.DRig(q, view) if diag else G.VRig(q, view)
-    torso_key = (vr.depth(vr.hip3[2]), 2)
-    spikes = []
-    for kind, table, w in (("crown", G.CROWN, 5.5), ("flank", G.FLANK, 4.5)):
-        masks = _spike_masks(vr.torso2 if diag else (lambda v: vr.P(vr.T3(v))), table, w)
-        for i, m in enumerate(masks):
-            (bx, by), (tx, ty) = table[i]
-            mx, my = (bx + tx) / 2, (by + ty) / 2
-            if diag:
-                a = math.radians(q.lean)
-                h = -my * G.TS * q.sy
-                dep = vr.depth(vr.hip3[2] + h * math.sin(a), mx * G.TS * vr.lx)
-            else:
-                dep = vr.depth3(vr.T3((mx, my)))
-            spikes.append((kind, i, m, dep))
-    stones = [(vr.depth3(p3), m) for p3, m in _stones_view(vr)]
-    return _judge(stones, spikes, lambda d: (d + 0.2, 4) > torso_key)
+        return _judge(stones, spikes, lambda *_a: False)   # neck always before the torso
+    # Down, up and the diagonals: the generator's own draw order (gen_craglash.compose, traced),
+    # each stone and each spike piece (what shows of it) as drawn; depth = the tags' depth3
+    # (stone centre, spike base), the same reading compose() orders them by.
+    G.TRACE = []
+    try:
+        (G.render_diag if view in ("down_side", "up_side") else G.render_view)(pose, view)
+        order = G.TRACE[-1]
+    finally:
+        G.TRACE = None
+    pos = {tag[:2]: n for n, (tag, _m) in enumerate(order) if tag}
+    stones = [(tag[2], m) for tag, m in order if tag and tag[0] == "stone"]
+    stone_keys = [tag[:2] for tag, _m in order if tag and tag[0] == "stone"]
+    spikes = [(tag[0], tag[1], m, tag[2]) for tag, m in order if tag and tag[0] in ("crown", "flank")]
+    return _judge(stones, spikes, lambda k, kind, i: pos[stone_keys[k]] > pos[(kind, i)])
 
 
 POP_PX = 20   # 2x pixels of a spike on one side of the neck before it counts
