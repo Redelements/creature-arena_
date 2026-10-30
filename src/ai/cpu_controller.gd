@@ -428,7 +428,7 @@ func _gap_roll(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
 	for k in [0, 1, -1, 2, -2, 3, -3]:
 		var d: Vector2 = dirs[(at + k + dirs.size()) % dirs.size()]
 		var end := roll_end(sim, me, d)
-		if not _lands_safe(t, end):
+		if not _lands_safe(t, end, me.radius):
 			continue
 		var left := end.distance_to(goal)
 		if left < best_d:
@@ -499,14 +499,16 @@ static func cross_end(sim: MatchSim, me: CreatureSim, mid: String, dir: Vector2)
 
 
 ## Floor a crossing must come down on: CROSS_MARGIN px round it clear of pits (it lands
-## where it was aimed, but a body nudged at the end must still stand on floor).
+## where it was aimed, but a body nudged at the end must still stand on floor). "On floor" is
+## the sim's own fall rule for a body of radius `r` (TerrainGrid.footprint_falls; 0: the
+## centre point alone).
 const CROSS_MARGIN := 10.0
-static func _cross_lands(t: TerrainGrid, p: Vector2) -> bool:
-	if t.is_hole_at(p):
+static func _cross_lands(t: TerrainGrid, p: Vector2, r := 0.0) -> bool:
+	if t.footprint_falls(p, r):
 		return false
 	for o in [Vector2(CROSS_MARGIN, 0), Vector2(-CROSS_MARGIN, 0), Vector2(0, CROSS_MARGIN), Vector2(0, -CROSS_MARGIN),
 			Vector2(7, 7), Vector2(-7, 7), Vector2(7, -7), Vector2(-7, -7)]:
-		if t.is_hole_at(p + o):
+		if t.footprint_falls(p + o, r):
 			return false
 	return true
 
@@ -547,7 +549,7 @@ func _gap_cross(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
 	for k in [0, 1, -1, 2, -2, 3, -3]:
 		var d: Vector2 = dirs[(at + k + dirs.size()) % dirs.size()]
 		var end := cross_end(sim, me, mid, d)
-		if not _cross_lands(t, end):
+		if not _cross_lands(t, end, me.radius):
 			continue
 		var left := end.distance_to(goal)
 		if left < best_d:
@@ -665,25 +667,28 @@ static func roll_end(sim: MatchSim, me: CreatureSim, dir: Vector2) -> Vector2:
 	var q := me.pos
 	for st in range(1, frames + 1):
 		var step := d * float(dg["speed"]) * (0.4 if st > frames - 5 else 1.0)
-		var on_hole := t.is_hole_at(q)
+		# A ram walks (CreatureSim._move voluntary): it stops where its footprint would fall.
+		var on_hole := ram and t.footprint_falls(q, me.radius)
 		var nx := q.x + step.x
-		if ram and not on_hole and t.is_hole_at(Vector2(nx, q.y)):
+		if ram and not on_hole and t.footprint_falls(Vector2(nx, q.y), me.radius):
 			nx = q.x
 		q.x = t.slide_x(q, clampf(nx, lo.x, hi.x), me.radius)
 		var ny := q.y + step.y
-		if ram and not on_hole and t.is_hole_at(Vector2(q.x, ny)):
+		if ram and not on_hole and t.footprint_falls(Vector2(q.x, ny), me.radius):
 			ny = q.y
 		q.y = t.slide_y(q, clampf(ny, lo.y, hi.y), me.radius)
 	return q
 
 
 ## Whether a roll ending at `p` stays out of the pits: floor there and LAND_MARGIN px
-## round it, since a body brushing past at the end can nudge it a few pixels.
-static func _lands_safe(t: TerrainGrid, p: Vector2) -> bool:
-	if t.is_hole_at(p):
+## round it, since a body brushing past at the end can nudge it a few pixels. "Floor" is the
+## sim's own fall rule for a body of radius `r` (TerrainGrid.footprint_falls; 0: the centre
+## point alone), so a roll the sim lets stand is never refused and none that falls is taken.
+static func _lands_safe(t: TerrainGrid, p: Vector2, r := 0.0) -> bool:
+	if t.footprint_falls(p, r):
 		return false
 	for o in [Vector2(LAND_MARGIN, 0), Vector2(-LAND_MARGIN, 0), Vector2(0, LAND_MARGIN), Vector2(0, -LAND_MARGIN)]:
-		if t.is_hole_at(p + o):
+		if t.footprint_falls(p + o, r):
 			return false
 	return true
 
@@ -701,14 +706,14 @@ static func _pits_near(t: TerrainGrid, p: Vector2, r: float) -> bool:
 ## else ZERO (every way near it drops into a pit).
 static func _safe_roll_dir(sim: MatchSim, me: CreatureSim, dir: Vector2) -> Vector2:
 	var t := sim.terrain
-	if not _pits_near(t, me.pos, _roll_distance(me) + 8.0) or _lands_safe(t, roll_end(sim, me, dir)):
+	if not _pits_near(t, me.pos, _roll_distance(me) + 8.0) or _lands_safe(t, roll_end(sim, me, dir), me.radius):
 		return dir
 	var dirs := SimDefs.aim_dirs()
 	var at := _dir_index(dir)
 	for k in range(2, 17, 2):
 		for s in [1, -1]:
 			var d: Vector2 = dirs[(at + k * s + dirs.size()) % dirs.size()]
-			if _lands_safe(t, roll_end(sim, me, d)):
+			if _lands_safe(t, roll_end(sim, me, d), me.radius):
 				return d
 	return Vector2.ZERO
 
@@ -2258,7 +2263,7 @@ func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2, look := 34.0, roll
 		var clear := _clearance(room, me.pos, d)
 		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
 		if landing:
-			if not _lands_safe(sim.terrain, roll_end(sim, me, d)):
+			if not _lands_safe(sim.terrain, roll_end(sim, me, d), me.radius):
 				s -= 3.0
 			if s > best_s:
 				best_s = s

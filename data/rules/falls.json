@@ -1,0 +1,5 @@
+{
+	"_doc": "Pit falls by footprint (TerrainGrid.footprint_falls): a fighter falls, and walking refuses a step, only when enough of its body circle is over pit cells (holes or chasms). The footprint is sampled at nine fixed points: the centre and eight round a circle of radius x fall_radius_mult (the fighter's own JSON radius, 9-13). It falls when at least fall_fraction of the nine are over a pit (0.5: five of nine, so the centre and half the ring). At 1.0 a hole of one or two cells, or a crack one cell wide, drops nobody; a 2x2 hole drops a radius-9 or -10 fighter standing in its middle, a 3x3 hole everyone. fall_radius_mult 0 is the old rule (the centre point alone). The CPU (CpuController._lands_safe, roll_end) reads the same function.",
+	"fall_fraction": 0.5,
+	"fall_radius_mult": 1.0
+}

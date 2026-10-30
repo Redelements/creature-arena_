@@ -127,7 +127,9 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   (from `_go_to`) rolls over a pit at its lip when the far side can't be walked to
   (`NavGrid.region_of`) or the walk round is longer by half a roll, chance per level `LEVELS`
   `gap`; every CPU dodge goes through `_safe_roll_dir` / `_open_dir`'s roll mode, so none ends
-  within `LAND_MARGIN` of a pit. A ram (Craglash) stops at a lip and never crosses
+  within `LAND_MARGIN` of a pit. "A pit" there is the sim's footprint rule (`TerrainGrid.footprint_falls`, the fighter's
+  radius: `_lands_safe(t, p, r)`, `_cross_lands`, the ram in `roll_end`), so the CPU and the sim agree on what drops it.
+  A ram (Craglash) stops at a lip and never crosses
 - Chasms and crossing moves → a move with a `leap` window round a straight `dash` (no `home`, no `ghost`, not the
   Surge: Digby's Burrow) carries over pits (`_cross_move`, `_cross_reach`: dash speed x its ticks). `_gap_cross` (from
   `_go_to`, after `_gap_roll`) throws it at a chasm's lip (only a chasm: healing holes are walked round or rolled)
