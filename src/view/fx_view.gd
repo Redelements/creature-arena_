@@ -3572,6 +3572,11 @@ func _draw_tongue(ci: CanvasItem, pr: Dictionary) -> void:
 ## changes palette, darkens at night and hides with him, and y-sorts with him. Facing down, down-right or sideways the chain is in front of
 ## his body (it comes toward the camera); facing up or up-right it is behind it.
 const MAW_SNAP := 5  ## ticks for the head to snap home
+## The reactions whose rows have a headless twin (hurt_nohead, guard_nohead, ko_nohead): a head
+## that came home during one stays on that twin's neck until the state ends.
+const MAW_HOLD := [CreatureSim.State.HITSTUN, CreatureSim.State.GUARD,
+	CreatureSim.State.CRUMPLE, CreatureSim.State.AIRBORNE, CreatureSim.State.FALLING, CreatureSim.State.KNOCKDOWN]
+const MAW_KO_BURST := 18  ## the ko row's frame 3 (6 ticks a frame): the neck bursts, the head is down
 const MAW_SLAB := 5.0  ## px between the chain's stones (the rig's SLAB_SPACING)
 const MAW_DROP := 14.0  ## how far the head drops toward the bite...
 const MAW_DROP_RUN := 60.0  ## ...over this much of its flight
@@ -3625,7 +3630,17 @@ func _maw_out(c: CreatureSim) -> bool:
 			"rel": _maw_rel(fwd, maxf(0.0, (Vector2(pr["pos"]) - c.pos).dot(fwd) - off))}
 		return true
 	var m: Dictionary = _maw.get(c.id, {})
-	return bool(m.get("react", false)) and sim.tick < int(m["tick"]) + MAW_SNAP
+	if not bool(m.get("react", false)):
+		return false
+	if sim.tick < int(m["tick"]) + MAW_SNAP:
+		return true
+	# Home on the headless twin: it stays to the end of the reaction (the head on the neck's
+	# end), so the head never jumps onto the hurt or guard pose's own head spot; a knockout
+	# holds it until the neck bursts (ko frame 3), where the ko row's head lies on the floor.
+	if c.state in MAW_HOLD or (c.state == CreatureSim.State.KO and c.state_t < MAW_KO_BURST):
+		return true
+	m["react"] = false
+	return false
 
 
 ## Where the head is from the neck's end, `s` px along the flight `fwd`.
@@ -3645,14 +3660,15 @@ func _maw_projectile(c: CreatureSim) -> Dictionary:
 ## neck's end), "dir" (the neck's direction there), "head", "open", "vel", "front", "flying".
 func _maw_state(c: CreatureSim, cv: CreatureView) -> Dictionary:
 	var ends: Dictionary = cv.layout.get("neck_end", {})
-	if not ends.has(cv.view):
+	var sv := cv.sheet_view()  # a side-only row (ko_nohead) facing down still ends on the side sheet's neck
+	if not ends.has(sv):
 		return {}
 	var sx := -1.0 if cv.flip else 1.0
-	var e: Array = ends[cv.view]
-	var nd: Array = cv.layout.get("neck_dir", {}).get(cv.view, [1, 0])
+	var e: Array = ends[sv]
+	var nd: Array = cv.layout.get("neck_dir", {}).get(sv, [1, 0])
 	var home := cv.pivot.position + Vector2(float(e[0]) * sx, float(e[1]))
 	var out := {"home": home, "dir": Vector2(float(nd[0]) * sx, float(nd[1])), "head": home, "open": false,
-		"vel": Vector2(sx, 0), "front": not cv.view in ["up", "up_side"], "flying": false}
+		"vel": Vector2(sx, 0), "front": not sv in ["up", "up_side"], "flying": false}
 	if not cv.headless():
 		return {}  # his sprite has its own head showing: draw no other
 	var pr := _maw_projectile(c)
@@ -3743,7 +3759,7 @@ func _draw_long_bite(ci: Node2D, cv: CreatureView, front: bool) -> void:
 			var k := int(roundf(fposmod(rad_to_deg(t.angle()), 180.0) / 18.0)) % 10
 			_maw_piece(ci, cv, "maw_slab", k, sd[0], false, 0.0)
 	var rot := 0.0
-	if cv.view == "side":
+	if cv.sheet_view() == "side":
 		var vel: Vector2 = st["vel"]
 		rot = atan2(vel.y, absf(vel.x)) * (-1.0 if cv.flip else 1.0)  # along the flight
 	_maw_piece(ci, cv, "maw_head", 0 if bool(st["open"]) else 1, tip, cv.flip, rot)
@@ -3755,7 +3771,7 @@ func _maw_piece(ci: CanvasItem, cv: CreatureView, anim: String, idx: int, at: Ve
 	var fp := cv.frame_piece(anim, idx)
 	if fp.is_empty():
 		return
-	var e: Array = cv.layout["neck_end"].get(cv.view, [0, 0])
+	var e: Array = cv.layout["neck_end"].get(cv.sheet_view(), [0, 0])
 	var ppu := int(fp["ppu"])
 	var mid: Vector2 = Vector2(fp["origin"]) + Vector2(float(e[0]), float(e[1])) * float(ppu)
 	var gs := ArtScale.scale_of(ppu)

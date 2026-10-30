@@ -238,3 +238,28 @@ func test_maw_hit_showcase_hits_craglash_while_his_head_flies() -> void:
 	assert_true(sc.finished, "maw_hit showcase should finish")
 	assert_eq(sc.failed, "", "maw_hit showcase:")
 	assert_true(mid_flight, "Cairn should hit Craglash while his head flies")
+
+
+func test_maw_ko_showcase_knocks_craglash_out_while_his_head_flies() -> void:
+	# The beat for ko_nohead: with no Stoneskin and 5 HP, Cairn's Haymaker lands the knockout
+	# blow while Craglash's head is out (he goes down after the flight ends; the view keeps the
+	# headless twins until the ko row's neck bursts).
+	var sc := Showcase.new("maw_ko")
+	var sim := sc.build()
+	var fatal_mid_flight := false
+	var ko := false
+	for i in 2000:
+		if sc.finished:
+			break
+		sim.step(sc.inputs(sim))
+		var c: CreatureSim = sim.creatures[0]
+		for e in sim.events:
+			if String(e["type"]) == "hit" and int(e.get("target", -1)) == 0 and c.hp <= 0.0:
+				for pr in sim.projectiles:
+					if int(pr["owner"]) == 0:
+						fatal_mid_flight = true
+		ko = ko or c.state == CreatureSim.State.KO
+	assert_true(sc.finished, "maw_ko showcase should finish")
+	assert_eq(sc.failed, "", "maw_ko showcase:")
+	assert_true(fatal_mid_flight, "the knockout blow should land while his head flies")
+	assert_true(ko, "Craglash should be knocked out")
