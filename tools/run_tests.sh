@@ -57,9 +57,16 @@ if [ "$do_import" = 1 ]; then
 fi
 
 step "godot tests (tests/run_tests.gd)"
-out=$("$G" --headless --path . --script res://tests/run_tests.gd 2>&1)
-echo "$out" | grep -E 'FAIL|passed, [0-9]+ failed|SCRIPT ERROR' | tail -40
-echo "$out" | grep -qE '^[0-9]+ passed, 0 failed' || fail "godot tests"
+mkdir -p tmp/run_tests
+"$G" --headless --path . --script res://tests/run_tests.gd > tmp/run_tests/godot.log 2>&1
+code=$?
+grep -E 'FAIL|passed, [0-9]+ failed|SCRIPT ERROR' tmp/run_tests/godot.log | tail -40
+summary=$(grep -E '^[0-9]+ passed, 0 failed' tmp/run_tests/godot.log | tail -1)
+if [ "$code" != 0 ] || [ -z "$summary" ]; then
+	echo "--- tail of tmp/run_tests/godot.log (exit code $code) ---"; tail -20 tmp/run_tests/godot.log
+	fail "godot tests"
+fi
+[ "${summary%% *}" -gt 0 ] || fail "godot tests (nothing ran: check TEST_ONLY)"
 
 if [ "$quick" = 0 ]; then
 	step "smoke match (--mode=2, 600 frames)"
