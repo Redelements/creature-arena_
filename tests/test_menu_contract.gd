@@ -135,7 +135,8 @@ func test_every_choice_names_the_mode_it_starts() -> void:
 			var cfg: Dictionary = MAIN.MODES[int(modes[i])]
 			var where := "%s [%s] -> %s" % [label, c, cfg["label"]]
 			if cfg.has("team") and cfg.has("seating"):  # a local team row's choice is the rules
-				var names := {"": "Team battle", "deathmatch": "Deathmatch", "sinkhole": "Sinkhole", "crater": "Crater"}
+				var names := {"": "Team battle", "deathmatch": "Deathmatch", "sinkhole": "Sinkhole", "crater": "Crater",
+					"ctf": "Capture the Flag"}
 				assert_eq(c, String(names.get(String(cfg.get("rules", "")), "?")), where)
 			elif cfg.has("team"):
 				assert_eq(c, "%d v %d" % [int(cfg["team"]), int(cfg["team"])], where)

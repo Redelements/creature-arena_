@@ -1,6 +1,7 @@
 {
 	"_doc": "Team battle (2v2, 3v3) rules: every player has one creature and one life; the last team with anyone standing wins. Times are in ticks (60 per second) unless named _seconds.",
 	"time_seconds": 150,
+	"max_size": 4,
 	"intro_ticks": 100,
 	"over_ticks": 150,
 	"mid_ko_slowmo": 30,

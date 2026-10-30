@@ -527,7 +527,7 @@ func _handle(c: Client, m: Dictionary) -> void:
 			if not (c.rules in TeamSim.RULE_IDS):
 				c.rules = ""
 			if c.size > 1:
-				c.size = mini(c.size, TeamSim.max_size_for(c.rules))  # 4 v 4 is Capture the Flag only
+				c.size = mini(c.size, TeamSim.online_max_size_for(c.rules))  # 4 v 4 is Capture the Flag only
 			c.arena = String(m.get("arena", ArenaMap.DEFAULT))
 			if not (c.arena in ArenaMap.IDS):
 				c.arena = ArenaMap.DEFAULT

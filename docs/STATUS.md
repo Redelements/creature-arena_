@@ -45,16 +45,24 @@ Done: PR 6 "teams 2v2 with four seats" on branch `local-teams` (base `local-ffa`
 `side_cap` (Left / Right picks a side), `LocalSeats.side_pick` / `set_side` / `seats_on`,
 `_seated_team_sides`, `_seated_team_picks`, the RED / BLUE banner when people are on both sides.
 
-Now: PR 7 "four seats vs four CPUs" on branch `local-coop` (base `local-teams`): modes
-`"seating": "coop"` (everyone on side 0, CPUs on side 1): Team battle 4v4, Team Deathmatch 4v4,
-CTF 4v4 local (`team.json` `max_size` 4; a size-4 Deathmatch `score_to_win` entry; both change
-`data_hash` → server rebuild after merge); `team_sim.gd:85, 1302` "slot 0 of a side is the
-human" guards with a CPU-only side 1; CPU team intent vs four humans; the camera on Twin Keeps:
-`_cam_anchor` -1 with 2+ locals → frame the locals' box (`_frame_fight` anchors list, min zoom
-~0.4), pointers for foes. Caravan Pass stays out (Kevin's ruling).
+Done: PR 7 "four seats vs four CPUs" on branch `local-coop` (base `local-teams`): modes 60-62
+(`"seating": "coop"`), row "Co-op: 4 v 4 vs CPU", `team.json` / `deathmatch.json` `max_size` 4
+(+ Deathmatch size-4 score 18: a guess; both change `data_hash` → **server update.sh after
+merge**), the camera frames the people here on a big map (`_frame_fight` `crew`, `_near_any`,
+`main.local_slots`) with top padding from `Hud.panels_height`. Screenshot pr-media
+`local-mp/coop-ctf.png`.
 
-Next: PR 8 polish (pause owner prompt, per-seat palettes/titles, progression seat 0 only,
-Discord presence "N players", MECHANICS / README / map sweep).
+Now: PR 8 "polish" on branch `local-polish` (base `local-coop`): a controller-disconnect
+prompt that pauses an offline fight (`_on_pad_changed` → `_open_pause` with a line naming the
+seat; never online); the pause menu names who paused (player 1); per-seat palettes (F5 and
+the worn palette for `Side.PLAYER` only today, `main.gd` `_apply palettes` / `palette` action:
+seat 0 keeps the account's palette, seats 2-4 wear none, by Kevin's ruling "only player 1
+progresses"); Discord presence "Brawl · N players" (already counts locals: check); progression:
+report kind "local" pays seats 2-4 nothing (`progress_report` players → seat 0 only, per
+Kevin); `docs/MECHANICS.md` CLI flag `--locals`, `docs/local-multiplayer-plan.md` status
+column, README controls, open-items.
+
+Next: hand the eight PRs to Kevin to playtest (#317-#324); server update after #324 merges.
 
 ## Decisions
 
