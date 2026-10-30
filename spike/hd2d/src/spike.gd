@@ -33,6 +33,10 @@ var pin: PlayerInput
 var run_ticks := -1
 var cpu_vs_cpu := false
 var facing_test := false
+var toggle_test := false  ## QC: press every toggle key twice from code, then quit
+var perf := false  ## evidence: the average frame time over 10 s of the match, printed once
+var _perf_frames := 0
+var _perf_t0 := 0.0
 var determinism := false
 var anim_log := false
 var seed_base := 1
@@ -74,6 +78,10 @@ func _ready() -> void:
 			facing_test = true
 		elif a == "--determinism":
 			determinism = true
+		elif a == "--toggle-test":
+			toggle_test = true
+		elif a == "--perf":
+			perf = true
 		elif a == "--anim-log":
 			anim_log = true
 		elif a == "--mobile":
@@ -145,6 +153,33 @@ func _mouse_world() -> Vector2:
 	return Vector2(h.x, h.z)
 
 
+## Every toggle key pressed twice (P three times, to come back round), through the same
+## handler a real key press reaches; the state line after each shows it flipped and flipped back.
+func _run_toggle_test() -> void:
+	var keys := [KEY_O, KEY_O, KEY_P, KEY_P, KEY_P, KEY_1, KEY_1, KEY_2, KEY_2, KEY_3, KEY_3,
+		KEY_4, KEY_4, KEY_M, KEY_M, KEY_N, KEY_N, KEY_R, KEY_R, KEY_T, KEY_T]
+	for k in keys:
+		var e := InputEventKey.new()
+		e.keycode = k
+		e.pressed = true
+		print("spike: press %s" % OS.get_keycode_string(k))
+		_unhandled_input(e)
+	print("spike: toggle test done")
+
+
+## Frames and wall time from the match's first second to its eleventh, printed once.
+func _perf_tick() -> void:
+	if sim.tick == 60:
+		_perf_t0 = Time.get_ticks_usec() / 1000.0
+		_perf_frames = Engine.get_frames_drawn()
+	elif sim.tick == 660:
+		var ms := Time.get_ticks_usec() / 1000.0 - _perf_t0
+		var n := Engine.get_frames_drawn() - _perf_frames
+		print("spike: perf %d frames in %.0f ms: %.2f ms a frame (%.0f fps) lit %s mobile %s" % [
+			n, ms, ms / maxf(1.0, n), 1000.0 * n / maxf(1.0, ms), lit_on,
+			not (glow_on or ssao_on or dof_on or shadows_on)])
+
+
 func _run_facing_test() -> void:
 	var dirs := [["right", Vector2(1, 0)], ["down-right", Vector2(1, 1)], ["down", Vector2(0, 1)],
 		["down-left", Vector2(-1, 1)], ["left", Vector2(-1, 0)], ["up-left", Vector2(-1, -1)],
@@ -171,6 +206,10 @@ func _physics_process(_d: float) -> void:
 	var inputs := PackedInt32Array([_bits(0), _bits(1)])
 	sim.step(inputs)
 	_sync_all()
+	if toggle_test and sim.tick == 60:
+		_run_toggle_test()
+	if perf:
+		_perf_tick()
 	if anim_log and sim.tick <= 600 and sim.tick % 30 == 0:
 		var f: Fighter3D = fighters[0]
 		print("spike: t=%d p1 state=%s view=%s frame=%d" % [sim.tick, CreatureSim.State.keys()[sim.creatures[0].state], f.view, f.last_frame])
