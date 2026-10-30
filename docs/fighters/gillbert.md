@@ -23,3 +23,4 @@
 
 ## Changelog
 - 2026-10-27 — created
+- 2026-10-29 — plan `docs/plans/gillbert-backline.md`: 1v1 field 12%, assassin slot 50%, skills 8% of damage; a hook that picks its mark, a CPU that looks for the back line, then range. Rulings R1-R4 open.
