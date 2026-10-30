@@ -176,3 +176,88 @@ func test_radius_mult_zero_is_the_old_centre_rule() -> void:
 	assert_true(ok, "the centre over a lone hole falls under the old rule")
 	assert_false(beside, "and a cell over doesn't")
 	assert_false(sim.terrain.footprint_falls(mid, 13.0), "back to the data: it doesn't")
+
+
+## Sinkhole-style floor: everything sunk to chasm but the floor cells c0..c1 (inclusive).
+func _island(c0: Vector2i, c1: Vector2i) -> MatchSim:
+	var sim := MatchFactory.versus("cairn", "culvert")
+	sim.fall_ko = true
+	var t := sim.terrain
+	for cy in t.rows:
+		for cx in t.cols:
+			if cx < c0.x or cy < c0.y or cx > c1.x or cy > c1.y:
+				t.sink(Vector2i(cx, cy))
+	sim.creatures[1].pos = t.cell_center(Vector2i(45, 20))
+	for c in sim.creatures:
+		c.invuln = 0
+	return sim
+
+
+## Steps until creature 0 is knocked out (or `limit` ticks), noting the first fall's pit.
+func _fall_pit(sim: MatchSim, limit: int) -> String:
+	var pit := ""
+	for i in limit:
+		run(sim, 0, 1)
+		for e in sim.events:
+			if e["type"] == "fall" and pit == "":
+				pit = String(e.get("pit", ""))
+		if sim.creatures[0].state == CreatureSim.State.KO:
+			break
+	return pit
+
+
+func test_a_corner_of_the_sinkhole_floor_is_a_chasm_knockout() -> void:
+	# Just inside the floor's top-left corner: the centre on floor, five of the nine points
+	# over the chasm. It falls, the fall is a chasm's, and under fall_ko it's a knockout
+	# (before the fix the centre's floor cell made it a hole: hurt and back up).
+	var sim := _island(Vector2i(30, 10), Vector2i(53, 25))
+	var c := sim.creatures[0]
+	c.pos = sim.terrain.cell_rect(Vector2i(30, 10)).position + Vector2(1, 1)
+	assert_false(sim.terrain.is_hole_at(c.pos), "the centre is on floor")
+	assert_true(sim.terrain.footprint_chasm(c.pos, c.radius), "the footprint says chasm")
+	assert_eq(_fall_pit(sim, 200), "chasm", "the fall event's pit:")
+	assert_eq(c.state, CreatureSim.State.KO, "a chasm fall knocks out under fall_ko:")
+
+
+func test_a_hole_with_a_chasm_corner_stays_a_hole() -> void:
+	# Mostly over a hole (centre too), one point over a chasm: still a hole, as before.
+	var sim := MatchFactory.versus("cairn", "culvert")
+	var t := sim.terrain
+	for dy in range(-2, 2):
+		for dx in range(-2, 2):
+			t.set_cell(ANCHOR + Vector2i(dx, dy), TerrainGrid.HOLE)
+	t.sink(ANCHOR + Vector2i(2, 0))
+	var p := t.cell_rect(ANCHOR).position + Vector2(4, 0)
+	assert_false(t.footprint_chasm(p, 13.0), "more hole than chasm, centre on a hole")
+
+
+func _sunk_top_row() -> MatchSim:
+	var sim := MatchFactory.versus("cairn", "culvert")
+	sim.fall_ko = true
+	for cx in sim.terrain.cols:
+		sim.terrain.sink(Vector2i(cx, 0))
+	sim.creatures[1].pos = sim.terrain.cell_center(Vector2i(45, 20))
+	for c in sim.creatures:
+		c.invuln = 0
+	return sim
+
+
+func test_hugging_the_top_wall_over_a_sunk_top_row_falls() -> void:
+	# Sinkhole's ring 0 sinks the top row. A body hugging the top wall (its centre EDGE_TOP
+	# px into row 0) has its three upward points past the grid: they read the edge row (a
+	# chasm), not floor, so it falls and is knocked out, as under the centre-point rule.
+	var sim := _sunk_top_row()
+	var c := sim.creatures[0]
+	c.pos = Vector2(sim.terrain.cell_center(Vector2i(20, 0)).x, SimDefs.GRID_Y + CreatureSim.EDGE_TOP)
+	assert_true(sim.terrain.footprint_falls(c.pos, c.radius), "the footprint over the sunk row falls")
+	assert_eq(_fall_pit(sim, 200), "chasm", "the fall event's pit:")
+	assert_eq(c.state, CreatureSim.State.KO, "knocked out:")
+
+
+func test_a_walk_up_never_steps_onto_a_sunk_top_row() -> void:
+	var sim := _sunk_top_row()
+	var c := sim.creatures[0]
+	c.pos = Vector2(sim.terrain.cell_center(Vector2i(20, 0)).x, SimDefs.GRID_Y + 30.0)
+	var fell := run_until(sim, func(): return c.state == CreatureSim.State.FALLING, 90, SimDefs.IN_UP)
+	assert_false(fell, "walking up stops at the lip")
+	assert_gt(c.pos.y, SimDefs.GRID_Y + SimDefs.CELL - 0.01, "its centre stays off the sunk row:")

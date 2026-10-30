@@ -215,6 +215,14 @@ static func set_fall_rules(d: Dictionary = {}) -> void:
 	_fall_mult = maxf(0.0, float(r.get("fall_radius_mult", 1.0)))
 
 
+## The cell a footprint point reads: the nearest cell on the grid (a point past the floor's
+## edge, a body hugging a wall, reads the edge row or column, never "floor" off the grid, or
+## a sunk edge row would hold up anyone leaning over it).
+func _sample_cell(p: Vector2) -> int:
+	var c := world_to_cell(p)
+	return cells[clampi(c.y, 0, rows - 1) * cols + clampi(c.x, 0, cols - 1)]
+
+
 ## Whether a body of `radius` at `p` falls: at least fall_fraction of its footprint (the
 ## centre and eight points round its circle, FOOTPRINT) is over pit cells. The one rule for
 ## falls (MatchSim._check_falls), the walking guard (CreatureSim._move) and the CPU.
@@ -227,13 +235,35 @@ func footprint_falls(p: Vector2, radius: float) -> bool:
 	var pits := 0
 	for o in FOOTPRINT:
 		left -= 1
-		if is_pit(get_cell(world_to_cell(p + o * r))):
+		if is_pit(_sample_cell(p + o * r)):
 			pits += 1
 			if pits >= need:
 				return true
 		elif pits + left < need:
 			return false
 	return false
+
+
+## Whether a body falling at `p` falls into a chasm (Sinkhole's knockout, `fall_ko`) rather
+## than a hole: its centre is over a chasm (the old rule's answer, kept whenever it applied),
+## or at least as many footprint points are over chasm cells as over hole cells. Same points
+## as `footprint_falls`, so a fall with the centre on floor (a corner of the Sinkhole's
+## shrinking floor) is still a chasm fall.
+func footprint_chasm(p: Vector2, radius: float) -> bool:
+	if _fall_need == 0:
+		set_fall_rules()
+	var r := radius * _fall_mult
+	if _sample_cell(p) == CHASM:
+		return true
+	var chasms := 0
+	var holes := 0
+	for o in FOOTPRINT:
+		var v := _sample_cell(p + o * r)
+		if v == CHASM:
+			chasms += 1
+		elif v == HOLE:
+			holes += 1
+	return chasms > 0 and chasms >= holes
 
 
 func solid_at(p: Vector2) -> bool:
