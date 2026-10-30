@@ -115,8 +115,13 @@ const UI_DIRECTIONS := ["ui_up", "ui_down", "ui_left", "ui_right"]
 ## device (a controller that isn't the first, Steam's virtual pads, player 2's pad).
 const ALL_DEVICES := -1
 
+## Bumped whenever the bindings change (setup, a rebind, a reset, saved overrides), so a
+## reader that caches them (`PlayerInput.pad_map`) knows to look again.
+static var version := 0
+
 
 static func setup() -> void:
+	version += 1
 	# The built-in menu actions count every wobble of the stick past the deadzone as a
 	# new press; MenuStick reads the stick for menus instead (d-pad and keys stay).
 	for action in UI_DIRECTIONS:
@@ -249,6 +254,7 @@ static func rebind(group: String, action: String, event: InputEvent) -> void:
 				break
 	var rest := mine.slice(1).filter(func(e): return not _same(e, fresh))
 	_set_kind_events(action, group, [fresh] + rest)
+	version += 1
 
 
 ## An action's bindings of the kind a group remaps, main one first.
@@ -347,6 +353,7 @@ static func apply_overrides(saved: Dictionary) -> void:
 			var ev := _load_event(d)
 			if ev != null:
 				InputMap.action_add_event(action, ev)
+	version += 1
 
 
 static func _save_event(ev: InputEvent) -> Dictionary:
