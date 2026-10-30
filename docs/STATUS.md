@@ -27,13 +27,18 @@ keyboard_only / unclaim / joined / finish`, `src/ui/seat_screen.gd`, MODES `"sea
 on Duel 2P (7) and Versus 2P (8), `_start_match` → `_open_seats` → `_open_pick(cfg, keep_teams)`
 (skipped under `--mode=` and on a rematch). `--locals=N` deferred to PR 5. 156 tests green.
 
-Now: PR 3 "N pickers" on branch `local-select` (base `local-join`): `CharacterSelect` takes
-`pickers: [{seat, side}]` (a cursor, pad and MenuStick per seat; `_player_of` through
-`main.seats.holder_of` / keyboard = seat 0), simultaneous picks, undo per seat; Brawl 3/4
-players stop handing seats 3-4 roster fighters. Keep `p1_pad` / `p2_pad` / `two_players`
-working (tests/test_ui.gd:222-280, test_journey `_through_pick`).
+Done: PR 3 "N pickers" on branch `local-select` (base `local-join`): `CharacterSelect.set_pickers`,
+`players` / `columns` / compact panels / `unique_across`; Brawl 3-4 players pick their own.
+Screenshot on pr-media `local-mp/pick-four.png`. 100 + 76 tests green.
 
-Next: PR 4 HUD for four on `local-hud` (base `local-select`).
+Now: PR 4 "HUD for four" on branch `local-hud` (base `local-select`): `src/view/hud.gd`
+`_draw_panels` lays four 156-px panels in a row when 3-4 seats play (`panel_plan` gives every
+local seat a full panel), seat colour stripes, combo counters and `respawn_in` per slot,
+banners / results naming seats (`_side_name`), `tests/test_hud_panels.gd`. Screenshots on all
+six maps in the PR.
+
+Next: PR 5 free-for-all mode (new MODES index, "Local play" hub group, Brawl rows as
+aliases, Chaos Cup players choice, `--locals=N`) on `local-ffa` (base `local-hud`).
 
 ## Decisions
 
