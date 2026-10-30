@@ -53,7 +53,10 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   on once `need` have joined) → `seat_screen.gd` (`SeatScreen`: `need`, `most`, `seats`,
   signals `done` / `cancelled`; it only talks to `LocalSeats.begin` .. `finish`); opened by
   `main.gd:_open_seats`, then `_open_pick`; `tests/test_local_seats.gd`
-- Character select (one cursor per player, teams, `solo` for online) → `character_select.gd`; the "Beats mages  ·  Loses to the rest" line under a fighter's class is `matchup_text`, read from `CpuController.BEATS` (`tests/test_select_matchups.gd`)
+- Character select (a cursor, pad and stick per local player: `set_pickers(pads)`, `players`,
+  `_pad_of`; a column (team list) per side, or one per player past two: `columns`, compact
+  panels `compact()`, `_panel_w`, `_side_col`; `unique_across` for a Brawl; `solo` for online)
+  → `character_select.gd`; the "Beats mages  ·  Loses to the rest" line under a fighter's class is `matchup_text`, read from `CpuController.BEATS` (`tests/test_select_matchups.gd`)
 - Online "match found" → `ready_check.gd`; room code row → `room_code_button.gd`
 - Remapping (classic, league, gamepad) → `remap_screen.gd` (`RESERVED_KEYS`, `RESERVED_BUTTONS`)
 - Pause / confirm / help → `pause_screen.gd` (`extras` rows), `confirm_screen.gd`, `help_screen.gd`

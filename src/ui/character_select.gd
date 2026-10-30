@@ -4,10 +4,13 @@ extends UiScreen
 ## (red for player 1, blue for player 2 or the CPU), a big preview of whoever each
 ## cursor is on, and the team filling up beside it.
 ##
-## Two players pick at the same time, each with their own controller (player 1 also has
-## the keyboard and mouse). Against the CPU, player 1 picks their own team, then the
+## Several players pick at the same time, each with their own controller (player 1 also has
+## the keyboard and mouse): `set_pickers` seats them, one column (a team list, a cursor)
+## each; with more than two columns (a Brawl of 3-4 players) the panels go compact, a
+## stripe in each seat's colour. Against the CPU, player 1 picks their own team, then the
 ## CPU's. A press picks, B / Esc takes the last pick back (with nothing to take back,
-## player 1 leaves); "?" picks at random. When both teams are full the match starts.
+## player 1 leaves); "?" picks at random. When every column is full the match starts.
+## `unique_across`: no fighter in two columns (a Brawl: one of each).
 ##
 ## `solo`: only player 1 picks (online, before searching). The right panel says what
 ## happens next (`solo_heading`, `solo_info`) instead of holding a second team, and the
@@ -39,6 +42,13 @@ var labels: Array = ["PLAYER 1", "CPU"]
 var p1_keyboard := true
 var p1_pad := PlayerInput.ANY_PAD
 var p2_pad := PlayerInput.NO_PAD
+## Players 3 and 4's pads (`set_pickers`), how many players pick, and how many columns
+## (team lists) there are: two, or one a player past two.
+var extra_pads: Array = []
+var players := 1
+var columns := 2
+## No fighter in two columns (a Brawl).
+var unique_across := false
 var solo := false
 var solo_heading := ""
 var solo_info := ""
@@ -89,9 +99,54 @@ func setup(p_title: String, p_size: int, p_labels: Array, p_two: bool, previous:
 	team_size = maxi(1, p_size)
 	labels = p_labels
 	two_players = p_two
-	for side in 2:
+	players = maxi(players, 2 if p_two else 1)
+	_resize_columns()
+	for side in columns:
 		if previous.size() > side and not (previous[side] as Array).is_empty():
 			cursor[side] = maxi(0, roster.find(previous[side][0]))
+
+
+## Seats the players: `pads[k]` is player k+1's controller (player 1's may be ANY_PAD or
+## NO_PAD; they keep the keyboard and mouse). Two or more make `two_players`; past two,
+## each gets a column of their own. Call before the screen is on the stack.
+func set_pickers(pads: Array) -> void:
+	players = clampi(pads.size(), 1, LocalSeats.MAX_SEATS)
+	p1_pad = int(pads[0]) if pads.size() > 0 else PlayerInput.ANY_PAD
+	p2_pad = int(pads[1]) if pads.size() > 1 else PlayerInput.NO_PAD
+	extra_pads = pads.slice(2)
+	two_players = players >= 2
+	_resize_columns()
+
+
+func _resize_columns() -> void:
+	columns = maxi(2, players)
+	while teams.size() < columns:
+		teams.append([])
+		cursor.append(cursor[0])
+	while labels.size() < columns:
+		labels.append("PLAYER %d" % labels.size() if labels.size() < players else "CPU")
+	while _history.size() < players:
+		_history.append([])
+	while _sticks.size() < players:
+		_sticks.append(MenuStick.new())
+
+
+## Player `p`'s controller (p from 0).
+func _pad_of(p: int) -> int:
+	match p:
+		0: return p1_pad
+		1: return p2_pad
+	return int(extra_pads[p - 2]) if p - 2 < extra_pads.size() else PlayerInput.NO_PAD
+
+
+## A column's colour: the side's, or past two columns each seat's own.
+func _side_col(side: int) -> Color:
+	return Accessibility.brawl_color(side) if columns > 2 else Accessibility.side_color(side)
+
+
+## Panels go compact (a narrow column each) past two of them.
+func compact() -> bool:
+	return columns > 2
 
 
 func _ready() -> void:
@@ -106,16 +161,32 @@ func _ready() -> void:
 		var sp: Dictionary = MatchFactory.load_def(id).get("sprite", {})
 		if sp.has("path"):
 			_tex[id] = PackedSheet.load_sheet(String(sp["path"]))
-	for side in 2:
+	for side in columns:
 		var x := _panel_x(side)
 		var p := FighterPreview.new()
-		p.position = Vector2(x + 6, PANEL_Y + 16)
-		p.size = Vector2(92, 104)
-		p.zoom = 1.55
-		p.face_left = side == 1
+		if compact():  # a narrow column: the preview in the middle, the name under it
+			p.position = Vector2(x + (_panel_w() - 64) * 0.5, PANEL_Y + 14)
+			p.size = Vector2(64, 78)
+			p.zoom = 1.15
+		else:
+			p.position = Vector2(x + 6, PANEL_Y + 16)
+			p.size = Vector2(92, 104)
+			p.zoom = 1.55
+		p.face_left = side == columns - 1
 		p.mouse_filter = MOUSE_FILTER_IGNORE
 		_stage.add_child(p)
 		_big.append(p)
+		if compact():
+			var nm := _make_label(Vector2(x, PANEL_Y + 94), 8, UiTheme.C_TEXT)
+			nm.size.x = _panel_w()
+			nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_names.append(nm)
+			_blurbs.append(_make_label(Vector2(x, PANEL_Y + 108), 6, UiTheme.C_DIM))
+			_infos.append(_make_label(Vector2(x, PANEL_Y + 108), 6, UiTheme.C_ACCENT))
+			_matchups.append(_make_label(Vector2(x, PANEL_Y + 108), 6, UiTheme.C_DIM))
+			for l in [_blurbs.back(), _infos.back(), _matchups.back()]:
+				(l as Label).visible = false
+			continue
 		_names.append(_make_label(Vector2(x + 102, PANEL_Y + 22), 11, UiTheme.C_TEXT))
 		var blurb := _make_label(Vector2(x + 102, PANEL_Y + 38), 6, UiTheme.C_DIM)
 		blurb.size.x = PANEL_W - 108
@@ -173,16 +244,22 @@ func side_of(player: int) -> int:
 func is_done() -> bool:
 	if solo:
 		return (teams[0] as Array).size() >= team_size
-	return (teams[0] as Array).size() >= team_size and (teams[1] as Array).size() >= team_size
+	for side in columns:
+		if (teams[side] as Array).size() < team_size:
+			return false
+	return true
 
 
-## Which player an event belongs to (-1: nobody's).
+## Which player an event belongs to (-1: nobody's): a pad to the player holding it,
+## else player 1 when they listen to any pad.
 func _player_of(event: InputEvent) -> int:
 	if event is InputEventKey or event is InputEventMouse or event is InputEventAction:
 		return 0 if p1_keyboard or event is InputEventAction else -1
 	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
-		if two_players and event.device == p2_pad:
-			return 1
+		if two_players:
+			for p in range(1, players):
+				if event.device == _pad_of(p):
+					return p
 		if p1_pad == PlayerInput.ANY_PAD or event.device == p1_pad:
 			return 0
 	return -1
@@ -251,7 +328,7 @@ func _mouse(event: InputEvent) -> void:
 
 ## Each player's stick (their own pad's), like a d-pad.
 func _process(delta: float) -> void:
-	for player in (2 if two_players else 1):
+	for player in (players if two_players else 1):
 		var v := _stick_of(player)
 		for action in (_sticks[player] as MenuStick).step(v, delta):
 			move(player, {"ui_left": Vector2i.LEFT, "ui_right": Vector2i.RIGHT, "ui_up": Vector2i.UP,
@@ -269,8 +346,12 @@ func _process(delta: float) -> void:
 func _stick_of(player: int) -> Vector2:
 	var best := Vector2.ZERO
 	for dev in Input.get_connected_joypads():
-		var mine := (player == 1 and dev == p2_pad) or (player == 0 and (p1_pad == dev or \
-			(p1_pad == PlayerInput.ANY_PAD and not (two_players and dev == p2_pad))))
+		var mine := _pad_of(player) == dev
+		if player == 0 and p1_pad == PlayerInput.ANY_PAD:
+			mine = true  # any pad, but not one another player holds
+			for p in range(1, players if two_players else 1):
+				if _pad_of(p) == dev:
+					mine = false
 		if not mine:
 			continue
 		var v := Vector2(Input.get_joy_axis(dev, JOY_AXIS_LEFT_X), Input.get_joy_axis(dev, JOY_AXIS_LEFT_Y))
@@ -311,10 +392,12 @@ func pick(player: int, random := false) -> void:
 		return
 	var id := String(roster[cursor[side]])
 	if random or id == RANDOM:
-		var left: Array = MatchFactory.FIGHTERS.filter(func(f): return not (f in team))
+		var left: Array = MatchFactory.FIGHTERS.filter(func(f): return not (f in team) and not _taken_elsewhere(f, side))
+		if left.is_empty():
+			return
 		id = String(left[_rng.randi_range(0, left.size() - 1)])
-	elif id in team:
-		return  # already on this team
+	elif id in team or _taken_elsewhere(id, side):
+		return  # already on this team (or, in a Brawl, someone else's)
 	team.append(id)
 	(_history[player] as Array).append(side)
 	if stack != null:
@@ -343,7 +426,25 @@ func _undo(player: int) -> void:
 
 # ------------------------------------------------------------------ drawing
 
+## `unique_across`: whether another column already has this fighter.
+func _taken_elsewhere(id: String, side: int) -> bool:
+	if not unique_across:
+		return false
+	for other in columns:
+		if other != side and id in (teams[other] as Array):
+			return true
+	return false
+
+
+func _panel_w() -> float:
+	if not compact():
+		return PANEL_W
+	return floorf((SimDefs.VIEW_W - 20.0 - 6.0 * (columns - 1)) / columns)
+
+
 func _panel_x(side: int) -> float:
+	if compact():
+		return 10.0 + side * (_panel_w() + 6.0)
 	return 10.0 if side == 0 else SimDefs.VIEW_W - 10.0 - PANEL_W
 
 
@@ -375,7 +476,7 @@ func set_solo_info(text: String) -> void:
 func _refresh() -> void:
 	if _big.is_empty():
 		return
-	for side in 2:
+	for side in columns:
 		if solo and side == 1:
 			# What happens next, in place of a second team.
 			(_big[1] as FighterPreview).fighter = ""
@@ -468,16 +569,16 @@ func _draw() -> void:
 	_text(Vector2(0, 18), mode_title, 14, UiTheme.C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, w)
 	_text(Vector2(0, 27), "Pick your team of %d" % team_size if team_size > 1 else "Pick your fighter", 6,
 		UiTheme.C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
-	for side in 2:
+	for side in columns:
 		_draw_panel(side)
 	for i in roster.size():
 		var r := _tile_rect(i)
 		draw_rect(r, C_TILE)
-		# A stripe in each side's colour on a fighter it has picked.
-		for side in 2:
+		# A stripe in each column's colour on a fighter it has picked.
+		var sw := r.size.x / columns
+		for side in columns:
 			if String(roster[i]) in teams[side]:
-				draw_rect(Rect2(r.position.x + side * r.size.x * 0.5, r.position.y, r.size.x * 0.5, 2),
-					Accessibility.side_color(side))
+				draw_rect(Rect2(r.position.x + side * sw, r.position.y, sw, 2), _side_col(side))
 		if String(roster[i]) == RANDOM:
 			_text(Vector2(r.position.x, r.position.y + 27), "?", 20, UiTheme.C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER,
 				r.size.x)
@@ -491,14 +592,14 @@ func _draw() -> void:
 ## inside) and READY when both teams are full.
 func _draw_overlay() -> void:
 	var o := _overlay
-	for side in 2:
+	for side in columns:
 		if not _cursor_shown(side):
 			continue
-		var r := _tile_rect(cursor[side]).grow(1.0 if side == 0 else -1.0)
-		var col: Color = Accessibility.side_color(side)
+		var r := _tile_rect(cursor[side]).grow(1.0 if side == 0 else -1.0 - 2.0 * maxi(0, side - 1))
+		var col: Color = _side_col(side)
 		o.draw_rect(r, col, false, 2.0)
-		var tag := "1P" if side == 0 else ("2P" if two_players else "CPU")
-		var tx := r.position.x if side == 0 else r.end.x - 18.0
+		var tag := "%dP" % (side + 1) if side == 0 or two_players else "CPU"
+		var tx := r.position.x + (side * 18.0 if compact() else (0.0 if side == 0 else r.size.x - 18.0))
 		o.draw_rect(Rect2(tx, r.position.y - 7, 18, 7), col)
 		o.draw_string(_font, Vector2(tx, r.position.y - 1.5), tag, HORIZONTAL_ALIGNMENT_CENTER, 18, UiTheme.px(5), UiTheme.C_DARK)
 	if is_done():
@@ -520,10 +621,19 @@ func _cursor_shown(side: int) -> bool:
 
 func _draw_panel(side: int) -> void:
 	var x := _panel_x(side)
-	var col: Color = Accessibility.side_color(side)
+	var col: Color = _side_col(side)
 	var team: Array = teams[side]
-	draw_rect(Rect2(x, PANEL_Y, PANEL_W, PANEL_H), UiTheme.C_ROW)
-	draw_rect(Rect2(x, PANEL_Y, PANEL_W, 2), col)
+	var pw := _panel_w()
+	draw_rect(Rect2(x, PANEL_Y, pw, PANEL_H), UiTheme.C_ROW)
+	draw_rect(Rect2(x, PANEL_Y, pw, 2), col)
+	if compact():  # label and status on one line each, the pick as one slot at the foot
+		_text(Vector2(x, PANEL_Y + 11), String(labels[side]), 7, col, HORIZONTAL_ALIGNMENT_CENTER, pw)
+		var st := _status(side)
+		_text(Vector2(x, PANEL_Y + PANEL_H - 6), st, 5, UiTheme.C_ACCENT if team.size() >= team_size else UiTheme.C_DIM,
+			HORIZONTAL_ALIGNMENT_CENTER, pw)
+		if not team.is_empty():
+			_draw_mini(String(team[0]), Vector2(x + pw - 14, PANEL_Y + 30), side == columns - 1, 0.6)
+		return
 	_text(Vector2(x + 6, PANEL_Y + 11), String(labels[side]), 7, col)
 	if solo and side == 1:
 		return  # the labels hold what happens next

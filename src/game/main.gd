@@ -1527,9 +1527,12 @@ func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
 		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
 		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
 		var title := "DUEL" if cfg.get("duel", false) else "VERSUS"
-		if cfg.get("brawl", false):  # one pick per human seat; the other seats fill from the roster
+		var humans := _humans(cfg)
+		if cfg.get("brawl", false):  # one pick per human seat (a column each); the other seats fill from the roster
 			title = "CHAOS CUP" if cfg.get("chaos", false) else "BRAWL"
-			labels = ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
+			labels = []
+			for k in maxi(2, humans):
+				labels.append("PLAYER %d" % (k + 1) if k < humans else "CPU")
 		if cfg.has("team"):
 			size = int(cfg["team"])
 			labels = ["YOU + CPU", "CPU TEAM"]
@@ -1540,8 +1543,11 @@ func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
 		var pick := CharacterSelect.new()
 		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
 		pick.p1_keyboard = player_input.keyboard
-		pick.p1_pad = player_input.pad_device
-		pick.p2_pad = player2_input.pad_device
+		var pads: Array = []
+		for k in maxi(1, humans):
+			pads.append(seats.device_of(k))
+		pick.set_pickers(pads)
+		pick.unique_across = cfg.get("brawl", false)
 		if Progress.enabled():  # the players' titles (Progression): player 1's side, and player 2's
 			pick.title_for = func(side: int, id: String) -> String:
 				return Progress.shown_title(id) if side == 0 or two_players else ""

@@ -139,7 +139,8 @@ func _through_pick(g: Node, label: String) -> void:
 	_press("ui_accept")
 	var guard := 0
 	while not cs.is_done() and guard < 16:
-		cs.pick(1 if cs.two_players and cs.teams[1].size() < cs.team_size else 0, true)
+		for p in (cs.players if cs.two_players else 1):  # every seat picks at random
+			cs.pick(p, true)
 		guard += 1
 	assert_true(cs.is_done(), label + ": both teams picked")
 	cs._process(CharacterSelect.START_DELAY + 0.1)
