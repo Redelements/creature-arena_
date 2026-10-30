@@ -54,13 +54,36 @@ func test_two_locals_on_different_sides_each_keep_a_panel() -> void:
 	h.free()
 
 
-func test_two_locals_on_one_side_second_is_a_card() -> void:
+func test_two_locals_on_one_side_both_keep_a_full_panel_stacked() -> void:
 	var h := _hud_team(2, ["P1", "P2"])
 	var plan := h.panel_plan()
 	assert_eq(int(plan["panel"][0]), 0)
-	assert_true(plan["cards"][0].has(1), "player two is a card")
+	assert_eq(plan["panels"][0], [0, 1], "player two's full panel under player one's")
+	assert_eq(plan["cards"][0], [], "no card for a local")
 	assert_eq(int(plan["panel"][1]), -1, "enemy hidden")
 	assert_eq(plan["cards"][1].size(), 0)
+	h.focus = 1
+	assert_eq(h.panel_plan()["panels"][0], [1, 0], "the focus's panel first")
+	h.free()
+
+
+func test_four_locals_on_one_side_stack_four_panels_and_cpu_teammates_are_cards() -> void:
+	var t := TeamSim.new([["cairn", "culvert", "craglash", "barkley"], ["culvert", "cairn", "barkley", "craglash"]],
+		4, TeamSim.rules_by_id("ctf"))
+	var h := Hud.new()
+	h.sim = t.sim
+	h.team = t
+	h.resize_slots(8)
+	for i in 8:
+		h.tags[i] = ["P1", "P2", "P3", "P4"][i] if i < 4 else "CPU"
+	var plan := h.panel_plan()
+	assert_eq(plan["panels"][0], [0, 1, 2, 3], "four full panels down the left")
+	assert_eq(plan["cards"][0], [], "")
+	assert_eq(plan["panels"][1], [], "the CPU side shows nothing")
+	h.tags[3] = "CPU"
+	plan = h.panel_plan()
+	assert_eq(plan["panels"][0], [0, 1, 2], "")
+	assert_eq(plan["cards"][0], [3], "a CPU teammate is a card under them")
 	h.free()
 
 
@@ -86,8 +109,12 @@ func test_brawl_shows_locals_only() -> void:
 	h.tags = ["P1", "P2", "CPU", "CPU"]
 	plan = h.panel_plan()
 	assert_eq(int(plan["panel"][0]), 0)
-	assert_eq(plan["cards"][0], [1], "a second local on the same column is a card")
+	assert_eq(plan["panels"][0], [0, 1], "a second local on the same column gets a full panel under the first")
+	assert_eq(plan["cards"][0], [], "")
 	assert_eq(int(plan["panel"][1]), -1)
+	h.tags = ["P1", "P2", "P3", "P4"]
+	plan = h.panel_plan()
+	assert_eq(plan["panels"], [[0, 1], [2, 3]], "four locals: two full panels a column")
 	h.free()
 
 

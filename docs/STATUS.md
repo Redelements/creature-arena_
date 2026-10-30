@@ -31,14 +31,19 @@ Done: PR 3 "N pickers" on branch `local-select` (base `local-join`): `CharacterS
 `players` / `columns` / compact panels / `unique_across`; Brawl 3-4 players pick their own.
 Screenshot on pr-media `local-mp/pick-four.png`. 100 + 76 tests green.
 
-Now: PR 4 "HUD for four" on branch `local-hud` (base `local-select`): `src/view/hud.gd`
-`_draw_panels` lays four 156-px panels in a row when 3-4 seats play (`panel_plan` gives every
-local seat a full panel), seat colour stripes, combo counters and `respawn_in` per slot,
-banners / results naming seats (`_side_name`), `tests/test_hud_panels.gd`. Screenshots on all
-six maps in the PR.
+Done: PR 4 "HUD for four" on branch `local-hud` (base `local-select`): `panel_plan` →
+`panels[col]` (every local a full panel, stacked down its column via a draw transform `_py`),
+Brawl stripes per fighter, "BACK IN n" per stacked panel. Screenshot pr-media `local-mp/hud-four.png`.
+(Four panels in a row don't fit the 480 canvas with the clock: two stacked columns instead.)
 
-Next: PR 5 free-for-all mode (new MODES index, "Local play" hub group, Brawl rows as
-aliases, Chaos Cup players choice, `--locals=N`) on `local-ffa` (base `local-hud`).
+Now: PR 5 "free-for-all" on branch `local-ffa` (base `local-hud`): one Brawl mode with
+`"seating": "ffa"` (the join screen chooses 2-4 humans, `most` 4, `need` 2; sides = seats then
+CPU fill to 4), the hub group "Two players" → "Local play" (rows: Free-for-all, Duel 2P,
+Versus 2P; Brawl rows 42-44 kept as aliases for `--mode`), Chaos Cup gets the same seating,
+`--locals=N` (headless: the human count a seating mode would ask for), results / banners
+naming seats. Keep `test_journey`, `test_menu_contract`, `test_progression_flow` green.
+
+Next: PR 6 teams 2v2 with four seats on `local-teams` (base `local-ffa`).
 
 ## Decisions
 
