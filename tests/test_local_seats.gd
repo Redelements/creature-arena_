@@ -262,3 +262,51 @@ func test_the_join_screen_on_the_keyboard_enter_then_enter() -> void:
 	assert_eq(got[1], 1, "Esc from player 1 leaves")
 	assert_true(st.is_open(), "main closes the screen, the stack didn't pop it by itself")
 	st.free()
+
+
+# ------------------------------------------------------------------ the free-for-all's seats
+
+func _game() -> Node:
+	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = "user://test_local_seats.cfg"
+	_root().add_child(g)
+	return g
+
+
+func test_a_free_for_all_started_headless_seats_locals_then_cpus() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._cli_locals = 3
+	g._start_match(g.mode_index("Brawl"))
+	assert_eq(g.sides, [g.Side.PLAYER, g.Side.PLAYER2, g.Side.PLAYER3, g.Side.CPU], "three people, one CPU:")
+	assert_eq(g.seats.humans, 3, "")
+	g._cli_locals = 0
+	g._start_match(g.mode_index("Chaos Cup"))
+	assert_eq(g.sides, [g.Side.PLAYER, g.Side.CPU, g.Side.CPU, g.Side.CPU], "no --locals: one, as before:")
+	g.free()
+
+
+func test_the_join_screen_decides_how_many_play_a_free_for_all() -> void:
+	var g := _game()
+	g._start_match(g.mode_index("Brawl"))
+	assert_true(g.ui.top() is SeatScreen, "who's playing first")
+	var ss: SeatScreen = g.ui.top()
+	assert_eq(ss.need, 1, "one is enough")
+	assert_eq(ss.most, 4, "up to four")
+	_press("ui_accept")  # player 1 on the keyboard
+	g.seats.claim(0)
+	g.seats.claim(1)
+	assert_eq(g.seats.joined(), 3, "")
+	_press("ui_accept")
+	assert_true(g.ui.top() is CharacterSelect, "then the pick")
+	var cs: CharacterSelect = g.ui.top()
+	assert_eq(cs.players, 3, "a picker a seat")
+	assert_eq(cs.columns, 3, "")
+	for p in 3:
+		cs.pick(p, true)
+	assert_true(cs.is_done(), "")
+	cs._process(CharacterSelect.START_DELAY + 0.1)
+	assert_eq(g.sides, [g.Side.PLAYER, g.Side.PLAYER2, g.Side.PLAYER3, g.Side.CPU], "three seats and a CPU:")
+	assert_eq(g.seats.device_of(1), 0, "player 2 on pad 0")
+	assert_eq(g.seats.device_of(2), 1, "player 3 on pad 1")
+	g.free()

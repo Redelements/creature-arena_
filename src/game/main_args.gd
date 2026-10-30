@@ -79,6 +79,8 @@ func _parse_args() -> int:
 			main._skip_select = true  # straight into the match with the default teams
 		elif a == "--pick":
 			pick = true
+		elif a.begins_with("--locals="):
+			main._cli_locals = clampi(int(a.get_slice("=", 1)), 1, LocalSeats.MAX_SEATS)
 		elif a == "--cpu-vs-cpu":
 			main._cpu_vs_cpu = true
 		elif a.begins_with("--mutators="):

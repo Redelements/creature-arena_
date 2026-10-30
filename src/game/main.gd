@@ -157,7 +157,7 @@ const MODES := [
 	{"label": "Brawl: 3 players", "brawl": true, "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.CPU]},
 	{"label": "Brawl: 4 players", "brawl": true, "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
 	{"label": "Brawl: you vs 3 CPUs", "brawl": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
-	{"label": "Chaos Cup", "brawl": true, "chaos": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
+	{"label": "Chaos Cup", "brawl": true, "chaos": true, "seating": "ffa", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
 	{"label": "Replay", "replay": true, "sides": []},
 	{"label": "Mister Crease  vs  CPU Chef Cerebro", "left": "crease", "right": "cerebro", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Mister Crease", "left": "crease", "training": true},
@@ -166,6 +166,7 @@ const MODES := [
 	{"label": "Capture the Flag: 3v3 vs CPU", "team": 3, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Capture the Flag: 4v4 vs CPU", "team": 4, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Weekly Challenge", "weekly": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Brawl", "brawl": true, "seating": "ffa", "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -199,8 +200,8 @@ const MENU_GROUPS := [
 		"desc": "Runs and lessons with something to clear or beat"},
 	{"id": "brawl", "title": "Brawl", "sub": "Free-for-all for up to four, and the Chaos Cup",
 		"desc": "Four fighters, one life each, CPUs in the empty seats"},
-	{"id": "local", "title": "Two players", "sub": "Duel or Versus on one screen (Brawl seats up to four)",
-		"desc": "A second controller for player 2"},
+	{"id": "local", "title": "Local play", "sub": "Brawl, Duel or Versus on one screen, up to four controllers",
+		"desc": "Everyone at this screen: a controller each (player 1 can keep the keyboard)"},
 	{"id": "practice", "title": "Practice and watch", "sub": "Training dummy, showcases, your saved replays",
 		"desc": "Learn a fighter, or sit back"},
 ]
@@ -219,8 +220,10 @@ const MENU_ROWS := [
 		"desc": "Take their flag from their keep and bring it home while yours is safe. First to 3 captures. Left/Right: team size"},
 	{"label": "Caravan vs CPU", "group": "team", "modes": [51, 50], "choices": ["3 v 3", "2 v 2"],
 		"desc": "Escort the caravan down the pass; then defend while they push. Faster finish or further push wins. Left/Right: team size"},
-	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
-		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
+	{"label": "Brawl", "group": "brawl", "modes": [55],
+		"desc": "Free-for-all, four fighters, one life each; up to four players at this screen, CPUs fill the empty seats"},
+	{"label": "Brawl: up to 4 players", "group": "local", "modes": [55],
+		"desc": "Free-for-all, four fighters, one life each; everyone here picks a seat, CPUs fill the rest"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
 		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower, a rolling boulder, a fault line"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
@@ -574,6 +577,9 @@ var _replay_watched := {}  ## that replay's setup (a training one's mid-recordin
 var _rules_id := ""
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
+## `--locals=N`: how many people play a seating mode started without its join screen
+## (`--mode=`), for tests and captures; 0: the mode's own default (a free-for-all: one).
+var _cli_locals := 0
 var _cpu_vs_cpu := false
 ## What each fighter did this match, counted from the events (results screen).
 var stats := MatchStats.new()
@@ -1491,12 +1497,40 @@ func _start_match(m: int, keep_teams := false) -> void:
 	if cfg.has("seating") and _humans(cfg) > 1 and not keep_teams and not _skip_select:
 		_open_seats(cfg)  # who's playing first; the seats then come back here through _open_pick
 		return
-	_assign_devices(_humans(cfg))
+	_assign_devices(_wanted_humans(cfg))
 	_open_pick(cfg, keep_teams)
 
 
+## How many people play a mode started without its join screen: the local sides in its
+## table, or for a free-for-all (`"seating": "ffa"`, where the join screen would decide)
+## `--locals=N`, else one.
+func _wanted_humans(cfg: Dictionary) -> int:
+	var n := _humans(cfg)
+	if String(cfg.get("seating", "")) == "ffa":
+		return clampi(_cli_locals if _cli_locals > 0 else 1, 1, n)
+	return n
+
+
+## A seating mode's sides once the seats are known: the people playing (`seats.humans`)
+## on the first local sides, CPUs in the rest of the table's seats.
+func _seated_sides(cfg: Dictionary) -> Array:
+	var tmpl: Array = cfg.get("sides", [])
+	if not cfg.has("seating"):
+		return tmpl
+	var out: Array = []
+	var k := 0
+	for s in tmpl:
+		if s in LOCAL_SIDES:
+			out.append(LOCAL_SIDES[k] if k < seats.humans else Side.CPU)
+			k += 1
+		else:
+			out.append(s)
+	return out
+
+
 ## The join screen of a local mode with a `seating` key: the seats claim their controllers
-## (`LocalSeats.begin` .. `finish`), then the fighter pick opens as usual.
+## (`LocalSeats.begin` .. `finish`), then the fighter pick opens as usual. "versus": every
+## seat of the table must join; "ffa": anyone may (one is enough, CPUs fill the rest).
 func _open_seats(cfg: Dictionary) -> void:
 	flow = Flow.SELECT
 	flow_t = 0
@@ -1505,7 +1539,9 @@ func _open_seats(cfg: Dictionary) -> void:
 	seats.begin(humans)
 	var s := SeatScreen.new()
 	s.mode_title = "DUEL" if cfg.get("duel", false) else "VERSUS"
-	s.need = humans
+	if cfg.get("brawl", false):
+		s.mode_title = "CHAOS CUP" if cfg.get("chaos", false) else "BRAWL"
+	s.need = 1 if String(cfg["seating"]) == "ffa" else humans
 	s.most = humans
 	s.seats = seats
 	s.done.connect(func() -> void:
@@ -1519,7 +1555,9 @@ func _open_seats(cfg: Dictionary) -> void:
 ## The fighter pick for a mode that has one (else straight into the match); `keep_teams`
 ## as `_start_match`'s (a rematch skips the pick).
 func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
-	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
+	# A seating mode's humans are the seats that joined (or --locals); others the table's.
+	var humans := seats.humans if cfg.has("seating") else _humans(cfg)
+	var two_players: bool = humans >= 2
 	if _has_pick(cfg) and not keep_teams and not _skip_select:
 		flow = Flow.SELECT
 		flow_t = 0
@@ -1527,7 +1565,6 @@ func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
 		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
 		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
 		var title := "DUEL" if cfg.get("duel", false) else "VERSUS"
-		var humans := _humans(cfg)
 		if cfg.get("brawl", false):  # one pick per human seat (a column each); the other seats fill from the roster
 			title = "CHAOS CUP" if cfg.get("chaos", false) else "BRAWL"
 			labels = []
@@ -1905,7 +1942,7 @@ func _start_brawl(cfg: Dictionary) -> void:
 			names.append(String(table[k].get("name", k)))
 		_chaos_names = ", ".join(names)
 	brawl = BrawlSim.new(ids, {}, muts, seed_base)
-	_new_sim(brawl.sim, cfg["sides"])
+	_new_sim(brawl.sim, _seated_sides(cfg))
 	hud.brawl = brawl
 	hud.focus = 0
 	hud.timer_ticks = brawl.timer

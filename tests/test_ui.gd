@@ -1649,8 +1649,11 @@ func test_active_mutators_stay_on_the_hud() -> void:
 func test_brawl_and_chaos_cup_open_the_pick_screen() -> void:
 	var g := _game()
 	g._start_match(g.mode_index("Chaos Cup"))
-	assert_eq(g.flow, g.Flow.SELECT, "the pick comes first")
-	assert_true(g.ui.top() is CharacterSelect, "")
+	assert_eq(g.flow, g.Flow.SELECT, "who's playing comes first")
+	assert_true(g.ui.top() is SeatScreen, "the join screen (a free-for-all seats 1-4)")
+	_press("ui_accept")  # player 1 on the keyboard, alone
+	_press("ui_accept")
+	assert_true(g.ui.top() is CharacterSelect, "then the pick")
 	g._on_teams_chosen([["digby"], ["cairn"]])
 	assert_true(g.brawl != null, "then the Brawl")
 	assert_eq(String(g.sim.creatures[0].def["id"]), "digby", "you play the pick:")
