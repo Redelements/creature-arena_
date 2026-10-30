@@ -100,6 +100,9 @@ func _run_all() -> void:
 				print("  FAIL  ", "%s :: %s" % [f, name] if quiet else name)
 				for e in suite.errors:
 					print("        ", e)
+		# Let deferred calls flush between files: the whole suite in one frame fills the
+		# message queue (32 MB) and Godot crashes in whatever test comes next (Oct 2026).
+		await process_frame
 
 	print("\n%d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
