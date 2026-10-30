@@ -325,6 +325,7 @@ them in every view beside the old frames.
 | 17 | hurt_nohead | 4 | hurt with no head and the neck stretched to `neck_end` (the same end stone as lash 5-7): shown in place of hurt while his head is out (hit mid-Maw) |
 | 18 | guard_nohead | 4 | guard, likewise headless |
 | 19 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
+| 20 | ko_nohead | 6 | ko 0-2 with no head and the neck stretched up to `neck_end`, then frame 2 held (3-5): the knockout and the knockdown while his head is out; side only, like ko |
 
 **Mountain Maw's head (phase 1 of `plans/craglash-anim.md`, Oct 29).** One head, his own: lash
 frames 5-7 are headless (their neck ends at `MAW_END`, where frame 8's head sits, at full
@@ -333,7 +334,7 @@ thickness, with an end stone), and FxView draws the head and the rest of the nec
 `python tools/gen_craglash.py maw` (which also checks the JSON against the rig):
 `"neck_end"` per view, the neck's end in world px from the sprite's origin as the sheet faces
 (x mirrored with the sprite), `"neck_dir"` per view, the neck's direction there (a unit vector
-on screen), and `"headless": {"lash": [5, 6, 7], "hurt_nohead": [0, 1, 2, 3], "guard_nohead": [0, 1, 2, 3]}`,
+on screen), and `"headless": {"lash": [5, 6, 7], "hurt_nohead": [0, 1, 2, 3], "guard_nohead": [0, 1, 2, 3], "ko_nohead": [0, 1, 2, 3, 4, 5]}`,
 the frames that draw no head. The rows `maw_head`, `maw_slab`, `hurt_nohead` and `guard_nohead`
 are on every sheet (rows 15-18 on the up/down/diagonal sheets too, the knockout being side
 only); `maw_head` and `maw_slab` are drawn with their middle on `neck_end`, so the
@@ -344,8 +345,24 @@ carry them like every row.
 while his head is out (`CreatureView.head_out`, set by FxView: the projectile flies or the head
 is snapping home after it), the view shows `hurt_nohead` / `guard_nohead` in place of `hurt` /
 `guard`, so the flying head stays the only one. Every headless frame ends its neck at the same
-`MAW_END` (`gen_craglash.py maw` checks it), so one `neck_end` per view serves them all. The
-knockout has no twin: knocked down or out mid-flight, the flying head is not drawn.
+`MAW_END` (`gen_craglash.py maw` checks it), so one `neck_end` per view serves them all.
+Phase 3 added `ko_nohead` (row 20, side only like ko; `side_only` lists both), so a knockdown or
+knockout mid-flight keeps the one head too. A head that comes home during a reaction stays on
+the twin's neck end until the reaction ends (a knockout: until ko frame 3, where the neck bursts
+and the ko row's head lies on the floor), so it never jumps onto the reaction pose's head spot.
+
+**Spikes and neck in order (phase 3, Oct 29).** The side view keeps its fixed order (legs, the
+neck, the torso with the crown behind it and the flank spikes on it, the arms, the head): the
+neck rises from inside the crown ring (ruling R5). In the down, up and diagonal views the torso
+is cut into pieces (`torso_pieces`: the body and each crown and flank spike, disjoint, so
+together they are exactly the old torso layer) and `compose()` orders a neck stone against a
+spike by their own depths (the rig's `depth3` at the stone's centre and at the spike's base),
+with a tie rule: within 9 rig px of depth the neck is drawn over the spike (it rises from the
+middle of the ring; facing up the head rides over the crown with it), past that the nearer one.
+Every other pair keeps the old `(depth, order)` sort; where a stone-spike order would loop with
+it, the rule wins.
+`python tools/craglash_phase0.py check` finds no stone changing sides of a spike between
+frames in any played row (`docs/maw-range/phase3/findings.md`).
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design

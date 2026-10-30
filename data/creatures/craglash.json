@@ -85,14 +85,16 @@
       "maw_slab": [16, 0, 10],
       "hurt_nohead": [17, 0, 4],
       "guard_nohead": [18, 0, 4],
-      "ko": [19, 0, 6]
+      "ko": [19, 0, 6],
+      "ko_nohead": [20, 0, 6]
     },
     "side_only": [
-      "ko"
+      "ko",
+      "ko_nohead"
     ],
     "neck_end": {"side": [32.0, -44.0], "down": [-3.0, -22.0], "down_side": [15.6, -28.4], "up": [3.0, -66.0], "up_side": [15.6, -59.6]},
     "neck_dir": {"side": [1.0, 0.0], "down": [-0.818, 0.575], "down_side": [0.27, 0.963], "up": [0.822, -0.569], "up_side": [0.903, -0.43]},
-    "headless": {"lash": [5, 6, 7], "hurt_nohead": [0, 1, 2, 3], "guard_nohead": [0, 1, 2, 3]},
+    "headless": {"lash": [5, 6, 7], "hurt_nohead": [0, 1, 2, 3], "guard_nohead": [0, 1, 2, 3], "ko_nohead": [0, 1, 2, 3, 4, 5]},
     "views": {
       "down": {
         "path": "res://assets/sprites/craglash_2x_down.png", "ppu": 2,

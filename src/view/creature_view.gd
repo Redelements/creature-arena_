@@ -67,8 +67,9 @@ var _shown := ["", 0]  ## the animation (named as the side sheet names it) and f
 ## Set by FxView when a death animation replaces the sprite (Cairn's stones scatter).
 var ko_hidden := false
 ## Set by FxView while this fighter's head is off his neck (Craglash's Mountain Maw in flight,
-## or snapping home): a reaction row with a headless twin ("<row>_nohead": hurt, guard)
-## shows that twin instead, so a hit mid-flight never shows two heads.
+## or snapping home, then to the end of the reaction it came home in): a row with a headless
+## twin ("<row>_nohead": hurt, guard, ko) shows that twin instead, so a hit mid-flight never
+## shows two heads and the head never jumps from the neck's end onto the reaction pose.
 var head_out := false
 ## Set by main when this fighter stands in front of a shorter one and covers it.
 var see_through := false
@@ -939,6 +940,14 @@ func headless() -> bool:
 	return false
 
 
+## The sheet the sprite shows now: `view`, or "side" when this view lacks the row (a side-only
+## knockout, ko_nohead), so FxView reads the matching "neck_end".
+func sheet_view() -> String:
+	if _cur.is_empty() or is_same(_cur, _views.get(view, {})):
+		return view
+	return "side"
+
+
 ## One frame of `anim_name` from the sheet showing now (the side sheet when this view lacks
 ## it): {tex, region, origin, size, ppu}, the texture the sprite draws with (its normals
 ## too), for pieces FxView draws beside the sprite (Mountain Maw's head and neck stones).
@@ -948,9 +957,13 @@ func frame_piece(anim_name: String, idx: int) -> Dictionary:
 		return {}
 	var res := _resolve(anim_name)
 	var v: Dictionary = res[0]
+	var a: Array = res[1]
+	if sheet_view() == "side" and view != "side":
+		# the sprite shows a side-only row (ko_nohead facing down): its pieces come from the side sheet
+		v = _views["side"]
+		a = (v["anims"] as Dictionary).get(anim_name, [])
 	if not (v["anims"] as Dictionary).has(anim_name):
 		return {}
-	var a: Array = res[1]
 	var vc := int(v["cols"])
 	var size: Vector2 = v["size"]
 	var f := int(a[0]) * vc + int(a[1]) + clampi(idx, 0, int(a[2]) - 1)

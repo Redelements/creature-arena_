@@ -3,7 +3,8 @@ extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
 ##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | pete | sno | counterplay
 ## (crease_storm and pete_flank are trailer beats: tools/trailer_shots.json; maw_reach is an
-## inspection beat for docs/maw-range/phase0, maw_hit for Mountain Maw's headless hurt rows)
+## inspection beat for docs/maw-range/phase0, maw_hit and maw_ko for Mountain Maw's headless
+## hurt and knockout rows)
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -29,7 +30,8 @@ extends RefCounted
 ## "part" switches the caption line, "show" highlights an item on it.
 ## A script's optional "extra" list ({id, off [x, y]}) adds fighters who stand still on the
 ## right-hand fighter's side, `off` px from it, put back there by every place (the
-## cleaver's bounce needs a second foe).
+## cleaver's bounce needs a second foe). "hp" and "shield" ([left, right], -1 = as loaded) set
+## each fighter's health and Stoneskin shield at the start (maw_ko: one hit knocks Craglash out).
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -562,6 +564,19 @@ const SCRIPTS := {
 			{"do": "wait", "t": 60},
 		],
 	},
+	"maw_ko": {
+		"left": "craglash", "right": "cairn", "energy": [0, 0], "gap": 4.0, "hp": [5, -1], "shield": [0, -1],
+		"title": "MOUNTAIN MAW  -  KNOCKED OUT MID-FLIGHT",
+		"captions": [["Cairn's Haymaker knocks Craglash out while his head flies"]],
+		"steps": [
+			{"do": "place", "part": 0, "dir": "right", "gap": 4.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "hold": "left", "show": 0},
+			{"do": "wait", "t": 22},
+			{"do": "press", "who": 1, "bit": H, "move": "heavy", "aim_at": true},
+			{"do": "wait", "t": 120},
+		],
+	},
 	"twinstick": {
 		"left": "craglash", "right": "cairn", "energy": [0, 0], "gap": 30.0,
 		"title": "TWIN-STICK  -  360 AIM AND STRAFE",
@@ -678,10 +693,13 @@ func build() -> MatchSim:
 	_place(sim, float(script_def.get("gap", 2.0)), String(script_def.get("dir", "right")))
 	var energy: Array = script_def.get("energy", [0, 0])
 	var hp: Array = script_def.get("hp", [-1, -1])
+	var shield: Array = script_def.get("shield", [-1, -1])  # a Stoneskin shield to start with
 	for i in 2:
 		sim.creatures[i].energy = float(energy[i])
 		if float(hp[i]) > 0.0:
 			sim.creatures[i].hp = float(hp[i])
+		if float(shield[i]) >= 0.0:
+			sim.creatures[i].shield = float(shield[i])
 	return sim
 
 
