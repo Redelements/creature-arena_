@@ -29,6 +29,11 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   a real rollback bug; a "never reached" failure is coverage only (retune that mode's entry).
 - Scratch probes (a `SceneTree` script run with `--script`) are fine for investigating;
   delete them before committing.
+- The runner awaits one frame between files so deferred calls flush: the whole suite in one
+  frame filled the message queue (32 MB) and Godot crashed in whatever test came next (Oct
+  2026, after the QA pass added forty match-driving tests). A test that queues a lot (menus,
+  main-driven matches) is still fine; a test that must see its own deferred calls run has to
+  await a frame itself.
 
 ## Benches (not tests)
 
