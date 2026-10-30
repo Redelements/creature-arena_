@@ -7,25 +7,68 @@ Rambles, and what would it cost us? The main project is not touched.
 
 ## Current state
 
-- Steps 1-2 committed (c6a992b: scene, camera at (352, 421, 809) pitch 35 FOV 30, environment,
-  keys O/P/H/F12/1-4/M, flags `--shot-at`, `--pitch`, `--ortho`, `--no-*`, `--mobile`).
-  Step 4a committed (pitched sheets in `spike/hd2d/assets/sprites/pitched/`, 221 s render).
-  Step 3 committed (59b5cc1: `Fighter3D`, keyboard P1 via `PlayerInput` classic layout + a
-  floor-plane mouse raycast, CPU P2 Normal, flags `--run`, `--cpu-vs-cpu`, `--seed`,
-  `--facing-test`, `--determinism`, `--anim-log`; facing test 8/8, determinism OK x2).
-  Step 4b committed (b581374: `fighter_lit.gdshader` quad, key N / `--lit`; key R /
-  `--pitched`; verified by a pixel diff: only the fighters' pixels change). Step 4c (height
-  preview) in progress with a Sonnet agent; `current.png` capture with a Haiku agent.
-  Next: QC (Step 5), evidence (Step 6), summary, push.
-- Known: Godot's `--quit-after` did not end a spike run (hung; killed); the spike quits itself
-  after a `--shot-at` capture and, from Step 3, after `--run=N` ticks.
-- Branch `spike/hd2d` from `origin/main` fa7724b. Nothing outside `spike/` and
-  `docs/plans/` is modified.
-- Checkpoint for a resume: this file; `spike/hd2d/CHECKPOINT.md` only if a run had to stop early.
+- DONE (Oct 30 2026). All six steps built, QC'd and captured; branch `spike/hd2d` pushed, no PR.
+  Nothing outside `spike/` and `docs/plans/` was modified. Run it: `Godot --path spike/hd2d`
+  (Forward+, a window), `H` lists the keys; unattended flags are under Evidence.
+- Verdict: see the summary. The spike proves the technical route (the sim untouched, the
+  real tiles and sheets on a tilted floor, cheap on desktop); the open costs are the view port.
 
 ## Summary for the team
 
-(Filled in at the end of Step 6.)
+**What was built.** A standalone Godot 4.7 project at `spike/hd2d/` on Forward+: the real
+Stadium tile scene rendered into a SubViewport and laid on a 3D floor plane (1 sim unit =
+1 world unit), the stands/sky/roof/front-rail pictures as vertical planes behind and before
+it, a 35-degree camera (FOV 30; orthographic and 25/45-degree pitches on keys), a
+WorldEnvironment (ACES, glow, SSAO, far DOF on the stands, a DirectionalLight3D from the
+map's `light` block with shadows, two warm omni lights), and Digby as a fixed-Y billboard
+driven by the unmodified `MatchSim` (Digby vs a Normal CPU Digby, or keyboard P1 on the
+Classic layout with mouse aim through a floor-plane raycast). On top: a normal-mapped quad
+version of the fighter lit by the scene (`fighter_lit.gdshader`, key N), Digby's five
+sheets re-rendered with the rig's camera pitched 35 degrees (key R), and a height preview
+of keep-wall blocks and a chasm (key T). Screenshots: `spike/hd2d/shots/` (`a_perspective`,
+`b_ortho`, `c_pitched`, `d_mobile`, `e_lit`, `f_height`, `a2_fight` / `c2_fight_pitched` /
+`e2_fight_lit` framed on the fight, `current.png` from today's game).
+
+**What held up.** Zero errors or warnings on every run. The sim stays deterministic with
+the view attached (same digest over 600 ticks with and without syncing). Facing picks the
+right sheet in all 8 sectors, frames advance through idle/run/attack/guard/hurt, Digby's
+feet sit on the floor with a shadow under him, the floor is the right way round, no seams,
+no z-fighting, no pink materials. Every toggle flips and back from code.
+
+**What it looks like.** Framed on the fight (360 units wide, as the game's camera does)
+Digby is as readable as today: same silhouette, crisp, with a soft contact shadow. The
+pitched re-render reads as the same character seen from a little higher (more back and
+tail, a rounder head); it is a taste call, not a fix the spike needed. The per-pixel lit
+quad is indistinguishable from the Sprite3D under the Stadium's near-vertical sun (the
+spike proves the plumbing, not the payoff: a lower sun or coloured omni lights would show
+it). Framed on the whole floor the fighters are small (about 60 px tall at 1080p). The
+floor under perspective loses pixel-perfection: its texels are no longer whole screen
+pixels and shrink toward the far edge. A pit seen from 35 degrees shows only its far wall,
+so the height preview's chasm reads as a flat dark patch; a real pit needs a lit far wall
+and a true hole in the floor mesh. The sides of the floor end in black: the side stands
+would have to be built as geometry or planes (today they are part of the 2D picture).
+
+**Cost.** Desktop GPU time is a non-issue (RTX 4090 at 1080p: 0.39 ms a frame full post,
+0.16 ms with glow/SSAO/DOF/shadows off; the lit quads cost nothing measurable). Mobile is
+unmeasured; scaled by a typical phone GPU the full post would miss 60 fps and the stripped
+profile might hold it. The real cost is the view port listed under "What a go commits us to":
+Forward+ (every 2D shader and the 2D lights re-done), `fx_view._draw()` and every
+floor-drawn effect (rings, zones, shrines, flags, tracks, sparks, smears) either projected
+through the floor viewport or ported to 3D, the camera (lead/clash/settle), mouse aim,
+weather, the HUD's world anchors, the arena intro, the side stands and the roof as 3D,
+every map's walls and pits as geometry, the roster re-rendered (about 4 minutes a fighter
+with the pitched rig; Barkley and Gillbert are 2D painters and need their own answer), and
+a mobile profile. Estimate: weeks, not days, and it reopens the visual plan that just closed.
+
+**Recommendation: no-go for the current release; keep the branch as a reference.** The
+route works and nothing in the sim or data stands in its way, so it can be picked up later
+as a presentation layer for a sequel or a big update. If the team wants the look now, the
+next spike should be the expensive unknown, not more of this one: port the floor effects
+(FxView) through the viewport on one busy mode (Capture the Flag on Twin Keeps) and the
+2D camera's behaviour onto the Camera3D, then re-judge with a playtest.
+
+**Decisions** are listed under "Decisions" below (D0-D13); **incomplete** items under
+"Incomplete / stretch".
 
 ## Facts the spike is built on (from the read-first list)
 
@@ -122,12 +165,12 @@ mode (Digby, Stadium) for the side by side.
 
 | Item | Result |
 | --- | --- |
-| Fighter readability (silhouette, facing, frame changes at 35 degrees) | |
-| Floor circles / pit readability under tilt | |
-| Tile seams at the floor edges | |
-| Perf: frame time full post vs mobile profile | |
-| Shadow lands under the sprite | |
-| Determinism unchanged (600 ticks twice) | |
+| Fighter readability (silhouette, facing, frame changes at 35 degrees) | PASS at the game's fight framing (`a2_fight.png`: 360 units wide); the whole-floor framing (`a_perspective.png`) is too small to fight in, as the 2D game's whole-floor view would be. Billboards stay upright and do not look like paper at 35 degrees; the pitched sheets are a taste call |
+| Floor circles / pit readability under tilt | PARTIAL: the floor's own markings (worn patches, court lines) read well and sit in perspective for free; a pit shows only its far wall and the preview's reads as a flat patch (needs a lit far wall + a real hole). Range rings and zones were not drawn (they are FxView, not ported) |
+| Tile seams at the floor edges | PASS (edge strips, 1:1) |
+| Perf: full post vs mobile profile | PASS on desktop: GPU 0.39 ms vs 0.16 ms a frame at 1080p on an RTX 4090 (DOF 0.08, glow 0.06, SSAO 0.03, shadows 0.02 of it); frame rate is capped at 300 by the machine in both. Mobile not measured |
+| Shadow lands under the sprite | PASS (soft, a little toward +x +z as `light.dir` says) |
+| Determinism unchanged (600 ticks twice) | PASS (digest 6a7e528a with and without the view) |
 
 ## What a go commits us to
 
@@ -185,15 +228,75 @@ mode (Digby, Stadium) for the side by side.
 - D9. Step 4b took well under its 2 h box (the shader compiled first time; the Sprite3D and
   quad renders differ only at the fighters' pixels). With the Stadium's near-vertical sun
   (`light.length` 0.38) the per-pixel shading is subtle; a lower sun would show it more.
+- D10. The Haiku capture of `current.png` first ran on the session's saved arena (Floodgate,
+  rain, night); it was redone with `--arena=stadium --weather=clear --time=day` so the side
+  by side is like for like.
+- D11. A fight-framing camera (`--frame=W`, key Z, follows the two fighters' midpoint) was
+  added beyond the brief: at the whole-floor framing the fighters are too small to judge
+  readability, and the game's own camera frames the fight.
+- D12. `--perf` reports `RenderingServer.viewport_get_measured_render_time_gpu/cpu` as well
+  as wall clock, because the wall clock sits at a 300 fps cap on this machine.
+- D13. The shots `qc_z1/qc_z2` (duplicates of `f_height` one tick apart) were not committed;
+  the `.import` files Godot writes for shots are ignored.
 
-## QC results
+## QC results (Step 5)
 
-(Step 5.)
+| Check | Result | How |
+| --- | --- | --- |
+| Scene loads with zero errors / warnings, no missing resources | PASS | every run's log grepped: 0 ERROR / SCRIPT ERROR / WARNING (only the Vulkan driver info line and Godot's own shutdown noise: "Unreferenced static string", "RID allocations leaked at exit") |
+| Floor right-side up, not mirrored | PASS | the three worn-dirt patches sit on the row nearer the camera, the cobbled corners at the far edge (Step 1 shot; checked again in the Step 4b crop) |
+| Digby's feet on the floor, no float / sink | PASS | Step 3 and 4b crops: feet on the dirt, shadow under him; the Sprite3D offset is `(half - origin)` with y up, the quad's pivot the same as a shader uniform |
+| Facing: the right sheet in all 8 sectors | PASS | `--facing-test`: right/left side (flip for left), down-right / down-left down_side, up-right / up-left up_side, down, up |
+| Frame index advances across idle / run / attack | PASS | `--anim-log`: idle frames 1, 2; attack 79, 87; guard 132; hurt 121 over 600 ticks |
+| Shadow cast, lands under the sprite | PASS | a soft shadow under both fighters, a little toward +x +z as `light.dir` says; the quad casts too (`cull_disabled`, alpha scissor) |
+| Every toggle flips and back without errors | PASS | `--toggle-test`: O, P x3, 1, 2, 3, 4, M, N, R, T each pressed through the key handler; 21 state lines, 0 errors |
+| Sim deterministic, view does not leak | PASS | `--determinism`: 600 ticks twice, digest 6a7e528a both; again with the view synced on one run only: same digest |
+| No pink materials | PASS | by eye on the Step 1, 3, 4b and 4c shots |
+| No z-fighting floor vs chasm cover | PASS | two shots one tick apart (`--height`): 321 pixels differ, all in the fighters' box (x 1014-1145, y 485-557); 0 in the lower floor where the chasm cover sits |
+| No tile seams at the floor edges | PASS | 1:1 strips of the left (x 37), right (x 1881), far (y 342) and near (y 651) edges: the dirt_edge band and the cobbled corners, no gaps or doubled lines; the floor ends in empty black at the sides because the spike has no side stands (set dressing, not a seam) |
+| Pixel art under perspective | NOTE | the floor's 1344 px texture spans ~1844 screen px at the near edge and fewer at the far edge: texels are no longer whole screen pixels and vary in size up the floor (the current game draws at an integer scale). Expect shimmer on camera moves with nearest filtering; a go would need either a texel-snapped camera, linear filtering with a resolve, or accepting it as the HD-2D look (Octopath accepts it) |
+| Chasm reads as a hole | KNOWN ISSUE | from a 35-degree camera on the near side only the far pit wall can show; the preview's pit walls are unshaded dark, so the pit reads as a flat dark patch. A real pit needs a lit far wall (and a true hole in the floor mesh), see go/no-go |
 
 ## Evidence
 
-(Step 6: shots, frame times.)
+Shots in `spike/hd2d/shots/` (1920 x 1080, tick 300 of the seed-7 CPU match unless noted):
+
+| File | What |
+| --- | --- |
+| `a_perspective.png` | (a) perspective, full post, whole floor |
+| `a2_fight.png` | (a) framed 360 units on the fight (`--frame=360`, key Z) |
+| `b_ortho.png` | (b) orthographic |
+| `c_pitched.png`, `c2_fight_pitched.png` | (c) the re-rendered (pitched) sheets |
+| `d_mobile.png` | (d) mobile profile: glow, SSAO, DOF, shadows off |
+| `e_lit.png`, `e2_fight_lit.png` | the normal-mapped quad |
+| `f_height.png` | the height preview (walls, pillar, step, chasm) |
+| `current.png` | today's game: Training: Digby on the Stadium, clear day (3440 x 1440) |
+| `step1_*`, `step2_*`, `step3_*`, `step4*` | the per-step checks |
+
+Frame times (10 s of the match from tick 60, `--perf --disable-vsync`, RTX 4090, 1920 x 1080):
+
+| Profile | Wall clock | GPU render | CPU render |
+| --- | --- | --- | --- |
+| Full post (a) | 3.33 ms a frame (300 fps, the machine's cap) | 0.39 ms | 0.09 ms |
+| Mobile profile (d) | 3.33 ms (same cap) | 0.16 ms | 0.05 ms |
+| Lit quads | 3.33 ms | 0.39 ms | 0.09 ms |
+| Orthographic | 3.33 ms | 0.39 ms | 0.09 ms |
+| Fight framing 360 | 3.33 ms | 0.41 ms | 0.09 ms |
+| no glow / no SSAO / no DOF / no shadows | 3.33 ms | 0.33 / 0.36 / 0.31 / 0.37 ms | |
+
+Unattended flags: `--cpu-vs-cpu --seed=N --run=TICKS --shot-at=TICK:NAME --perf --frame=W
+--pitch=D --ortho --lit --pitched --height --mobile --no-glow --no-ssao --no-dof --no-shadows
+--facing-test --determinism --anim-log --toggle-test`. A run quits after `--run` ticks or its
+shot (Godot's `--quit-after` hangs this project).
 
 ## Incomplete / stretch
 
-(none yet)
+- Mobile frame time: not measured (no device run; the brief forbids touching the main project's
+  export setup and the spike has no Android preset).
+- Live keyboard play (P1 on the Classic layout) was wired but never pressed by a person; the
+  key toggles were driven from code (`--toggle-test`).
+- The chasm's far wall is unshaded, so the pit does not read as deep; the side stands are missing.
+- Range rings, zones and every FxView effect: out of scope by the brief, and the biggest
+  unknown of a go.
+- Wall-clock frame rate is capped at 300 fps on this machine even with `--disable-vsync`
+  (likely the driver); GPU render time was measured instead.

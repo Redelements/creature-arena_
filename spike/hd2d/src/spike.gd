@@ -18,6 +18,8 @@ var env: Environment
 var attrs: CameraAttributesPractical
 var sun: DirectionalLight3D
 var dist := 0.0
+var frame_w := 672.0  ## the floor width the camera frames; narrower follows the fighters (Z)
+var target := CENTER  ## what the camera looks at
 var glow_on := true
 var ssao_on := true
 var dof_on := true
@@ -37,6 +39,10 @@ var toggle_test := false  ## QC: press every toggle key twice from code, then qu
 var perf := false  ## evidence: the average frame time over 10 s of the match, printed once
 var _perf_frames := 0
 var _perf_t0 := 0.0
+var _perf_open := false
+var _gpu_ms := 0.0
+var _cpu_ms := 0.0
+var _perf_n := 0
 var determinism := false
 var anim_log := false
 var seed_base := 1
@@ -78,6 +84,8 @@ func _ready() -> void:
 			facing_test = true
 		elif a == "--determinism":
 			determinism = true
+		elif a.begins_with("--frame="):
+			frame_w = float(a.substr(8))
 		elif a == "--toggle-test":
 			toggle_test = true
 		elif a == "--perf":
@@ -172,12 +180,27 @@ func _perf_tick() -> void:
 	if sim.tick == 60:
 		_perf_t0 = Time.get_ticks_usec() / 1000.0
 		_perf_frames = Engine.get_frames_drawn()
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+		_perf_open = true
 	elif sim.tick == 660:
+		_perf_open = false
 		var ms := Time.get_ticks_usec() / 1000.0 - _perf_t0
 		var n := Engine.get_frames_drawn() - _perf_frames
 		print("spike: perf %d frames in %.0f ms: %.2f ms a frame (%.0f fps) lit %s mobile %s" % [
 			n, ms, ms / maxf(1.0, n), 1000.0 * n / maxf(1.0, ms), lit_on,
 			not (glow_on or ssao_on or dof_on or shadows_on)])
+		print("spike: render time over %d frames: gpu %.2f ms, cpu %.2f ms a frame (RenderingServer measured)" % [
+			_perf_n, _gpu_ms / maxf(1.0, _perf_n), _cpu_ms / maxf(1.0, _perf_n)])
+
+
+## One sample of the main viewport's measured render time a drawn frame while the window is open.
+func _perf_sample() -> void:
+	if not _perf_open:
+		return
+	var rid := get_viewport().get_viewport_rid()
+	_gpu_ms += RenderingServer.viewport_get_measured_render_time_gpu(rid)
+	_cpu_ms += RenderingServer.viewport_get_measured_render_time_cpu(rid)
+	_perf_n += 1
 
 
 func _run_facing_test() -> void:
@@ -206,6 +229,10 @@ func _physics_process(_d: float) -> void:
 	var inputs := PackedInt32Array([_bits(0), _bits(1)])
 	sim.step(inputs)
 	_sync_all()
+	if frame_w < FLOOR_SIZE.x:
+		var mid: Vector2 = (sim.creatures[0].pos + sim.creatures[1].pos) * 0.5
+		target = Vector3(mid.x, 0, mid.y)
+		frame_camera(pitch_deg)
 	if toggle_test and sim.tick == 60:
 		_run_toggle_test()
 	if perf:
@@ -358,16 +385,17 @@ func frame_camera(p: float) -> void:
 	var tan_h := tan(deg_to_rad(FOV) * 0.5)
 	var vs := get_viewport().get_visible_rect().size
 	var aspect := vs.x / vs.y
-	var need_w := FLOOR_SIZE.x * 0.5 * 1.04 / (tan_h * aspect)
-	var need_h := FLOOR_SIZE.y * sin(pr) * 0.5 * 1.04 / tan_h
+	var fh := frame_w * FLOOR_SIZE.y / FLOOR_SIZE.x
+	var need_w := frame_w * 0.5 * 1.04 / (tan_h * aspect)
+	var need_h := fh * sin(pr) * 0.5 * 1.04 / tan_h
 	dist = maxf(need_w, need_h)
 	if ortho:
 		cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-		cam.size = maxf(FLOOR_SIZE.x * 1.04 / aspect, FLOOR_SIZE.y * sin(pr) * 1.04)
+		cam.size = maxf(frame_w * 1.04 / aspect, fh * sin(pr) * 1.04)
 	else:
 		cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 		cam.fov = FOV
-	cam.position = CENTER + back * dist
+	cam.position = target + back * dist
 	cam.rotation = Vector3(-pr, 0, 0)
 	attrs.dof_blur_far_distance = cam.position.distance_to(Vector3(352, 0, 64)) + 20.0
 
@@ -380,9 +408,9 @@ func _apply_toggles() -> void:
 
 
 func print_state() -> void:
-	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s height %s dist %.1f" % [
+	print("state: pitch %d ortho %s glow %s ssao %s dof %s shadows %s lit %s sheets %s height %s frame %d dist %.1f" % [
 		int(pitch_deg), ortho, glow_on, ssao_on, dof_on, shadows_on, lit_on,
-		"pitched" if pitched_on else "orig", height_on, dist])
+		"pitched" if pitched_on else "orig", height_on, int(frame_w), dist])
 
 
 ## Step 4 toggles on both fighters: the lit quad (N) and the pitched sheets (R).
@@ -405,7 +433,14 @@ func _unhandled_input(e: InputEvent) -> void:
 			var i: int = PITCHES.find(pitch_deg)
 			frame_camera(PITCHES[(i + 1) % PITCHES.size()])
 		KEY_H:
-			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, N lit quad / Sprite3D, R pitched / original sheets, T height preview, F12 screenshot")
+			print("keys: O ortho, P pitch, 1 glow, 2 ssao, 3 dof, 4 shadows, M mobile profile, Z frame width (whole floor / 400 / 260, following the fight), N lit quad / Sprite3D, R pitched / original sheets, T height preview, F12 screenshot")
+		KEY_Z:
+			var widths := [672.0, 400.0, 260.0]
+			var wi: int = widths.find(frame_w)
+			frame_w = widths[(wi + 1) % widths.size()]
+			if frame_w >= FLOOR_SIZE.x:
+				target = CENTER
+			frame_camera(pitch_deg)
 		KEY_N:
 			lit_on = not lit_on
 			_apply_fighter_modes()
@@ -440,6 +475,7 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func _process(_d: float) -> void:
+	_perf_sample()
 	var now := sim.tick if sim != null else Engine.get_process_frames()  # (ticks once a match runs)
 	if _shot_frame >= 0 and not _shot_pending and now >= _shot_frame:
 		_shot_pending = true
