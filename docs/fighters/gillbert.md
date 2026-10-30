@@ -24,4 +24,5 @@
 ## Changelog
 - 2026-10-27 — created
 - 2026-10-29 — plan `docs/plans/gillbert-backline.md`: 1v1 field 12%, assassin slot 50%, skills 8% of damage; a hook that picks its mark, a CPU that looks for the back line, then range. Rulings R1-R4 open.
+- 2026-10-29 — Normal CPU plays the class (PR 2): keeps a 120 px poke band, casts only down an open lane, marks the back line, dives only on a stuck foe. Overshoots: 1v1 field 15% -> 88%, slot 58% -> 83%; ruling R6 (keep the band and tune data, or `ai.band` false).
 - 2026-10-29 — Cast Line is a grab (Kevin: still a skill shot, but blocking doesn't stop it) with a thicker head that widens along the flight; the red "can't be blocked" tell. PR 1 of the back-line plan; `grab_air` + `juggle` (snags a foe in the air) is ruling R5.

@@ -124,6 +124,12 @@ var _target_t := 0
 var _orbit := 1.0  ## which way it circles (+1 / -1)
 var _orbit_t := 0
 var _engage_t := 0  ## ticks left in a committed attack run (assassin, skirmisher)
+## The skirmish plan below Rage (`_neutral_skirmish`): the foe it casts at (`_cast_mark`),
+## held MARK_HOLD ticks; a sidestep off a lane another foe's body blocks (`_lane_side`).
+var _mark: CreatureSim = null
+var _mark_t := 0
+var _lane_t := 0
+var _lane_dir := Vector2.ZERO
 const MOUND_SIGHT := Vision.HIDE_RANGE  ## px: a tunnelling (hidden) foe's mound is plain to see this close, like a shape in brush
 var _cover := Vector2.INF  ## brush to lurk in (assassin), or INF when the arena has none in reach
 var _cover_t := 0  ## ticks until the cover spot is looked for again
@@ -1394,7 +1400,10 @@ func _defend_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) 
 			and foe.attack_elapsed() >= int(p["reaction"]) - 6 and dist < _threat_range(foe, me):
 		threat = true
 		grab_threat = bool(foe.move_def().get("grab", false))
-	# Shockwaves heading this way.
+	# Shockwaves heading this way. One a guard doesn't stop (a grab: Cast Line, Gulp; a
+	# guard-breaker: Mountain Maw) is dodged out of its line, as its red tell says.
+	var shot_vel := Vector2.ZERO
+	var shot_pos := Vector2.ZERO
 	for pr in sim.projectiles:
 		if int(pr["owner"]) == me.id:
 			continue
@@ -1403,9 +1412,22 @@ func _defend_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) 
 		if pp.distance_to(me.pos) < 70.0 and vel.dot(me.pos - pp) > 0.0:
 			threat = true
 			serial = 100000 + int(pr["serial"])
+			var ph: Dictionary = pr.get("hit", {})
+			shot_vel = vel if bool(ph.get("grab", false)) or bool(ph.get("guard_break", false)) else Vector2.ZERO
+			shot_pos = pp
 	if not _foe_hidden and foe.charging and dist < 60.0:
 		threat = true
 		serial = 200000 + foe.attack_serial
+	# A wound-up shot a guard won't stop, aimed this way (its red tell: Cast Line, Gulp,
+	# Mountain Maw), read as a player reads the tell: out of its line before it flies.
+	if not threat and not _foe_hidden and foe.state == CreatureSim.State.ATTACK and not foe.charging \
+			and _unguardable_shot(foe.move_def()) and foe.attack_elapsed() >= int(p["reaction"]) - 6 \
+			and dist < foe.move_range(foe.move_id) + me.radius + 12.0 \
+			and foe.facing.dot((me.pos - foe.pos).normalized()) > 0.85:
+		threat = true
+		serial = 300000 + foe.attack_serial
+		shot_vel = foe.facing
+		shot_pos = foe.pos
 
 	if not threat or serial == _seen_serial:
 		return false
@@ -1413,6 +1435,12 @@ func _defend_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) 
 	if not _roll(float(p["defend"])):
 		return false
 
+	if shot_vel != Vector2.ZERO and me.can_dodge():
+		var side := Vector2(-shot_vel.y, shot_vel.x).normalized()
+		if side.dot(me.pos - shot_pos) < 0.0:
+			side = -side  # off the side of its line it is already on
+		_dodge_dir(sim, me, _open_dir(sim, me, side, _roll_distance(me), true))
+		return true
 	var counter := String(_ai(me).get("counter", ""))
 	if foe.charging and not grab_threat and counter != "" and _usable(me, counter) and _roll(0.35):
 		_press(int(ACTION_BIT[counter]))  # a Slip under a held slam: a gamble on when it drops
@@ -1547,6 +1575,14 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 		_neutral_kite(sim, me, foe, to_foe, dist, want)
 		return
 
+	# A skirmisher (Normal and Hard) keeps the poke band and dives only on a stuck foe
+	# (_neutral_skirmish); with `ai.band` false it walks in as everyone below does, but
+	# casts as the band does (`_skirmish_cast`). Easy plays as everyone below.
+	var skirmish := String(_style(me)["plan"]) == "skirmish" and level >= 1
+	if skirmish and bool(ai.get("band", true)):
+		_neutral_skirmish(sim, me, foe, to_foe, dist, want)
+		return
+
 	_think_t -= 1
 	if _think_t > 0:
 		_follow_plan(sim, me, foe, to_foe, dist, want)
@@ -1557,7 +1593,9 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 		_plan = "wait"
 		return
 
-	if _neutral_kit(me, foe, to_foe, dist, want):
+	if skirmish and _skirmish_cast(sim, me):
+		return
+	if _neutral_kit(sim, me, foe, to_foe, dist, want, not skirmish):
 		return
 
 	# A ranged opener only lands lined up: otherwise step sideways to line up first.
@@ -1598,12 +1636,19 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 ## The kit pieces a CPU below Rage throws from neutral, each on its own roll when the foe
 ## is where that piece works (a poke, a lob, a gaze, a puddle, going invisible, a tunnel,
 ## a Surge, a grab). True when it pressed one.
-func _neutral_kit(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> bool:
+func _neutral_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float,
+		with_poke := true) -> bool:
 	var ai := _ai(me)
-	# Long-range pokes: a shockwave or a dash punch.
-	var poke := String(ai.get("poke", ""))
+	# Long-range pokes: a shockwave or a dash punch. (The skirmish plan throws its own:
+	# `_skirmish_cast`, with_poke false.) A hook (a shot that reels or pulls) isn't thrown
+	# into another foe's body on the way to this one (`_lane_blocker`): it would grab the
+	# wrong fighter, unless that one is the better mark anyway (`_better_mark`).
+	var poke := String(ai.get("poke", "")) if with_poke else ""
 	var pr: Array = ai.get("poke_range", [0, 0])
 	var poke_lined: bool = poke == "" or not me.moves().get(poke, {}).has("projectile") or absf(to_foe.y) < 18.0
+	if poke_lined and poke != "" and _is_hook(me, poke):
+		var b := _lane_blocker(sim, me, foe, _seen(foe), poke)
+		poke_lined = b == null or _better_mark(b)
 	if poke != "" and _usable(me, poke) and dist >= float(pr[0]) and dist <= float(pr[1]) \
 			and poke_lined and _roll(0.25 * float(p["aggression"]) + 0.05):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
@@ -1709,7 +1754,7 @@ func _neutral_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vec
 		if _roll(float(p["mistake"])):
 			_plan = "wait"
 			return
-		if _neutral_kit(me, foe, to_foe, dist, want):
+		if _neutral_kit(sim, me, foe, to_foe, dist, want):
 			return
 		_plan = "kite"
 		# A foe in its face: flip it away (the grab) or roll out to open floor, when it
@@ -1779,6 +1824,237 @@ func _follow_plan(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 				_move_toward(-to_foe)
 		"circle":
 			_move_toward(_plan_dir + to_foe.normalized() * 0.3)
+
+
+# ------------------------------------------------------------------ skirmisher
+
+## Ticks a skirmisher keeps the foe it picked to cast at (`_cast_mark`), as `_pick_target`
+## holds a target.
+const MARK_HOLD := 30
+## Ticks a sidestep off a blocked lane runs before the lane is looked at again.
+const LANE_STEP := 18
+## A foe still in a move's recovery this many ticks or more is a mark worth diving on.
+const STUCK_RECOVERY := 12
+
+
+## A skirmisher below Rage (STYLES plan "skirmish": Gillbert), played the way the class is
+## meant to play: hit and run at poke range. It keeps the band (the middle of `poke_range`,
+## at least `danger` + 24 px off the nearest foe) circling it, casts its poke at the foe it
+## marks (`_skirmish_cast`: through the gap, never into a body on the line), meets a foe that
+## walks into it with lights, and dives only on a foe that is stuck (`_foe_stuck`: hitstun,
+## a crumple, rooted, a long recovery) or under 30%, then goes back to the band. A foe with
+## an empty stamina bar is not stuck: it can still walk and swing. The level shows as
+## everywhere below Rage: `think`, `mistake`, `aggression`, the `lead` on its shots.
+## Before Oct 2026 it played the fighter's walk-in at `ai.range` and fought at ~50 px.
+func _neutral_skirmish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> void:
+	var pr: Array = _ai(me).get("poke_range", [40, 200])
+	var keep := maxf((float(pr[0]) + float(pr[1])) * 0.5, _reach_of(foe, me) + 24.0)
+	if _mark_t > 0:
+		_mark_t -= 1
+	# A dive under way: in on the stuck foe, its string, then back out to the band.
+	if _engage_t > 0:
+		_engage_t -= 1
+		if dist <= want + 6.0:
+			_hold(SimDefs.move_bits(to_foe))
+			_press(SimDefs.IN_LIGHT)
+			_engage_t = mini(_engage_t, 15)
+		else:
+			_go_to(sim, me, _seen(foe))
+		return
+	_think_t -= 1
+	if _think_t <= 0:
+		_think_t = int(p["think"]) + rng.randi_range(0, 6)
+		if _roll(float(p["mistake"])):
+			_plan = "wait"
+			return
+		_plan = "band"
+		if _sees(foe) and dist < keep + 30.0 and (_foe_stuck(foe) or foe.hp / foe.max_hp < 0.3):
+			_engage_t = 60
+			_go_to(sim, me, _seen(foe))
+			return
+		# A foe that walked in gets the lights, as from anyone.
+		if dist <= want + 6.0 and _roll(float(p["aggression"])):
+			_hold(SimDefs.move_bits(to_foe))
+			_press(SimDefs.IN_LIGHT)
+			return
+		if _skirmish_cast(sim, me):
+			return
+		if _neutral_kit(sim, me, foe, to_foe, dist, want, false):
+			return
+	if _plan == "wait":
+		return
+	var v := Vector2.ZERO
+	if _lane_t > 0:
+		_lane_t -= 1
+		v = _lane_dir  # off the line a body blocks
+	elif dist > keep and not NavGrid.clear_line(sim.terrain, me.pos, _seen(foe), me.radius, false):
+		_go_to(sim, me, _seen(foe))
+		return
+	else:
+		v = _orbit_dir(sim, me, foe, keep)
+	var d := _steer(sim, me, v)
+	if d != Vector2.ZERO:
+		_hold(SimDefs.move_bits(d))
+
+
+## Whether foe `o` is stuck where it stands, a mark worth diving on (or hooking past the one
+## behind it): in hitstun or a crumple (a hooked foe being reeled is), rooted, or in a move's
+## recovery for STUCK_RECOVERY ticks or more. Not merely out of stamina: that foe still walks
+## and swings.
+static func _foe_stuck(o: CreatureSim) -> bool:
+	return o.is_stunned() or o.root > 0 or _recovery_left(o) >= STUCK_RECOVERY
+
+
+## A foe in the way of a hook is hooked on purpose only when it's the better mark anyway:
+## stuck (`_foe_stuck`) or under 30%.
+static func _better_mark(o: CreatureSim) -> bool:
+	return _foe_stuck(o) or o.hp / o.max_hp < 0.3
+
+
+## Whether move `mid` is a hook: a straight shot (not a lob, not one that passes through
+## bodies) whose hit reels the thrower in or pulls the target (`reel`, `pull`: Cast Line,
+## Mountain Maw). The first body it meets is the one it moves.
+static func _is_hook(c: CreatureSim, mid: String) -> bool:
+	var mv: Dictionary = c.moves().get(mid, {})
+	return _is_shot(mv) and (float(mv.get("reel", 0.0)) > 0.0 or float(mv.get("pull", 0.0)) > 0.0)
+
+
+## A straight shot a guard doesn't stop: a grab or a guard-breaker, or one with the red tell.
+static func _unguardable_shot(mv: Dictionary) -> bool:
+	return _is_shot(mv) and (bool(mv.get("grab", false)) or bool(mv.get("guard_break", false))
+		or String(mv.get("tell", "")) in ["unblockable", "guard_break"])
+
+
+## A straight shot that ends on the first foe body it overlaps (no lob, no pierce).
+static func _is_shot(mv: Dictionary) -> bool:
+	var pj: Dictionary = mv.get("projectile", {})
+	return not pj.is_empty() and not bool(pj.get("lob", false)) and not bool(pj.get("pierce", false))
+
+
+## The skirmisher's poke from the band: at the foe it marks (`_cast_mark`), aimed where the
+## foe will be (led `lead` of the way, as a mage's knives), and only down an open lane. When
+## another foe's body is on the line before the mark (`_lane_blocker`) it doesn't cast: it
+## sidesteps the way that opens the lane (`_lane_side`) for LANE_STEP ticks and looks again,
+## unless the blocker is the better mark anyway (`_better_mark`). True when it pressed.
+func _skirmish_cast(sim: MatchSim, me: CreatureSim) -> bool:
+	var ai := _ai(me)
+	var poke := String(ai.get("poke", ""))
+	if poke == "" or not _usable(me, poke):
+		return false
+	var pr: Array = ai.get("poke_range", [0, 0])
+	var mark := _cast_mark(sim, me, poke, pr)
+	if mark == null:
+		return false
+	var at := _cast_aim(me, mark, poke)
+	var b := _lane_blocker(sim, me, mark, at, poke)
+	if b != null:
+		if not _better_mark(b):
+			_lane_dir = _lane_side(sim, me, mark, b)
+			_lane_t = LANE_STEP
+			return false
+		at = _cast_aim(me, b, poke)
+	if not _roll(0.25 * float(p["aggression"]) + 0.05):
+		return false
+	_hold(SimDefs.move_bits(at - me.pos))
+	_press(int(ACTION_BIT[poke]))
+	_out |= SimDefs.aim_bits(at - me.pos)
+	return true
+
+
+## Whom the skirmisher casts at: of the foes it sees within `poke_range` (centre to centre),
+## the one down an open lane with the shortest light reach (`_reach_of`: a thrown light
+## counts from where it leaves the hand, so a mage, the back line, scores shortest), the
+## nearer of two alike; with every lane blocked, the same order among the blocked. Kept for
+## MARK_HOLD ticks while it stays in range and in sight. Alone, the one foe.
+func _cast_mark(sim: MatchSim, me: CreatureSim, poke: String, pr: Array) -> CreatureSim:
+	if _mark != null and _mark_t > 0 and _mark_ok(me, _mark, pr):
+		return _mark
+	_mark = null
+	var best_s := INF
+	for o in sim.creatures:
+		if not me.is_foe(o) or not _mark_ok(me, o, pr):
+			continue
+		var s := _reach_of(o, me) + 0.01 * o.pos.distance_to(me.pos)
+		if _lane_blocker(sim, me, o, _seen(o), poke) != null:
+			s += 1000.0
+		if s < best_s:
+			best_s = s
+			_mark = o
+	_mark_t = MARK_HOLD
+	return _mark
+
+
+func _mark_ok(me: CreatureSim, o: CreatureSim, pr: Array) -> bool:
+	if o.state == CreatureSim.State.KO or not _sees(o):
+		return false
+	var d := o.pos.distance_to(me.pos)
+	return d >= float(pr[0]) and d <= float(pr[1])
+
+
+## Where to aim move `mid` at foe `o`: where it will be when the shot gets there, led `lead`
+## of the way (LEVELS: Normal a quarter, Hard all of it), as a mage's knives are.
+func _cast_aim(me: CreatureSim, o: CreatureSim, mid: String) -> Vector2:
+	if not _sees(o):
+		return _seen(o)
+	var pj: Dictionary = me.moves().get(mid, {}).get("projectile", {})
+	if pj.is_empty():
+		return o.pos
+	var t := o.pos.distance_to(me.pos) / maxf(1.0, float(pj.get("speed", 6.0)))
+	return o.pos + o.walk_vel * clampf(t, 0.0, 40.0) * float(p.get("lead", 1.0))
+
+
+## The foe whose body a shot of move `mid` aimed at `at` would meet before it reaches `mark`
+## (a straight shot ends on the first body it overlaps, MatchSim._step_projectiles), or null
+## for an open lane. Only foes this team sees and the shot can hit count; allies never block.
+## Its widest hit size (`radius_end`) is used: the hook is widest where the blocker stands.
+func _lane_blocker(sim: MatchSim, me: CreatureSim, mark: CreatureSim, at: Vector2, mid: String) -> CreatureSim:
+	var mv: Dictionary = me.moves().get(mid, {})
+	if not _is_shot(mv):
+		return null
+	var pj: Dictionary = mv["projectile"]
+	var prad := maxf(float(pj.get("radius", 0.0)), float(pj.get("radius_end", 0.0))) * MatchSim.projectile_radius_mult()
+	var v := at - me.pos
+	var l := v.length()
+	if l < 0.001:
+		return null
+	var u := v / l
+	var mark_at := l - mark.radius - prad  # how far the shot flies before it meets the mark
+	var best: CreatureSim = null
+	var best_at := mark_at
+	for o in sim.creatures:
+		if o == mark or not me.is_foe(o) or not _sees(o) or not o.can_be_hit():
+			continue
+		var w := o.pos - me.pos
+		var along := w.dot(u)
+		var off := absf(w.cross(u))
+		var touch := o.radius + prad
+		if off >= touch or along < -o.radius:
+			continue
+		var meet := along - sqrt(touch * touch - off * off)
+		if meet < best_at:
+			best_at = meet
+			best = o
+	return best
+
+
+## The way to step to open the lane to `mark` past blocker `b`: of the two sideways steps
+## off the line, the one that leaves `b` further off the new line (counting walls and holes
+## in that direction, `_steer`).
+func _lane_side(sim: MatchSim, me: CreatureSim, mark: CreatureSim, b: CreatureSim) -> Vector2:
+	var u := (_seen(mark) - me.pos).normalized()
+	var n := Vector2(-u.y, u.x)
+	var best := n
+	var best_s := -INF
+	for sgn in [1.0, -1.0]:
+		var side: Vector2 = n * float(sgn)
+		var from: Vector2 = me.pos + side * 20.0
+		var line := (_seen(mark) - from).normalized()
+		var s := absf((b.pos - from).cross(line))
+		s -= 40.0 * (1.0 - _steer(sim, me, side).dot(side))  # a wall or a hole that way
+		if s > best_s:
+			best_s = s
+			best = side
+	return best
 
 
 # ------------------------------------------------------------------ Rage

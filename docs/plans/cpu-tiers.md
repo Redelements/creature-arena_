@@ -105,3 +105,7 @@ Culvert 44, Cairn 43, Crease 39, Craglash 23, Gillbert 16. The big movers are th
 slower-reacting Normal is kited harder: Crease +28, Cerebro +23) and the fighters who
 relied on reactions (Hissy -22, Cairn -21, Pete -15). That is the Normal CPU's play, not
 the kits; `tests/test_balance.gd` pins what holds now.
+
+Oct 29 2026, `gillbert-cpu-lane` (PR 2 of `docs/plans/gillbert-backline.md`): the Normal skirmisher keeps a poke
+band and every CPU below Rage dodges an unguardable shot. Gillbert 10% -> 87% of the matrix (`--seeds=3`); the
+other rows, leaving out their Gillbert games, moved -4..+6 points (noise). Not a baseline until ruling R6.

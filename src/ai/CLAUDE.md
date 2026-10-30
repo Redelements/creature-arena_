@@ -52,6 +52,7 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 included, and in neutral at a foe within `range` px body to body, not swinging, dodging or guarding, `chance`
 of the ticks; never at a foe already marked: `_plan_setup`), `setup_routes` (the near routes while the foe
 lacks the `setup` mark; once marked, `routes`).
+`band` (bool, default true: a skirmisher below Rage keeps its poke band, `_neutral_skirmish`; false walks in).
 `cross_pits` (bool, default true: false never crosses a chasm with a crossing move; see Pits below).
 `caravan` (bool, default true: false plays the Caravan as a plain zone, no job; see Caravan below).
 `weights` (Rage's scored kit: per-candidate multipliers `surge`, `lob`, `gaze`, `zone`, `poke`,
@@ -93,6 +94,29 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   ticks, `defend` of the time. Before Oct 2026 it walked to `ai.range`, stood throwing, then backed off on rolls,
   and Normal mages won 7-9% of the Normal matrix. Others below Rage run a kiter down (`_follow_plan` "chase" →
   `_chase` with `kit` false: no free gap closers, the roll forward on `aggression`)
+- Below Rage, a skirmisher (STYLES plan "skirmish": Gillbert; Normal and Hard, Easy walks in) → `_neutral_skirmish`:
+  circles the nearest foe at the poke band's middle (`poke_range`, floored at the foe's reach + 24), meets a foe that
+  walks in with lights on `think` ticks, casts from the band (`_skirmish_cast`) and dives (`_engage_t`, 60 ticks, then
+  back out) only on a foe that is stuck (`_foe_stuck`: hitstun, a crumple, rooted, `STUCK_RECOVERY` ticks of recovery
+  left) or under 30%. An empty stamina bar is **not** stuck (the foe still walks and swings); Rage's `_plan_skirmish`
+  still dives on `not foe.can_dodge()` and a full meter. `ai.band` false: the plain walk-in, with the band's cast.
+  Before Oct 29 2026 Normal played the fighter's walk-in at `ai.range` and fought at ~45 px; the band takes Gillbert's
+  Normal field from 15% to ~88% (`docs/plans/gillbert-backline.md`, PR 2): Normal walk-ins can't catch a fighter who
+  waits at the edge, as with the mages' kite
+- The lane (any CPU below Rage) → `_lane_blocker`: a straight shot (`_is_shot`: no lob, no pierce) ends on the first
+  foe body it overlaps (`MatchSim._step_projectiles`), so another seen, hittable foe within body + the shot's widest
+  hit radius (`radius_end` x `radius_mult`) of the line, met before the mark, blocks it. The skirmisher doesn't cast
+  then: it sidesteps for `LANE_STEP` ticks (`_lane_side`: the side that leaves the blocker further off the new line)
+  and looks again; any CPU's hook (`_is_hook`: a shot that `reel`s or `pull`s: Cast Line, Mountain Maw) skips a
+  blocked lane in `_neutral_kit`. Casting at the blocker is fine when it's the better mark (`_better_mark`: stuck or
+  under 30%). The skirmisher's mark (`_cast_mark`, held `MARK_HOLD` ticks) is the foe in `poke_range` down an open
+  lane with the shortest `_reach_of` (a thrown light counts from the hand, so the mage scores shortest), not the
+  nearest; the walk and the defence still follow the nearest. Normal targets by distance (`_nearest_known`), so
+  TeamIntent's focus doesn't apply below Rage
+- Unguardable shots (`_unguardable_shot`: a grab, a guard-breaker or the red tell) → `_defend_now` dodges them out
+  of their line (sideways, `_open_dir` roll mode), never guards: once the shot is within 70 px, and from the foe's
+  windup when it's aimed this way (facing within ~30°, in its `move_range`) after `reaction` - 6 ticks, `defend` of
+  the time. Before Oct 29 2026 a CPU guarded Cast Line, Gulp and the Maw, which a guard doesn't stop
 - Walls and pits → `nav_grid.gd` (16 px nodes, integer-cost A* in a fixed order, one grid
   per terrain shared by every CPU (`NavGrid.shared`), rebuilt row by row on `terrain.version`,
   regions for unreachable goals; a node is blocked by any wall or fence cell but only by

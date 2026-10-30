@@ -5,7 +5,8 @@ extends SceneTree
 ##   --matrix: every pair at level --a;  --pairs=a:b,c:d: just those, at level --a, both sides
 ##   --arena=ID: play on that arena map (default stadium; greenhouse and quarry test sight)
 ##   --detail: per foe, also the share of ticks at preferred spacing (a kiter: its kite band;
-##     else ai.range ± 15%, at least ± 8 px, between body edges), ticks with stamina empty and guard breaks taken
+##     a skirmisher: past its own light reach + 10 px and inside its poke_range; else ai.range ± 15%,
+##     at least ± 8 px, between body edges), ticks with stamina empty and guard breaks taken
 ##   --scored: the fighter under test plays the scored kit (CpuController.scored, the default)
 ##     and its foes the old ladder; with --a=3 --b=3 that is scored Rage against ladder Rage.
 ##     --ladder: everyone plays the ladder (the baseline to compare with)
@@ -181,6 +182,10 @@ static func _at_spacing(c: CreatureSim, foe: CreatureSim, d: float) -> bool:
 	if c.moves().get("light_1", {}).has("projectile") or bool(c.def.get("ai", {}).get("kite", false)):
 		var band := CpuController.kite_band(c, foe)
 		return d >= band.x - 4.0 and d <= band.y + 4.0
+	if String(c.def.get("ai", {}).get("style", c.def.get("role", ""))) == "skirmisher":
+		# The poke band: out past its own lights (where a standing trade happens), inside its poke.
+		var pr: Array = c.def["ai"].get("poke_range", [0, 0])
+		return d > CpuController._reach_of(c, foe) + 10.0 and d <= float(pr[1])
 	var want := float(c.def.get("ai", {}).get("range", 22))
 	return absf(d - c.radius - foe.radius - want) <= maxf(want * 0.15, 8.0)
 
