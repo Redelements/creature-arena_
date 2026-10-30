@@ -52,17 +52,17 @@ merge**), the camera frames the people here on a big map (`_frame_fight` `crew`,
 `main.local_slots`) with top padding from `Hud.panels_height`. Screenshot pr-media
 `local-mp/coop-ctf.png`.
 
-Now: PR 8 "polish" on branch `local-polish` (base `local-coop`): a controller-disconnect
-prompt that pauses an offline fight (`_on_pad_changed` → `_open_pause` with a line naming the
-seat; never online); the pause menu names who paused (player 1); per-seat palettes (F5 and
-the worn palette for `Side.PLAYER` only today, `main.gd` `_apply palettes` / `palette` action:
-seat 0 keeps the account's palette, seats 2-4 wear none, by Kevin's ruling "only player 1
-progresses"); Discord presence "Brawl · N players" (already counts locals: check); progression:
-report kind "local" pays seats 2-4 nothing (`progress_report` players → seat 0 only, per
-Kevin); `docs/MECHANICS.md` CLI flag `--locals`, `docs/local-multiplayer-plan.md` status
-column, README controls, open-items.
+Done: PR 8 "polish" on branch `local-polish` (base `local-coop`), expected #325: a pad unplugged
+mid-fight pauses an offline match (`_on_pad_changed` → `_open_pause`), only player 1 earns
+(`progress_report`), `--locals` in main's flag header, plan status, open-items "Local play",
+decisions entry for `max_size` / `online_max_size`.
 
-Next: hand the eight PRs to Kevin to playtest (#317-#324); server update after #324 merges.
+## Next step
+
+The eight PRs (#317 plan, #318-#325 steps 1-8) are stacked and wait for Kevin's playtest and
+merges, in order (a stacked PR merged by the button lands on its base). After #324 or later
+merges: `update.sh` on the server (rules files in `data_hash`). Leftovers are in
+`docs/open-items.md` ("Local play").
 
 ## Decisions
 

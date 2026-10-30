@@ -75,6 +75,8 @@ extends Node2D
 ##                         cerebro, cleaver (the Cleaver Toss bounce), hissy, digby, pete, sno, angles, twinstick or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
+##   --locals=N            how many people play a local seating mode started with --mode
+##                         (Brawl 55, Chaos Cup 46, the 2v2 local and co-op modes 56-62)
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 ##   --mutators=a,b        these mutators (data/rules/mutators.json ids: tidal_wave,
 ##                         meteor_shower, low_gravity...) on every offline match this session
@@ -1743,13 +1745,19 @@ func _assign_devices(humans: int) -> void:
 ## waits; the same pad, or the next one plugged in, takes the seat back.
 func _on_pad_changed(device: int, connected: bool) -> void:
 	if connected:
-		var k := seats.pad_found(device, Input.get_joy_guid(device))
+		var guid := Input.get_joy_guid(device) if device in Input.get_connected_joypads() else ""
+		var k := seats.pad_found(device, guid)
 		if k >= 0:
 			_toast("Player %d: controller connected" % (k + 1))
 	else:
 		var k := seats.pad_lost(device)
 		if k >= 0:
 			_toast("Player %d: controller disconnected" % (k + 1))
+			# An offline fight waits for it (the pause menu; Resume once it's back or on
+			# another pad). Online never pauses, and a seat alone with the keyboard isn't stuck.
+			if flow == Flow.FIGHT and online == null and watch == null and not paused and not ui.is_open() \
+					and showcase == null and coach == null and not (k == 0 and player_input.keyboard):
+				_open_pause()
 
 
 func _start_round() -> void:
