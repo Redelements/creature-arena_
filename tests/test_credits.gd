@@ -1,6 +1,6 @@
 extends TestCase
 ## Settings > Credits, driven like a player: the title, Settings, the Credits card. The
-## page credits the game, the bought art (Szadi art, kiddolink), the m5x7 font and Godot
+## page credits the people (data/credits.json), the bought art (Szadi art, kiddolink), the m5x7 font and Godot
 ## Engine with its copyright lines straight from the engine; Godot's row opens its licence
 ## and the notices row the third-party notices, on a page that scrolls with Up/Down and
 ## closes with Back. That the pages fit every screen: tests/test_ui_fit.gd (its PAGES).
@@ -65,7 +65,9 @@ func test_credits_open_from_the_title_and_credit_everyone() -> void:
 	var g := _game()
 	var scr := _open_credits(g)
 	var text := _all_text(scr)
-	for want in ["Redelements", "Szadi art", "szadiart.itch.io", "kiddolink", "VFX Complete Set Season 1",
+	for want in ["Kevin Winstead", "Redelements", "Jake Johnston", "Dirknasty", "Justin Brown", "Cyanical",
+			"Anthony Smith", "Cheffy916", "Lead Combat Designer", "Head of Growth", "drew the fighters by hand",
+			"BillCrittin", "David Taylor", "Broobs", "Szadi art", "szadiart.itch.io", "kiddolink", "VFX Complete Set Season 1",
 			"m5x7", "Daniel Linssen", "Godot Engine", "MIT"]:
 		assert_true(text.contains(want), "the page says " + want)
 	var lines := CreditsScreen.godot_copyright()
@@ -73,8 +75,22 @@ func test_credits_open_from_the_title_and_credit_everyone() -> void:
 	for l in lines:
 		assert_true(text.contains(l), "the page shows Godot's copyright: " + l)
 	assert_true(String(lines[0]).contains("Godot Engine contributors"), String(lines[0]))
-	# Focus walks the rows and the panel follows.
-	_press("ui_down")
+	assert_false(text.contains("generators"), "the fighters aren't credited to the generators")
+	# Focus walks every row, the people then the rest, and the panel follows.
+	var want := []
+	for p in CreditsScreen.people():
+		want.append(String(p["name"]))
+	want.append_array(["Szadi art", "kiddolink", "m5x7 font", "Godot Engine", "Third-party notices", "Back"])
+	assert_eq(_focus(), scr.row("kevin"), "the first row is the first of the team")
+	assert_eq(scr._detail_title.text, "Kevin Winstead", "the panel names the focused row")
+	assert_true(scr._desc.text.contains("Benevolent Dictator"), scr._desc.text)
+	for i in range(1, want.size()):
+		_press("ui_down")
+		assert_eq((_focus() as Button).text, want[i], "Down reaches " + String(want[i]))
+	for i in range(want.size() - 1):
+		_press("ui_up")
+	assert_eq(_focus(), scr.row("kevin"), "Up walks back to the top")
+	scr.row("szadi").grab_focus()
 	assert_eq(scr._detail_title.text, "Szadi art", "the panel follows the focus")
 	assert_true(scr._desc.text.contains("szadiart.itch.io"), scr._desc.text)
 	_press("ui_cancel")

@@ -102,3 +102,8 @@ Format: `## YYYY-MM-DD — short title` then **Decision**, **Why**, **Replaces**
 **Decision:** A rules file's `max_size` is the most a side the sim seats (the team battle, Deathmatch and Capture the Flag say 4, for the local co-op modes); `online_max_size` (default 3, Capture the Flag 4) is what the dedicated server caps a request with and what `TeamSim.rules_for_size` reads, so a 4 v 4 online stays Capture the Flag only.
 **Why:** The local co-op modes seat four a side on any team rules, but raising `max_size` alone would have let a modified client ask the server for a 4 v 4 Deathmatch (`tests/test_server_teams.gd` pins the online rule).
 **Affects:** `data/rules/team.json`, `deathmatch.json`, `ctf.json`, `src/sim/team_sim.gd` (`max_size_for`, `online_max_size_for`), `src/net/relay_server.gd`.
+
+## 2026-10-29 — Credits name the four owners and the consultants, from data
+**Decision:** Settings > Credits lists the team (Kevin Winstead, Jake Johnston, Justin Brown, Anthony Smith) and the consultants as one row each, read from `data/credits.json` (sections, people: name, handle, role, tagline); the single "Ready 4 Rambles" row is gone. The fighters are credited as the team's hand drawings adapted into pixel art, never to the generators.
+**Why:** Four owners, all credited; the fighter art is hand-drawn now (Kevin, Oct 2026). Names and titles change without touching the screen's code.
+**Affects:** `src/ui/credits_screen.gd`, `data/credits.json`, `LICENSES.md`, `--menu=credits:<id>` (`src/game/main.gd`).
