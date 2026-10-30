@@ -7,8 +7,13 @@ Rambles, and what would it cost us? The main project is not touched.
 
 ## Current state
 
-- Step 1 copy done (5.5 MB mirrored; `src/sim` copy diff-identical). Steps 1b + 2 (scene,
-  camera, environment) in progress with a Sonnet agent. Next: commit Step 1-2, then Step 3.
+- Steps 1-2 committed (c6a992b: scene, camera at (352, 421, 809) pitch 35 FOV 30, environment,
+  keys O/P/H/F12/1-4/M, flags `--shot-at`, `--pitch`, `--ortho`, `--no-*`, `--mobile`).
+  Step 4a committed (pitched sheets in `spike/hd2d/assets/sprites/pitched/`, 221 s render).
+  Step 3 (Fighter3D + sim driver) in progress with a Sonnet agent. Next: 4b (shader, main
+  session, draft at `spike/hd2d/src/fighter_lit.gdshader`), 4c, QC, evidence.
+- Known: Godot's `--quit-after` did not end a spike run (hung; killed); the spike quits itself
+  after a `--shot-at` capture and, from Step 3, after `--run=N` ticks.
 - Branch `spike/hd2d` from `origin/main` fa7724b. Nothing outside `spike/` and
   `docs/plans/` is modified.
 - Checkpoint for a resume: this file; `spike/hd2d/CHECKPOINT.md` only if a run had to stop early.
