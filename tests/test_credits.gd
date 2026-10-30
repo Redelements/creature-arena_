@@ -66,7 +66,7 @@ func test_credits_open_from_the_title_and_credit_everyone() -> void:
 	var scr := _open_credits(g)
 	var text := _all_text(scr)
 	for want in ["Kevin Winstead", "Redelements", "Jake Johnston", "Dirknasty", "Justin Brown", "Cyanical",
-			"Anthony Smith", "Cheffy916", "Lead Combat Designer", "Head of Growth", "drew the fighters by hand",
+			"Anthony Smith", "Cheffy916", "Lead Combat Designer", "Head of Growth", "drew by hand",
 			"BillCrittin", "David Taylor", "Broobs", "Szadi art", "szadiart.itch.io", "kiddolink", "VFX Complete Set Season 1",
 			"m5x7", "Daniel Linssen", "Godot Engine", "MIT"]:
 		assert_true(text.contains(want), "the page says " + want)
