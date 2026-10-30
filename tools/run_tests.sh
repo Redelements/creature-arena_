@@ -24,10 +24,12 @@ if [ -z "$G" ]; then
 fi
 PY="${PYTHON:-}"
 if [ -z "$PY" ]; then
-	if command -v python3 >/dev/null 2>&1; then PY=python3
-	elif command -v python >/dev/null 2>&1 && python --version >/dev/null 2>&1; then PY=python
-	elif [ -x /c/Users/Kevin/dev/python/python.exe ]; then PY=/c/Users/Kevin/dev/python/python.exe
-	else echo "run_tests: no Python (set PYTHON=path)"; exit 2; fi
+	# On Windows `python3` / `python` may be the Store's stub, which prints a message and
+	# fails: accept a candidate only if it runs.
+	for c in python3 python /c/Users/Kevin/dev/python/python.exe; do
+		if "$c" --version >/dev/null 2>&1; then PY="$c"; break; fi
+	done
+	[ -n "$PY" ] || { echo "run_tests: no Python (set PYTHON=path)"; exit 2; }
 fi
 
 do_import=0; quick=0; sweep=0
