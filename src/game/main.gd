@@ -118,8 +118,8 @@ const MODES := [
 	{"label": "Training: Culvert", "left": "culvert", "training": true},
 	{"label": "Watch: combo showcases", "showcase": true},
 	{"label": "Duel: you vs CPU  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.CPU]},
-	{"label": "Duel: 2 players  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.PLAYER2]},
-	{"label": "Versus: 2 players", "versus2p": true, "sides": [Side.PLAYER, Side.PLAYER2]},
+	{"label": "Duel: 2 players  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.PLAYER2], "seating": "versus"},
+	{"label": "Versus: 2 players", "versus2p": true, "sides": [Side.PLAYER, Side.PLAYER2], "seating": "versus"},
 	{"label": "Combo Trials", "trials": true, "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Reaction Drill: read Culvert", "drill": "culvert", "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Reaction Drill: read Cairn", "drill": "cairn", "sides": [Side.PLAYER, Side.SCRIPT]},
@@ -1488,8 +1488,38 @@ func _start_match(m: int, keep_teams := false) -> void:
 	if cfg.get("online", false):
 		online_ctl._open_lobby()
 		return
-	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
+	if cfg.has("seating") and _humans(cfg) > 1 and not keep_teams and not _skip_select:
+		_open_seats(cfg)  # who's playing first; the seats then come back here through _open_pick
+		return
 	_assign_devices(_humans(cfg))
+	_open_pick(cfg, keep_teams)
+
+
+## The join screen of a local mode with a `seating` key: the seats claim their controllers
+## (`LocalSeats.begin` .. `finish`), then the fighter pick opens as usual.
+func _open_seats(cfg: Dictionary) -> void:
+	flow = Flow.SELECT
+	flow_t = 0
+	hud.visible = false
+	var humans := _humans(cfg)
+	seats.begin(humans)
+	var s := SeatScreen.new()
+	s.mode_title = "DUEL" if cfg.get("duel", false) else "VERSUS"
+	s.need = humans
+	s.most = humans
+	s.seats = seats
+	s.done.connect(func() -> void:
+		seats.finish()
+		ui.pop()
+		_open_pick(cfg, false))
+	s.cancelled.connect(_back_to_row)
+	ui.push(s)
+
+
+## The fighter pick for a mode that has one (else straight into the match); `keep_teams`
+## as `_start_match`'s (a rematch skips the pick).
+func _open_pick(cfg: Dictionary, keep_teams: bool) -> void:
+	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
 	if _has_pick(cfg) and not keep_teams and not _skip_select:
 		flow = Flow.SELECT
 		flow_t = 0

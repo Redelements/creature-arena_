@@ -17,6 +17,8 @@ const MAX_SEATS := 4
 var inputs: Array[PlayerInput] = []
 ## How many people play at this machine in the current match (1 when solo).
 var humans := 1
+## The most the join screen lets in (`begin`).
+var most := MAX_SEATS
 ## Seats whose controller was unplugged mid-match (seat -> the pad's GUID), kept so the
 ## same pad, or the next one plugged in, takes the seat back.
 var lost := {}
@@ -80,6 +82,101 @@ func assign(p_humans: int, pads: Array, pad_guids := {}) -> String:
 		return "Connect %d controller%s for players %s" % [short, "" if short == 1 else "s",
 			"2-%d" % humans if humans > 2 else "2"]
 	return ""
+
+
+# ------------------------------------------------------------------ the join screen
+
+## Opens the seats for a join screen letting up to `p_most` people in: player 1 undecided
+## (keyboard and mouse, any pad until one presses), every other seat empty.
+func begin(p_most: int) -> void:
+	most = clampi(p_most, 1, MAX_SEATS)
+	humans = 1
+	lost.clear()
+	inputs[0].keyboard = true
+	inputs[0].pad_device = PlayerInput.ANY_PAD
+	for k in range(1, MAX_SEATS):
+		inputs[k].pad_device = PlayerInput.NO_PAD
+		inputs[k].release_pad()
+
+
+## The seat holding exactly this controller (never "any pad"); -1 for none.
+func holder_of(device: int) -> int:
+	for k in MAX_SEATS:
+		if inputs[k].pad_device == device:
+			return k
+	return -1
+
+
+## A controller pressed to join: player 1 takes it while they're undecided (they keep the
+## keyboard too), else it takes the first empty seat the screen lets in. Returns the seat,
+## or -1 when the seats are full (a pad already seated keeps its seat).
+func claim(device: int) -> int:
+	var held := holder_of(device)
+	if held >= 0:
+		return held
+	if inputs[0].pad_device == PlayerInput.ANY_PAD:
+		inputs[0].pad_device = device
+		return 0
+	for k in range(1, most):
+		if inputs[k].pad_device == PlayerInput.NO_PAD:
+			inputs[k].pad_device = device
+			return k
+	return -1
+
+
+## Player 1 plays on the keyboard and mouse alone (Enter on the join screen). False when
+## they had already decided.
+func keyboard_only() -> bool:
+	if inputs[0].pad_device != PlayerInput.ANY_PAD:
+		return false
+	inputs[0].pad_device = PlayerInput.NO_PAD
+	return true
+
+
+## Whether a seat has said how it plays: player 1 once they chose keyboard or a pad, the
+## others once they hold a pad.
+func decided(seat: int) -> bool:
+	if seat < 0 or seat >= most:
+		return false
+	if seat == 0:
+		return inputs[0].pad_device != PlayerInput.ANY_PAD
+	return inputs[seat].pad_device >= 0
+
+
+## How many seats have joined.
+func joined() -> int:
+	var n := 0
+	for k in most:
+		if decided(k):
+			n += 1
+	return n
+
+
+## A seat gives its controller back (B on the join screen): player 1 is undecided again,
+## another seat is empty.
+func unclaim(seat: int) -> void:
+	if seat <= 0:
+		inputs[0].pad_device = PlayerInput.ANY_PAD
+		return
+	if seat < MAX_SEATS:
+		inputs[seat].pad_device = PlayerInput.NO_PAD
+		inputs[seat].release_pad()
+
+
+## The join screen is done: the seats that joined are packed into 0..n-1 (a seat given
+## back in the middle leaves no hole) and `humans` is their number. Returns it.
+func finish() -> int:
+	var pads: Array[int] = []
+	for k in range(1, most):
+		if inputs[k].pad_device >= 0:
+			pads.append(inputs[k].pad_device)
+	for k in range(1, MAX_SEATS):
+		inputs[k].pad_device = pads[k - 1] if k - 1 < pads.size() else PlayerInput.NO_PAD
+		inputs[k].release_pad()
+	if inputs[0].pad_device == PlayerInput.ANY_PAD:
+		inputs[0].pad_device = PlayerInput.NO_PAD if not pads.is_empty() else PlayerInput.ANY_PAD
+	humans = 1 + pads.size()
+	return humans
 
 
 ## The seat whose controller `device` is: a pad a seat holds, else player 1 when they listen

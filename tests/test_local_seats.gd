@@ -132,3 +132,133 @@ func test_pad_map_follows_the_gamepad_remaps() -> void:
 	map = PlayerInput.pad_map()
 	assert_eq((map["light"]["buttons"] as Array), [JOY_BUTTON_A], "back to the default")
 	assert_false(PlayerInput.pad_action_held(0, map["light"]), "no controller 0 here: nothing held")
+
+
+# ------------------------------------------------------------------ the join screen
+
+func test_joining_claims_seats_in_order_and_packs_them_at_the_end() -> void:
+	var s := _seats()
+	s.begin(3)
+	assert_eq(s.joined(), 0, "player 1 is undecided until they press")
+	assert_eq(s.claim(7), 0, "the first pad is player 1's (with the keyboard)")
+	assert_true(s.inputs[0].keyboard, "")
+	assert_eq(s.claim(7), 0, "pressing again keeps the seat")
+	assert_eq(s.claim(9), 1, "")
+	assert_eq(s.claim(4), 2, "")
+	assert_eq(s.claim(5), -1, "full: three seats")
+	assert_eq(s.joined(), 3, "")
+	s.unclaim(1)
+	assert_eq(s.joined(), 2, "")
+	assert_eq(s.holder_of(9), -1, "")
+	assert_eq(s.finish(), 3 - 1, "two play")
+	assert_eq(s.device_of(1), 4, "seat 3's pad moved down into the hole")
+	assert_eq(s.device_of(2), PlayerInput.NO_PAD, "")
+	assert_eq(s.seat_of_device(4), 1, "")
+
+
+func test_player_1_on_the_keyboard_alone_then_the_only_pad_is_player_2s() -> void:
+	var s := _seats()
+	s.begin(2)
+	assert_true(s.keyboard_only(), "")
+	assert_false(s.keyboard_only(), "already decided")
+	assert_eq(s.claim(0), 1, "the pad goes to player 2")
+	assert_eq(s.finish(), 2, "")
+	assert_eq(s.device_of(0), PlayerInput.NO_PAD, "player 1 never reads that pad")
+	assert_eq(s.seat_of_device(0), 1, "")
+	s.unclaim(0)
+	assert_eq(s.device_of(0), PlayerInput.ANY_PAD, "player 1 undecided again")
+
+
+func test_finishing_with_nobody_else_leaves_player_1_on_any_pad() -> void:
+	var s := _seats()
+	s.begin(2)
+	assert_eq(s.finish(), 1, "")
+	assert_eq(s.device_of(0), PlayerInput.ANY_PAD, "solo: any pad is theirs")
+
+
+func _root() -> Window:
+	return (Engine.get_main_loop() as SceneTree).root
+
+
+func _press(action: String) -> void:
+	for down in [true, false]:
+		var ev := InputEventAction.new()
+		ev.action = action
+		ev.pressed = down
+		_root().push_input(ev)
+
+
+func _pad(device: int, button: JoyButton) -> void:
+	for down in [true, false]:
+		var ev := InputEventJoypadButton.new()
+		ev.device = device
+		ev.button_index = button
+		ev.pressed = down
+		_root().push_input(ev)
+
+
+func _screen(need: int) -> Array:
+	Controls.setup()
+	var st := ScreenStack.new()
+	_root().add_child(st)
+	var s := _seats()
+	s.begin(need)
+	var scr := SeatScreen.new()
+	scr.need = need
+	scr.most = need
+	scr.seats = s
+	st.push(scr)
+	return [st, scr, s]
+
+
+func test_the_join_screen_seats_two_pads_and_starts_on_start() -> void:
+	var made := _screen(2)
+	var st: ScreenStack = made[0]
+	var scr: SeatScreen = made[1]
+	var s: LocalSeats = made[2]
+	var got := [0, 0]
+	scr.done.connect(func(): got[0] += 1)
+	scr.cancelled.connect(func(): got[1] += 1)
+	_pad(1, JOY_BUTTON_START)
+	assert_eq(got[0], 0, "nobody seated yet: Start does nothing")
+	_pad(1, JOY_BUTTON_A)
+	assert_eq(s.device_of(0), 1, "player 1 took pad 1")
+	assert_false(scr.ready_to_go(), "one of two")
+	_pad(2, JOY_BUTTON_A)
+	assert_eq(s.device_of(1), 2, "player 2 took pad 2")
+	assert_true(scr.ready_to_go(), "")
+	_pad(2, JOY_BUTTON_B)
+	assert_eq(s.device_of(1), PlayerInput.NO_PAD, "B gave the seat back")
+	_pad(2, JOY_BUTTON_START)
+	assert_eq(got[0], 0, "not ready: Start waits")
+	_pad(3, JOY_BUTTON_A)
+	assert_eq(s.device_of(1), 3, "another pad takes the seat")
+	_pad(3, JOY_BUTTON_START)
+	assert_eq(got[0], 1, "Start on a seated pad goes on")
+	assert_eq(got[1], 0, "")
+	assert_true(st.is_open(), "the screen stays until main pops it")
+	st.free()
+
+
+func test_the_join_screen_on_the_keyboard_enter_then_enter() -> void:
+	var made := _screen(2)
+	var st: ScreenStack = made[0]
+	var scr: SeatScreen = made[1]
+	var s: LocalSeats = made[2]
+	var got := [0, 0]
+	scr.done.connect(func(): got[0] += 1)
+	scr.cancelled.connect(func(): got[1] += 1)
+	_press("ui_accept")
+	assert_eq(s.device_of(0), PlayerInput.NO_PAD, "Enter: player 1 on the keyboard alone")
+	_press("ui_accept")
+	assert_eq(got[0], 0, "one seat of two: Enter waits")
+	_pad(0, JOY_BUTTON_A)
+	assert_eq(s.device_of(1), 0, "the pad is player 2's")
+	_press("ui_accept")
+	assert_eq(got[0], 1, "Enter goes on")
+	_pad(0, JOY_BUTTON_B)
+	assert_eq(got[1], 0, "player 2's B isn't a cancel")
+	_press("ui_cancel")
+	assert_eq(got[1], 1, "Esc from player 1 leaves")
+	assert_true(st.is_open(), "main closes the screen, the stack didn't pop it by itself")
+	st.free()

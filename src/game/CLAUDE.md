@@ -35,7 +35,8 @@ player and live here, outside the sim.
 ## Where to look
 
 - Mode numbers → `main.gd:MODES`; menu grouping → `MENU_ROWS`; `ONLINE_MODE` = 20
-- Start a match → `_start_match` → `_start_round` (1v1), `_start_duel`, `_start_team`,
+- Start a match → `_start_match` → (a local mode's `"seating"` key: the join screen `_open_seats`,
+  `SeatScreen`, the seats `LocalSeats.begin` .. `finish`) → `_open_pick` → `_start_round` (1v1), `_start_duel`, `_start_team`,
   `_start_coach`, `_start_showcase`, `_open_lobby`; pick screen → `_has_pick`,
   `_on_teams_chosen`, `_padded_teams`; sim + views → `_new_sim`; inputs → `_side_bits`,
   `_dummy_bits`, CPU sides all at once → `_think_cpus` (worked out between ticks on the

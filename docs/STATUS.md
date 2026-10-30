@@ -19,14 +19,21 @@ later, **player 1 alone pauses**, **only player 1 earns progression**, one gamep
 pad layout for every seat, FFA single round + Rematch, mode C on stadium maps + Twin Keeps,
 Brawl 2/3/4 rows become aliases.
 
-Now: PR 1 "seats" on `local-seats`: `src/input/local_seats.gd` (LocalSeats: assign, pad_lost /
-pad_found hot-plug, seat_of_device, owner_of_event, rumble_device), `PlayerInput.pad_map()` so
-`_device_pad_bits` follows the gamepad remaps (`Controls.version`), main: `seats`, `seat_of`,
-`_on_pad_changed`, rumble per seat, pause from seat 0 only, `tests/test_local_seats.gd`.
+Done: PR 1 = #318 (`local-seats`, base `local-mp-plan`): LocalSeats, pad_map remaps, hot-plug,
+rumble per seat, player 1 pauses. 219 targeted tests green, smoke 44 / 7 clean.
 
-Next: run `TEST_ONLY=local_seats,ui,touch,player_input,twinstick`, smoke `--mode=44`, push, open
-PR 1 with base `local-mp-plan`; then PR 2 (join screen, `seating` templates, `--locals=N`) on
-branch `local-join` based on `local-seats`.
+Done: PR 2 "join screen" on branch `local-join` (base `local-seats`): `LocalSeats.begin / claim /
+keyboard_only / unclaim / joined / finish`, `src/ui/seat_screen.gd`, MODES `"seating": "versus"`
+on Duel 2P (7) and Versus 2P (8), `_start_match` → `_open_seats` → `_open_pick(cfg, keep_teams)`
+(skipped under `--mode=` and on a rematch). `--locals=N` deferred to PR 5. 156 tests green.
+
+Now: PR 3 "N pickers" on branch `local-select` (base `local-join`): `CharacterSelect` takes
+`pickers: [{seat, side}]` (a cursor, pad and MenuStick per seat; `_player_of` through
+`main.seats.holder_of` / keyboard = seat 0), simultaneous picks, undo per seat; Brawl 3/4
+players stop handing seats 3-4 roster fighters. Keep `p1_pad` / `p2_pad` / `two_players`
+working (tests/test_ui.gd:222-280, test_journey `_through_pick`).
+
+Next: PR 4 HUD for four on `local-hud` (base `local-select`).
 
 ## Decisions
 

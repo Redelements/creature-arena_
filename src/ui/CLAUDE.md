@@ -48,6 +48,11 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - The stack, Back, focus restore, toasts → `screen_stack.gd` (`push`, `pop`, signals
   `moved`, `chosen`, `emptied`)
 - "label < value >" rows → `option_row.gd`; hub cards → `card_button.gd`
+- Who's playing (a local mode with a `seating` key: before the pick, each controller presses A
+  for a seat, Enter is player 1 on the keyboard alone, B gives a seat back, Enter / Start goes
+  on once `need` have joined) → `seat_screen.gd` (`SeatScreen`: `need`, `most`, `seats`,
+  signals `done` / `cancelled`; it only talks to `LocalSeats.begin` .. `finish`); opened by
+  `main.gd:_open_seats`, then `_open_pick`; `tests/test_local_seats.gd`
 - Character select (one cursor per player, teams, `solo` for online) → `character_select.gd`; the "Beats mages  ·  Loses to the rest" line under a fighter's class is `matchup_text`, read from `CpuController.BEATS` (`tests/test_select_matchups.gd`)
 - Online "match found" → `ready_check.gd`; room code row → `room_code_button.gd`
 - Remapping (classic, league, gamepad) → `remap_screen.gd` (`RESERVED_KEYS`, `RESERVED_BUTTONS`)
@@ -93,6 +98,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - `results_panel.gd` (ResultsPanel) — The results screen's body: the winner's victory pose beside the result line, then a stats table (damage, hits, KOs, bes…
 - `room_code_button.gd` (RoomCodeButton) — A room's code as a row you can press: "Room code KX7P" with a copy icon on the right (two offset rounded squares, drawn…
 - `screen_stack.gd` (ScreenStack) — The menu screens open right now, newest on top: push() opens one over the others, Back (B / Esc / View, or Start for a…
+- `seat_screen.gd` (SeatScreen) — Who's playing: the seats at this machine, before a local match's fighter pick.
 - `text_page.gd` (TextPage) — A page of long text that scrolls (a licence, the third-party notices): the text box fills what the screen leaves under…
 - `title_screen.gd` (TitleScreen) — The title menu: Single player, Online, Profile, Settings, Exit.
 - `ui_screen.gd` (UiScreen) — One menu screen: a heading, a column of rows, a description of the focused row (in a panel on the right with `detail`,…
