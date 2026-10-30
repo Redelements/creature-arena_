@@ -236,6 +236,28 @@ func footprint_falls(p: Vector2, radius: float) -> bool:
 	return false
 
 
+## Whether a body falling at `p` falls into a chasm (Sinkhole's knockout, `fall_ko`) rather
+## than a hole: its centre is over a chasm (the old rule's answer, kept whenever it applied),
+## or at least as many footprint points are over chasm cells as over hole cells. Same points
+## as `footprint_falls`, so a fall with the centre on floor (a corner of the Sinkhole's
+## shrinking floor) is still a chasm fall.
+func footprint_chasm(p: Vector2, radius: float) -> bool:
+	if _fall_need == 0:
+		set_fall_rules()
+	var r := radius * _fall_mult
+	if get_cell(world_to_cell(p)) == CHASM:
+		return true
+	var chasms := 0
+	var holes := 0
+	for o in FOOTPRINT:
+		var v := get_cell(world_to_cell(p + o * r))
+		if v == CHASM:
+			chasms += 1
+		elif v == HOLE:
+			holes += 1
+	return chasms > 0 and chasms >= holes
+
+
 func solid_at(p: Vector2) -> bool:
 	return blocks_body(get_cell(world_to_cell(p)))
 

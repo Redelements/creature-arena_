@@ -1771,7 +1771,7 @@ func start_fall(sim: MatchSim) -> void:
 	walk_vel = Vector2.ZERO
 	cancel_attack()
 	_set_state(State.FALLING)
-	fall_chasm = sim.terrain.get_cell(sim.terrain.world_to_cell(pos)) == TerrainGrid.CHASM
+	fall_chasm = sim.terrain.footprint_chasm(pos, radius)  # the same footprint as the fall
 	sim.emit_event("fall", pos, 0.0, {"who": id, "pit": "chasm" if fall_chasm else "hole"})
 
 
