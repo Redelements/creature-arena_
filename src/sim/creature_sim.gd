@@ -51,7 +51,7 @@ const STATE_FIELDS := [
 	"windup_total", "stun", "invuln", "flash", "guard_hit", "air_t", "air_total",
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
-	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by", "taunt_pull",
+	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by", "taunt_pull", "taunt_contain",
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
@@ -160,6 +160,7 @@ var slow_mult := 1.0
 var taunt := 0  ## ticks left of being taunted by `taunt_by`
 var taunt_by := -1
 var taunt_pull := TAUNT_PULL  ## px/tick this taunt drags it in
+var taunt_contain := 0.0  ## the taunt's zone radius when it has "contain" (0 = none)
 var reel_t := 0  ## ticks left of being reeled in to `reel_to` (Gillbert's Cast Line)
 var reel_to := -1
 var reel_gap := 0.0
@@ -812,6 +813,13 @@ func step(buttons: int, sim: MatchSim) -> void:
 	elif not (state in [State.DODGE, State.GUARD, State.KO]):
 		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)) * boost_regen)
 	_tick_status(sim)
+	# A containing taunt (Bedrock): a foe inside the zone can't walk, dodge, dash or
+	# blink out of it this tick (clamped below, before throws and knockback move it).
+	var zone := contain_zone(sim)
+	var zone_r := taunt_contain + float(radius)
+	var zone_from := pos
+	if zone != null and pos.distance_squared_to(zone.pos) > zone_r * zone_r + 0.01:
+		zone = null  # outside (knocked out, say): not held until it walks back in
 
 	var dir := SimDefs.move_from_bits(buttons)  # walking: 360 degrees from a stick
 	var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
@@ -853,6 +861,8 @@ func step(buttons: int, sim: MatchSim) -> void:
 				_set_state(State.IDLE)
 	if reel_t > 0:
 		_reel_step(sim)
+	if zone != null:
+		_contain(zone, zone_r, zone_from, sim)
 	if flip_t > 0:
 		_flip_step()
 	_apply_knockback(sim)
@@ -940,6 +950,28 @@ func _regrow_sheets(sim: MatchSim) -> void:
 		sheet_t = 0
 		sheets += 1
 		sim.emit_event("sheet", pos, float(sheets), {"who": id})
+
+
+## The taunter whose zone holds this one in ("taunt.contain"), if any.
+func contain_zone(sim: MatchSim) -> CreatureSim:
+	if taunt_contain <= 0.0:
+		return null
+	return taunter(sim)
+
+
+## Pulls a contained foe back to the zone's edge (`r` from the taunter's centre) after its
+## own walking, dodging, dashing or blinking carried it past. Walls and the arena edge
+## stop the pull as they stop walking; if that still leaves it outside, it stays where it
+## stood at the start of the tick (inside). Comparisons and one square root only.
+func _contain(t: CreatureSim, r: float, from: Vector2, sim: MatchSim) -> void:
+	var off := pos - t.pos
+	if off.length_squared() <= r * r:
+		return
+	var spot := t.pos + off.normalized() * r
+	var walking := state == State.IDLE or state == State.MOVE or state == State.GUARD
+	_move(spot - pos, sim, walking)
+	if pos.distance_squared_to(t.pos) > (r + 0.5) * (r + 0.5):
+		pos = from
 
 
 ## The creature taunting this one, if any.
@@ -1367,6 +1399,7 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt = int(tn["ticks"])
 		o.taunt_by = id
 		o.taunt_pull = float(tn.get("pull", TAUNT_PULL))
+		o.taunt_contain = r if bool(tn.get("contain", false)) else 0.0
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
 

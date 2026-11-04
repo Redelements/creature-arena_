@@ -425,3 +425,132 @@ func test_hit_while_the_head_flies_shows_the_headless_hurt_row() -> void:
 	v.refresh()
 	assert_false(v.headless(), "the knockdown with the head home draws its head")
 	v.free()
+
+
+# ------------------------------------------------- Bedrock's zone ("taunt.contain")
+
+## How far a contained foe's centre may be from Craglash: the zone plus its own radius
+## (the same reach that taunted it).
+func _zone_limit(crag: CreatureSim, foe: CreatureSim) -> float:
+	return float(crag.def["moves"]["surge"]["taunt"]["radius"]) + float(foe.radius)
+
+
+## Runs `ticks` ticks with the foe pressing `p1` every other tick (a dodge mashed) or
+## holding it, and returns the farthest it got from Craglash.
+func _farthest(sim: MatchSim, ticks: int, p1: int, mash := false) -> float:
+	var crag := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var far := 0.0
+	for i in ticks:
+		var b := p1 if (not mash or i % 2 == 0) else (p1 & ~SimDefs.IN_DODGE)
+		sim.step(PackedInt32Array([0, b]))
+		far = maxf(far, foe.pos.distance_to(crag.pos))
+	return far
+
+
+func test_bedrock_contains_its_zone() -> void:
+	var t: Dictionary = MatchFactory.load_def("craglash")["moves"]["surge"]["taunt"]
+	assert_true(bool(t.get("contain", false)), "Bedrock's taunt holds foes in its zone")
+	assert_eq(int(t["radius"]), 200, "zone radius unchanged:")
+	assert_eq(int(t["ticks"]), 180, "duration unchanged:")
+
+
+func test_walking_away_never_leaves_the_zone() -> void:
+	var sim := _duel("cairn", 150.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	_bedrock(sim)
+	assert_gt(float(cairn.taunt), 0.0, "taunted")
+	var far := _farthest(sim, cairn.taunt, RIGHT)
+	assert_lt(far, _zone_limit(crag, cairn) + 0.5, "holding away for the whole taunt:")
+
+
+func test_a_contained_walk_stops_at_the_edge() -> void:
+	# No drag, so the walk alone reaches the edge: the clamp, not the pull, holds it.
+	var sim := _duel("cairn", 60.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	crag._taunt({"radius": 120, "ticks": 200, "pull": 0.0, "contain": true}, sim)
+	var lim := 120.0 + float(cairn.radius)
+	var far := _farthest(sim, 190, RIGHT)
+	assert_lt(far, lim + 0.5, "never past the edge:")
+	assert_gt(cairn.pos.distance_to(crag.pos), lim - 3.0, "but it walked right up to it:")
+
+
+func test_a_dodge_away_ends_inside_the_zone() -> void:
+	var sim := _duel("cairn", 150.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	_bedrock(sim)
+	var far := _farthest(sim, 120, RIGHT | SimDefs.IN_DODGE, true)
+	assert_lt(far, _zone_limit(crag, cairn) + 0.5, "rolls away stay inside:")
+
+
+func test_a_dodge_without_contain_still_escapes() -> void:
+	# The same rolls under a plain taunt get out: what the clamp changes.
+	var sim := _duel("cairn", 60.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	crag._taunt({"radius": 120, "ticks": 200, "pull": 0.0}, sim)
+	var far := _farthest(sim, 120, RIGHT | SimDefs.IN_DODGE, true)
+	assert_gt(far, 120.0 + float(cairn.radius) + 10.0, "a plain taunt doesn't hold:")
+
+
+func test_a_blink_away_ends_inside_the_zone() -> void:
+	# Chef Cerebro's dodge is a 90 px teleport.
+	var sim := _duel("cerebro", 150.0)
+	var crag := sim.creatures[0]
+	var cer := sim.creatures[1]
+	_bedrock(sim)
+	var far := _farthest(sim, 150, RIGHT | SimDefs.IN_DODGE, true)
+	assert_lt(far, _zone_limit(crag, cer) + 0.5, "a blink lands inside:")
+
+
+func test_a_burrow_ends_inside_the_zone() -> void:
+	# Digby's Burrow: a leaping dash under the ground.
+	var sim := _duel("digby", 100.0)
+	var crag := sim.creatures[0]
+	var dig := sim.creatures[1]
+	_bedrock(sim)
+	run(sim, 0, 1, RIGHT | S2)
+	var far := _farthest(sim, 80, RIGHT)
+	assert_lt(far, _zone_limit(crag, dig) + 0.5, "the burrow surfaces inside:")
+
+
+func test_a_foe_outside_the_zone_is_not_snapped_in() -> void:
+	var sim := _duel("cairn", 60.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	crag._taunt({"radius": 120, "ticks": 200, "pull": 0.0, "contain": true}, sim)
+	var lim := 120.0 + float(cairn.radius)
+	cairn.pos = crag.pos + Vector2(lim + 30.0, 0.0)  # knocked out, say
+	run(sim, 0, 20, RIGHT)
+	assert_gt(cairn.pos.distance_to(crag.pos), lim + 40.0, "outside it walks on freely:")
+
+
+func test_knockback_still_carries_a_contained_foe_out() -> void:
+	var held := _duel("cairn", 60.0)
+	var free := _duel("cairn", 60.0)
+	held.creatures[0]._taunt({"radius": 120, "ticks": 200, "pull": 0.0, "contain": true}, held)
+	free.creatures[0]._taunt({"radius": 120, "ticks": 200, "pull": 0.0}, free)
+	for sim in [held, free]:
+		var foe: CreatureSim = sim.creatures[1]
+		foe.enter_hitstun(30, Vector2(12.0, 0.0))  # a big hit from a third fighter
+	run(held, 0, 30)
+	run(free, 0, 30)
+	var lim := 120.0 + float(held.creatures[1].radius)
+	assert_gt(held.creatures[1].pos.distance_to(held.creatures[0].pos), lim, "knocked past the edge:")
+	assert_near(held.creatures[1].pos.x, free.creatures[1].pos.x, 0.001, "exactly as without contain:")
+
+
+func test_the_taunt_ending_releases_the_zone() -> void:
+	var sim := _duel("cairn", 60.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	crag._taunt({"radius": 120, "ticks": 40, "pull": 0.0, "contain": true}, sim)
+	var lim := 120.0 + float(cairn.radius)
+	var far := _farthest(sim, 39, RIGHT)
+	assert_lt(far, lim + 0.5, "held while it lasts:")
+	run(sim, 0, 40, RIGHT)
+	assert_gt(cairn.pos.distance_to(crag.pos), lim + 20.0, "then free to walk off:")
+	assert_eq(cairn.taunt_contain > 0.0 and cairn.contain_zone(sim) != null, false, "no zone left")

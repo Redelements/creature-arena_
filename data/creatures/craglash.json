@@ -340,7 +340,8 @@
       "taunt": {
         "radius": 200,
         "ticks": 180,
-        "pull": 1.6
+        "pull": 1.6,
+        "contain": true
       },
       "terrain_crack": 40,
       "fx": {

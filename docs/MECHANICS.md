@@ -129,7 +129,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `stagger_if` | mark | move | With `no_flinch`: on a target carrying this mark the hit is an ordinary hit instead (its own hitstun and knockback; starts or continues a combo; reveals stealth). Marks (cs:`has_mark`): `tenderized` (`vuln`), `poisoned`, `bleeding` (poison with `poison_look` "bleed"), `slowed`, `rooted`, `blinded`; anything else is never there. The `hit` event says `stagger_if: true` when it paid off (FxView: "STAGGERED!") | cerebro light_3 (Mallet Toss: `tenderized`, hitstun 30) |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
 | `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | barkley heavy (Timber Twister, 0–22), craglash heavy, surge |
-| `taunt` | `{radius, ticks, pull=TAUNT_PULL}` | move | Fires at `armor.from` (only on armored moves); `pull` is the drag in px/tick | craglash surge |
+| `taunt` | `{radius, ticks, pull=TAUNT_PULL, contain=false}` | move | Fires at `armor.from` (only on armored moves); `pull` is the drag in px/tick; `contain` holds taunted foes inside the zone (see Taunt below; saved per victim as `taunt_contain`) | craglash surge |
 
 ### Status keys (applied on a clean hit, ms:`_apply_hit`)
 
@@ -242,7 +242,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 
 **Slow** (`slow_ticks`, zones, gaze): walk × `slow_mult`; a new hit overwrites the multiplier, ticks take the max.
 
-**Taunt** (Bedrock, Craglash's Surge): foes within `radius` walk at `TAUNT_SPEED`, are dragged `taunt.pull` px/tick (default `TAUNT_PULL`, saved per victim as `taunt_pull`) toward the taunter while idle, walking or guarding, and aim every attack at it. Ends if the taunter is KO'd.
+**Taunt** (Bedrock, Craglash's Surge): foes within `radius` walk at `TAUNT_SPEED`, are dragged `taunt.pull` px/tick (default `TAUNT_PULL`, saved per victim as `taunt_pull`) toward the taunter while idle, walking or guarding, and aim every attack at it. Ends if the taunter is KO'd. With `taunt.contain` (Bedrock) a taunted foe that starts its tick inside the zone (centre within `radius` + its own radius of the taunter, which moves with him) can't walk, dodge, dash, blink, burrow, reel or break away out of it: `CreatureSim.step` clamps it back to the edge (`_contain`) right after its state handler and `_reel_step`, before `_flip_step` and `_apply_knockback`, so the match's hit resolution sees it inside. The clamp is a `_move` toward the edge (walls stop it as they stop walking; if that still leaves it outside, it goes back to where it stood at the start of the tick). Knockback, launches, pulls, throws, flips, body pushes and pit falls are not input and move it as before; a foe outside the zone (knocked out of it) is not snapped back, only held again once it is back inside. The CPU (`_zone_goal`, `_zone_dir`) keeps its walking goals inside the zone and turns a walk into the edge into one round it.
 
 **Vulnerable** (Tenderize): incoming hit damage × `vuln_mult` (armor chip included), poison not; a block still takes none.
 
