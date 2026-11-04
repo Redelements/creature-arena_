@@ -4,7 +4,7 @@
   "title": "A floating brain that cooks with its mind",
   "affinity": "lumen",
   "role": "mage",
-  "max_hp": 210,
+  "max_hp": 140,
   "speed": 2.21,
   "accel": 0.42,
   "radius": 11,

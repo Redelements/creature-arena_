@@ -224,11 +224,12 @@ func test_the_cleaver_bounces_to_a_second_foe_once_weaker() -> void:
 	var mv: Dictionary = sim.creatures[0].def["moves"]["skill_1"]
 	var b: Dictionary = mv["projectile"]["bounce"]
 	var r := _throw_cleaver(sim)
+	var cls := MatchSim.class_damage_mult(sim.creatures[0])  # Cerebro is a mage (classes.json)
 	assert_eq(r[0][1], 1, "the first foe is hit once:")
 	assert_eq(r[0][2], 1, "the second foe once, on the bounce:")
 	assert_eq(r[2], 1, "one bounce event:")
-	assert_near(r[1][1], float(mv["damage"]), 0.01, "the first takes the full cleaver:")
-	assert_near(r[1][2], float(mv["damage"]) * float(b["damage_mult"]), 0.01, "the second x damage_mult:")
+	assert_near(r[1][1], float(mv["damage"]) * cls, 0.01, "the first takes the full cleaver:")
+	assert_near(r[1][2], float(mv["damage"]) * cls * float(b["damage_mult"]), 0.01, "the second x damage_mult:")
 
 
 func test_the_cleaver_doesnt_bounce_past_its_range() -> void:

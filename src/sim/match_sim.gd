@@ -34,6 +34,9 @@ static var _projectile_rules := {}
 ## Energy rates and whether the meter carries between rounds (data/rules/energy.json).
 const ENERGY_PATH := "res://data/rules/energy.json"
 static var _energy_rules := {}
+## Class-wide knobs by role (data/rules/classes.json): damage_mult per role.
+const CLASSES_PATH := "res://data/rules/classes.json"
+static var _class_rules := {}
 
 var tick := 0
 var hitstop := 0
@@ -581,6 +584,23 @@ static func energy_rules() -> Dictionary:
 	return _energy_rules
 
 
+## The class rules (data/rules/classes.json), loaded once.
+static func class_rules() -> Dictionary:
+	if _class_rules.is_empty():
+		var f := FileAccess.open(CLASSES_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_class_rules = d if d is Dictionary else {}
+	return _class_rules
+
+
+## The attacker-side damage multiplier of `a`'s class (its "role"): classes.json
+## damage_mult[role], 1.0 when missing. Static per fighter. Every damage `a` deals goes
+## through it once: _apply_hit for hits, and the poison a hit leaves.
+static func class_damage_mult(a: CreatureSim) -> float:
+	var t: Dictionary = class_rules().get("damage_mult", {})
+	return float(t.get(String(a.def.get("role", "fighter")), 1.0))
+
+
 static func energy_rate_dealt() -> float:
 	return float(energy_rules().get("per_damage_dealt", ENERGY_PER_DAMAGE))
 
@@ -650,7 +670,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.trigger_counter(a.pos, self)
 		return "slip"
 
-	var damage := float(hit["damage"])
+	var damage := float(hit["damage"]) * class_damage_mult(a)  # the class multiplier (classes.json)
 	if a.atk_buff > 0:
 		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
 	if a.boost_dmg != 1.0:
@@ -787,7 +807,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		# has to be applied here, not in get().
 		var every := int(hit.get("poison_every", 0))
 		d.poison_every = every if every > 0 else POISON_EVERY_DEFAULT
-		d.poison_dmg = float(hit["poison_damage"])
+		d.poison_dmg = float(hit["poison_damage"]) * class_damage_mult(a)
 		d.poison_by = a.id
 		d.poison_look = String(hit.get("poison_look", ""))
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id, "look": d.poison_look})
@@ -919,7 +939,7 @@ func _venom_frenzy(a: CreatureSim, d: CreatureSim) -> void:
 			d.poison_stacks = 0
 			d.poison_dmg = 0.0
 		d.poison_stacks = mini(d.poison_stacks + 1, int(vf.get("max_stacks", 5)))
-		d.poison_stack_dmg = float(vf.get("poison_damage", 1.0))
+		d.poison_stack_dmg = float(vf.get("poison_damage", 1.0)) * class_damage_mult(a)
 		d.poison = maxi(d.poison, int(vf.get("poison_ticks", 180)))
 		d.poison_every = int(vf.get("poison_every", POISON_EVERY_DEFAULT))
 		d.poison_by = a.id

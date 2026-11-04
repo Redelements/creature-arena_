@@ -4,7 +4,7 @@
   "title": "Folded from a magician's last playbill",
   "affinity": "gale",
   "role": "mage",
-  "max_hp": 200,
+  "max_hp": 135,
   "speed": 2.32,
   "accel": 0.44,
   "radius": 10,

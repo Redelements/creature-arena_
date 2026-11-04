@@ -789,7 +789,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 
 ### Chef Cerebro — a floating brain that cooks with its mind
 
-A mage (210 HP, Lumen affinity). He floats a hand's height off the floor with his
+A mage (140 HP, Lumen affinity). He floats a hand's height off the floor with his
 kitchen hovering around him (big knife, spatula, meat mallet, paring knives, his chef's hat) and
 throws it all with his mind: whatever he's moving glows violet, and so does he.
 **Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
@@ -897,7 +897,7 @@ shivering) waits for a victory-pose system.
 
 ### Mister Crease — folded from a magician's last playbill
 
-A mage (200 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
+A mage (135 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
 paper all over: a huge pleated orange hat with nothing under it but shadow and a red
 collar point, a navy suit cut in panels, a maroon vest and cape, orange paper shoes.
 He's paper, so he's light (weight 0.75): knockback carries him further than anyone.
@@ -947,10 +947,10 @@ storm.
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 78.5 |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 19.0 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (not a combo) |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Cooking with Fire | 61.5 (not a combo) |
-| Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 24.2 (a combo: the mallet staggers) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 24.7 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 37.8 (not a combo) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Cooking with Fire | 79.9 (not a combo) |
+| Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 31.5 (a combo: the mallet staggers) |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 81.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |
@@ -959,8 +959,9 @@ storm.
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +10%) | 116.4 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 47.8 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 63.9 + |
-| Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |
+| Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 27 + bleed |
 
+The mages' numbers include their class multiplier (×1.3 on everything a mage deals, `data/rules/classes.json`, Nov 2026).
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
 ## Progression
