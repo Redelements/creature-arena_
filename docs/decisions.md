@@ -107,3 +107,8 @@ Format: `## YYYY-MM-DD — short title` then **Decision**, **Why**, **Replaces**
 **Decision:** Settings > Credits lists the team (Kevin Winstead, Jake Johnston, Justin Brown, Anthony Smith) and the consultants as one row each, read from `data/credits.json` (sections, people: name, handle, role, tagline); the single "Ready 4 Rambles" row is gone. The fighters are credited as the team's hand drawings adapted into pixel art, never to the generators.
 **Why:** Four owners, all credited; the fighter art is hand-drawn now (Kevin, Oct 2026). Names and titles change without touching the screen's code.
 **Affects:** `src/ui/credits_screen.gd`, `data/credits.json`, `LICENSES.md`, `--menu=credits:<id>` (`src/game/main.gd`).
+
+## 2026-11-04 — Bedrock's zone can't be walked or dashed out of
+**Decision:** Craglash's Bedrock taunt gets `"contain": true`: a taunted foe inside the 200 px zone is held inside it for the taunt's 3 s, whatever it walks, dodges, dashes or blinks (the clamp runs in `CreatureSim.step` after the foe's own movement). Knockback, launches, pulls, throws and pit falls still move it out as before, and a foe knocked out is not snapped back. Damage, duration, armor, pull and the terrain crack are unchanged.
+**Why:** Balance team notes (Nov 2026 pass): the ult could be walked or dashed out of, so the tank's lock-down didn't hold.
+**Affects:** `data/creatures/craglash.json`, `src/sim/creature_sim.gd` (`taunt_contain`, `_contain`, `contain_zone`), `src/ai/cpu_controller.gd` (`_zone_goal`, `_zone_dir`), `docs/MECHANICS.md`, `README.md`, `tests/test_craglash.gd`.

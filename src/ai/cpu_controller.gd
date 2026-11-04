@@ -353,6 +353,7 @@ func _move_toward(v: Vector2) -> void:
 ## the goal moves). `weave` is added to the straight step (the chase's sidestep), never
 ## to the path, so the detour stays on open floor.
 func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO) -> void:
+	goal = _zone_goal(sim, me, goal)
 	if _gap_roll(sim, me, goal):
 		return
 	if _gap_cross(sim, me, goal):
@@ -2211,7 +2212,7 @@ func _go(sim: MatchSim, me: CreatureSim, v: Vector2) -> void:
 ## wall score lower.
 func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 	var t0 := PerfLog.now()
-	var out := _steer_now(sim, me, v)
+	var out := _steer_now(sim, me, _zone_dir(sim, me, v))
 	PerfLog.since("ai steer", t0)
 	return out
 
@@ -2240,6 +2241,38 @@ func _steer_now(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 			best_s = s
 			best = d
 	return best
+
+
+## Held in a containing taunt's zone (Bedrock, "taunt.contain"): walking out only walks
+## into its edge, so a goal past the edge is brought back inside it.
+func _zone_goal(sim: MatchSim, me: CreatureSim, goal: Vector2) -> Vector2:
+	var t := me.contain_zone(sim)
+	if t == null:
+		return goal
+	var r := maxf(me.taunt_contain + float(me.radius) - 16.0, 1.0)
+	var off := goal - t.pos
+	if off.length_squared() <= r * r:
+		return goal
+	return t.pos + off.normalized() * r
+
+
+## ...and near the edge, a walk outward goes round it instead (never stands pushing at it).
+func _zone_dir(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
+	var t := me.contain_zone(sim)
+	if t == null:
+		return v
+	var off := me.pos - t.pos
+	var r := me.taunt_contain + float(me.radius) - 24.0
+	if off.length_squared() < r * r or off.length_squared() < 0.0001:
+		return v
+	var n := off.normalized()
+	var out := v.dot(n)
+	if out <= 0.0:
+		return v
+	var rest := v - n * out
+	if rest.length_squared() < v.length_squared() * 0.01:
+		rest = Vector2(-n.y, n.x) * v.length()
+	return rest
 
 
 ## A way to back off from `away` that keeps to open floor: away from the foe, but
