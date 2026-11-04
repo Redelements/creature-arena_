@@ -227,7 +227,7 @@ func test_a_foe_is_hit_by_one_frog_of_the_row() -> void:
 	var r := _frog_at(9.0)  # between two lanes: touched by both
 	var foe: CreatureSim = r["foe"]
 	assert_true(r["hit"], "one lands")
-	assert_near(foe.hp, foe.max_hp - 4.0, 0.6, "the other passes by:")
+	assert_near(foe.hp, foe.max_hp - 4.0 * 1.3, 0.6, "the other passes by:")  # x1.3: the mage class multiplier (classes.json)
 
 
 ## His guard answer, now that the frogs are blockable: the Shuriken held to a full charge.

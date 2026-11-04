@@ -7,6 +7,9 @@ const H := SimDefs.IN_HEAVY
 const S1 := SimDefs.IN_SKILL1
 const S2 := SimDefs.IN_SKILL2
 const SU := SimDefs.IN_SURGE
+## The mages' class damage multiplier (data/rules/classes.json, Nov 2026): Chef Cerebro's
+## routes below are his pre-buff numbers × this.
+const MAGE := 1.3
 
 
 ## Cairn (left) facing Culvert (right) at close range, or the reverse.
@@ -174,13 +177,13 @@ func _cerebro() -> MatchSim:
 
 func test_cerebro_knives_out() -> void:
 	var dmg := route(_cerebro(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
-	assert_near(dmg, 11 + 8, 0.05, "Flick, Flick, Mallet, then a fresh Cleaver Toss:")
+	assert_near(dmg, (11 + 8) * MAGE, 0.05, "Flick, Flick, Mallet, then a fresh Cleaver Toss:")
 
 
 func test_cerebro_tenderized() -> void:
 	var dmg := route(_cerebro(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"]])
 	# Tenderize softens Cairn up: the Cleaver after it lands 20% harder.
-	assert_near(dmg, 11 + 7 + 8 * 1.2 * 1.15, 0.05, "3 lights, then Tenderize > Cleaver Toss:")
+	assert_near(dmg, (11 + 7 + 8 * 1.2 * 1.15) * MAGE, 0.05, "3 lights, then Tenderize > Cleaver Toss:")
 
 
 ## Mise en place (Oct 2026 kit pass): on a tenderized foe the Mallet Toss staggers
@@ -191,14 +194,14 @@ func test_cerebro_mise_en_place() -> void:
 	sim.creatures[1].vuln = 400
 	sim.creatures[1].vuln_mult = 1.2
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
-	assert_near(dmg, 11 * 1.2 + 8 * 1.2 * 1.15, 0.05, "tenderized: Flick, Flick, Mallet (staggers) > Cleaver Toss:")
+	assert_near(dmg, (11 * 1.2 + 8 * 1.2 * 1.15) * MAGE, 0.05, "tenderized: Flick, Flick, Mallet (staggers) > Cleaver Toss:")
 
 
 func test_cerebro_flip_out_knife_flurry() -> void:
 	var sim := _cerebro()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S2, "skill_2"], [SU, "surge"]])
-	assert_near(dmg, 11 + 7 + (4.2 * 7 + 8.4) * 1.15, 0.05, "3 lights, then Flip Out > Knife Flurry:")
+	assert_near(dmg, (11 + 7 + (4.2 * 7 + 8.4) * 1.15) * MAGE, 0.05, "3 lights, then Flip Out > Knife Flurry:")
 
 
 ## Hissy Fitz (left) facing Cairn at close range.

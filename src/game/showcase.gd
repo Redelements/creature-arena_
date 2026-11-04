@@ -223,7 +223,7 @@ const SCRIPTS := {
 		],
 	},
 	"cerebro": {
-		"left": "cerebro", "right": "cairn", "energy": [100, 0], "gap": 86.0, "hp": [-1, 70],
+		"left": "cerebro", "right": "cairn", "energy": [100, 0], "gap": 86.0, "hp": [-1, 91],  # 70 x1.3: the mage class multiplier
 		"title": "CHEF CEREBRO  -  FULL KIT",
 		"captions": [
 			["From range:", "Knife Flick", "Backhand Flick", "Mallet Toss", "Cleaver Toss"],
@@ -369,7 +369,7 @@ const SCRIPTS := {
 		],
 	},
 	"crease": {
-		"left": "crease", "right": "cairn", "energy": [100, 0], "gap": 110.0, "hp": [-1, 140],
+		"left": "crease", "right": "cairn", "energy": [100, 0], "gap": 110.0, "hp": [-1, 182],  # 140 x1.3: the mage class multiplier
 		"title": "MISTER CREASE  -  FULL KIT",
 		"captions": [
 			["Paper Stock: three sheets", "Fold a Crane", "Fold a Shuriken", "Fold a Frog", "All three in hand"],
