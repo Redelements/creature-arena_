@@ -478,7 +478,7 @@ func state_digest() -> String:
 	for z in zones:
 		parts.append_array([z["pos"], z["radius"], z["ticks"], z["owner"], z["slow_mult"]])
 	for st in storms:
-		parts.append_array([st["pos"], st["radius"], st["t"], st["ticks"], st["owner"]])
+		parts.append_array([st["pos"], st["radius"], st["t"], st["ticks"], st["owner"], st.get("launched", [])])
 	for p in projectiles:
 		if p.has("home"):
 			parts.append_array([p["home"]["stop"], p["speed"]])
@@ -657,7 +657,10 @@ func _lifesteal(a: CreatureSim, dealt: float) -> void:
 ## Returns "slip", "block" or "hit".
 ## `ranged`: the hit came from a projectile or a lob, not a strike in reach.
 func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, fx_pos: Vector2,
-		ranged := false) -> String:
+		ranged := false, guard_from := Vector2.ZERO) -> String:
+	# Which way a guard has to face to block it: the push, or `guard_from` (the way a shot
+	# flies) when the push isn't along the attack (Paper Frog's sideways knock).
+	var guard_dir := guard_from if guard_from != Vector2.ZERO else push
 	# Blinded when the attack started (Headlamp Flash): it misses.
 	if a.whiff_serial > 0 and int(hit["serial"]) == a.whiff_serial:
 		emit_event("miss", fx_pos, 0.0, {"who": a.id, "target": d.id})
@@ -697,7 +700,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		return "armor"
 
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]):
-		var facing_attacker := d.facing.dot(-push) > 0.3
+		var facing_attacker := d.facing.dot(-guard_dir) > 0.3
 		var drain := block_drain(d, String(hit["type"]), damage)
 		if facing_attacker and not bool(hit["guard_break"]) and d.stamina - drain <= 0.0:
 			# Out of stamina: the guard drops and this hit lands clean, with nothing extra
@@ -728,7 +731,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			return "block"
 	var broke_guard := false
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]) and bool(hit["guard_break"]) \
-			and d.facing.dot(-push) > 0.3:
+			and d.facing.dot(-guard_dir) > 0.3:
 		broke_guard = true
 		emit_event("guard_break", d.pos, 1.0, {"who": d.id})
 
@@ -876,8 +879,9 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		else:
 			d.enter_air(int(hit["launch"]), kb * 0.5)
 	elif was_air:
-		var float_t := int(hit.get("juggle_float", 0.0))
-		d.extend_air(float_t if float_t > 0 else CreatureSim.JUGGLE_FLOAT, kb * 0.5)
+		if not bool(hit.get("no_float", false)):  # a storm's pulse hurts but doesn't keep it up
+			var float_t := int(hit.get("juggle_float", 0.0))
+			d.extend_air(float_t if float_t > 0 else CreatureSim.JUGGLE_FLOAT, kb * 0.5)
 	elif float(hit["crumple"]) > 0.0:
 		d.enter_crumple(int(hit["crumple"]), kb)
 	elif broke_guard:
@@ -1164,6 +1168,8 @@ func _new_projectile(owner: CreatureSim, p: Dictionary, hit: Dictionary, vel: Ve
 		pr["end_sound"] = String(p["end_sound"])  # cosmetic, passed on to the view
 	if not bool(p.get("crack_trail", true)):
 		pr["no_crack"] = true
+	if String(p.get("knock", "")) == "side" and not lob:
+		pr["knock"] = "side"  # knocks square across its flight (Paper Frog): _side_knock
 	if lob:
 		pr["lob"] = true
 		pr["time"] = life
@@ -1238,7 +1244,10 @@ func _step_projectiles() -> void:
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
 				continue
 			var vel: Vector2 = p["vel"]
-			_apply_hit(owner, d, hit, Vector2(p.get("push", vel.normalized())), pos + Vector2(0, -10), true)
+			var push := Vector2(p.get("push", vel.normalized()))
+			if String(p.get("knock", "")) == "side":
+				push = _side_knock(p, d.pos)
+			_apply_hit(owner, d, hit, push, pos + Vector2(0, -10), true, vel.normalized())
 			if p.has("row_struck"):
 				_row_struck(p, d.id)
 			if pierce:
@@ -1293,6 +1302,21 @@ func _bounce(p: Dictionary, from: CreatureSim) -> bool:
 	emit_event("projectile_bounce", at, 1.0, {"who": owner.id, "from": from.id, "to": best.id,
 		"sound": String(p.get("end_sound", ""))})
 	return true
+
+
+## A shot with "knock": "side" (Paper Frog) knocks square across its flight, toward the
+## side of its line the foe's center is on: (vx, vy) turned a quarter to (-vy, vx) or
+## (vy, -vx), no trig. Dead on the line: an outer one of a row pushes out to its own side,
+## anything else to the left of its flight.
+func _side_knock(p: Dictionary, at: Vector2) -> Vector2:
+	var dir := Vector2(p["vel"]).normalized()
+	var across := Vector2(-dir.y, dir.x)
+	var off := at - Vector2(p["pos"])
+	var side := signf(dir.x * off.y - dir.y * off.x)
+	if side == 0.0:
+		side = signf(float(p.get("lane", 0)))  # a row's lanes are laid out along the same `across`
+		side = side if side != 0.0 else 1.0
+	return across * side
 
 
 ## One of a row hit `foe_id`: the rest of that row (in flight, or yet to move this tick) pass them by.
@@ -1357,8 +1381,11 @@ func _burst(p: Dictionary) -> void:
 # ------------------------------------------------------------------ storms
 
 ## A storm where a lob landed: storm keys {radius, ticks, every, damage, hitstun,
-## knockback_end, launch_end, crack_inner, crack_outer}; the throw's hit values
-## otherwise.
+## knockback_end, launch_end, crack_inner, crack_outer, center_launch}; the throw's hit
+## values otherwise. A pulse never keeps an airborne target up ("no_float").
+## "center_launch" {radius, launch}: a pulse knocks up (instead of slowing) a foe whose
+## body is within `radius` of the storm's center, once per foe per storm (the ids in the
+## storm's "launched", saved with it); every other pulse, and the last hit, only slow.
 func _add_storm(owner: CreatureSim, at: Vector2, sd: Dictionary, hit: Dictionary) -> void:
 	var pulse := hit.duplicate()
 	pulse["damage"] = float(sd.get("damage", 2.0))
@@ -1367,15 +1394,25 @@ func _add_storm(owner: CreatureSim, at: Vector2, sd: Dictionary, hit: Dictionary
 	pulse["launch"] = 0.0
 	pulse["knockdown"] = 0.0
 	pulse["hitstop"] = float(sd.get("hitstop", 2.0))
+	pulse["no_float"] = true
 	var last := hit.duplicate()
 	last["damage"] = float(sd.get("damage_end", pulse["damage"]))
 	last["knockback"] = float(sd.get("knockback_end", 4.0))
 	last["launch"] = float(sd.get("launch_end", 0.0))
 	last["knockdown"] = float(sd.get("knockdown_end", 0.0))
 	last["hitstop"] = float(sd.get("hitstop_end", 10.0))
-	storms.append({"owner": owner.id, "pos": at, "radius": float(sd.get("radius", 40.0)), "t": 0,
+	var st := {"owner": owner.id, "pos": at, "radius": float(sd.get("radius", 40.0)), "t": 0,
 		"ticks": int(sd.get("ticks", 120)), "every": maxi(1, int(sd.get("every", 12))), "hit": pulse, "end": last,
-		"crack_inner": float(sd.get("crack_inner", 0.0)), "crack_outer": float(sd.get("crack_outer", 0.0))})
+		"crack_inner": float(sd.get("crack_inner", 0.0)), "crack_outer": float(sd.get("crack_outer", 0.0))}
+	var cl: Dictionary = sd.get("center_launch", {})
+	if not cl.is_empty():
+		var up := pulse.duplicate()
+		up["launch"] = float(cl.get("launch", 20.0))
+		up["slow_ticks"] = 0.0  # the knock-up instead of the slow
+		st["center"] = float(cl.get("radius", 0.0))
+		st["up"] = up
+		st["launched"] = []
+	storms.append(st)
 	emit_event("storm", at, float(sd.get("radius", 40.0)), {"who": owner.id, "ticks": int(sd.get("ticks", 120))})
 
 
@@ -1397,7 +1434,12 @@ func _step_storms() -> void:
 					continue
 				var push := d.pos - at
 				push = push.normalized() if push.length_squared() > 0.0001 else Vector2.RIGHT
-				_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10), true)
+				var h := hit
+				if not done and st.has("center") and not (st["launched"] as Array).has(d.id) \
+						and at.distance_to(d.pos) <= float(st["center"]) + d.radius:
+					h = st["up"]  # in the center: knocked up, once per foe per storm
+					(st["launched"] as Array).append(d.id)
+				_apply_hit(owner, d, h, push, d.pos + Vector2(0, -10), true)
 		if done:
 			if float(st["crack_outer"]) > 0.0:
 				terrain.crack_ring(at, float(st["crack_inner"]), float(st["crack_outer"]))

@@ -28,3 +28,4 @@ priority, not just correctness.
 
 ## Changelog
 - 2026-10-27 — created from the decisions log (bundle), filled from the code
+- 2026-11-04 — balance pass: every CC lasts long enough to fold and land a follow-up (numbers in the JSON); Thousand Cranes knocks up only at its center, once per foe, and slows otherwise (no end launch); Paper Frog knocks sideways (`knock: side`)
