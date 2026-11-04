@@ -718,16 +718,19 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
+			# Crowd control goes through a guard (stamina.json cc_through_guard): only the
+			# damage is blocked. A reaction (stone, knockdown, launch, crumple, stagger) drops it.
+			var cc := _cc_through_guard(a, d, hit, push)
+			var reacted := d.state != CreatureSim.State.GUARD
+			if reacted:
+				d.guard_hit = 0
 			if same_attack:
 				a.connected = true
-				_punish_blocked_ender(a, d)
-			if bool(hit.get("root_through_guard", false)) and float(hit.get("root_ticks", 0.0)) > 0.0:
-				# The roots take hold through a guard (Root Eruption): only the damage is blocked.
-				d.root = maxi(d.root, int(hit["root_ticks"]))
-				emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
+				if not reacted:
+					_punish_blocked_ender(a, d)
 			impact_stop(a, d, int(float(hit["hitstop"]) * 0.5), ranged)
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id, "move_type": String(hit["type"]),
-				"dealt": 0.0})
+				"dealt": 0.0, "cc": cc})
 			return "block"
 	var broke_guard := false
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]) and bool(hit["guard_break"]) \
@@ -914,6 +917,77 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		"heavy": String(hit["type"]) != "light", "no_flinch": no_flinch, "stagger_if": paid_off})
 	d.check_ko(self)
 	return "hit"
+
+
+## The crowd control a blocked hit still lands (stamina.json "cc_through_guard"; every kind
+## when the key is left out). Plain hitstun, damage, poison, a tenderize and a steal stay blocked.
+const CC_KINDS := ["slow", "root", "blind", "freeze", "petrify", "launch", "knockdown", "crumple",
+	"pull", "stagger"]
+
+
+static func cc_through_guard() -> Array:
+	return CreatureSim.stamina_rules().get("cc_through_guard", CC_KINDS)
+
+
+## A blocked hit's crowd control: each kind in cc_through_guard the hit carries lands on the
+## guarding `d` with its full duration, as on a clean hit (the same status values and the same
+## enter_* reaction, so a launch, knockdown, crumple, stone or stagger drops the guard). No
+## health is lost. Returns the kinds that landed (the "block" event's "cc").
+func _cc_through_guard(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2) -> Array:
+	var through := cc_through_guard()
+	var out: Array = []
+	if "slow" in through and float(hit.get("slow_ticks", 0.0)) > 0.0:
+		d.slow = maxi(d.slow, int(hit["slow_ticks"]))
+		d.slow_mult = float(hit["slow_mult"])
+		emit_event("slow", d.pos, float(hit["slow_ticks"]), {"who": d.id, "blocked": true})
+		out.append("slow")
+	if "blind" in through and float(hit.get("blind_ticks", 0.0)) > 0.0:
+		d.blind = maxi(d.blind, int(hit["blind_ticks"]))
+		emit_event("blinded", d.pos, float(hit["blind_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
+		out.append("blind")
+	# root_through_guard (Root Eruption) roots through a guard even when "root" is left out.
+	if ("root" in through or bool(hit.get("root_through_guard", false))) and float(hit.get("root_ticks", 0.0)) > 0.0:
+		d.root = maxi(d.root, int(hit["root_ticks"]))
+		emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
+		out.append("root")
+	# The reaction, in a clean hit's order. A hit that doesn't stagger (no_flinch) has none,
+	# unless its stagger_if mark pays off (then it lands as an ordinary hit would).
+	var no_flinch := bool(hit.get("no_flinch", false))
+	var paid_off := no_flinch and d.has_mark(String(hit.get("stagger_if", "")))
+	if not no_flinch or (paid_off and "stagger" in through):
+		var kb := push * float(hit["knockback"]) / d.weight
+		var ice := float(hit.get("freeze_ticks", 0.0)) > 0.0
+		var stone := float(hit.get("petrify", 0.0)) > 0.0
+		if (ice and "freeze" in through) or (stone and not ice and "petrify" in through):
+			var ticks := int(hit["freeze_ticks"]) if ice else int(hit["petrify"])
+			d.enter_crumple(ticks, kb * 0.3)
+			d.stone = ticks
+			d.stone_ice = ice
+			emit_event("freeze" if ice else "petrify", d.pos, 0.0, {"who": d.id, "by": a.id, "blocked": true})
+			out.append("freeze" if ice else "petrify")
+		elif "knockdown" in through and float(hit["knockdown"]) > 0.0:
+			d.enter_knockdown(int(hit["knockdown"]), kb)
+			out.append("knockdown")
+		elif "launch" in through and float(hit["launch"]) > 0.0:
+			d.enter_air(int(hit["launch"]), kb * 0.5)
+			out.append("launch")
+		elif "crumple" in through and float(hit["crumple"]) > 0.0:
+			d.enter_crumple(int(hit["crumple"]), kb)
+			out.append("crumple")
+		elif paid_off:
+			d.enter_hitstun(int(hit["hitstun"]), kb)
+			out.append("stagger")
+	# A pull (not a grab's: grabs never reach a guard) reels the guard in as on a clean hit.
+	var pull := float(hit.get("pull", 0.0))
+	if "pull" in through and pull > 0.0 and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + pull)
+		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
+		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
+		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id, "blocked": true})
+		out.append("pull")
+	if not out.is_empty():
+		d.last_attacker = a.id
+	return out
 
 
 ## Flip Out: the target is scooped up and carried in an arc over the attacker's head,
