@@ -23,3 +23,6 @@
 
 ## Changelog
 - 2026-10-27 — created
+- 2026-11-04 — balance pass: Tenderize (heavy) and Flip Out (skill 2) are thrown. Tenderize is
+  his slowest shot and stuns 3 s on top of tenderizing (`stun_ticks`); Flip Out flips toward
+  him when tapped, away when held (Culvert's Gulp hold rule)

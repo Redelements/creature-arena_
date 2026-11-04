@@ -38,8 +38,8 @@ extends Node2D
 ##   cast         true         a fishing line out to the thrown rod, then taut to whoever it
 ##                             hooked while it reels the attacker in to them
 ##   projectile   also "rod": a thrown rod spinning end over end
-##   projectile   also "knife" (a small knife, point first), "mallet" and "cleaver" (spinning
-##                end over end); the projectile's "move" picks which move's fx it uses
+##   projectile   also "knife" (a small knife, point first), "mallet", "cleaver" and "spatula"
+##                (spinning end over end); the projectile's "move" picks which move's fx it uses
 ##   charge       also "psychic": violet sparks drawn in toward the brain while held
 ##   impact       also "tenderize": a mallet thump, meat-mallet tooth marks on the floor
 ##   flip         true         a spatula arc and "FLIP!" when the move's grab lands
@@ -225,7 +225,7 @@ const LOST_TICKS := 60.0
 ## Projectile style by the move's fx.projectile kind: [trail colour, trail height (negative: none), landing mark].
 const PROJ_STYLE := {
 	"knife": [Color("d58cff"), THROW_Z, "stuck"], "cleaver": [Color("d58cff"), THROW_Z, "stuck"],
-	"mallet": [Color("d58cff"), THROW_Z, "mallet"], "rod": [Color("e6d2b0"), 10.0, "scuff"],
+	"mallet": [Color("d58cff"), THROW_Z, "mallet"], "spatula": [Color("d58cff"), THROW_Z, "scuff"], "rod": [Color("e6d2b0"), 10.0, "scuff"],
 	"venom": [Color("7fd64e"), 20.0, "splat"], "dart": [Color("f6f4ec"), 18.0, "scuff"],
 	"shuriken": [Color("ff9a2e"), 18.0, "stuck"], "crane": [Color("f6f4ec"), 20.0, "none"],
 	"frog": [Color("f6f4ec"), -1.0, "none"], "head": [Color("b5665f"), -1.0, "none"],
@@ -589,6 +589,10 @@ func spawn(e: Dictionary) -> void:
 			_text(p + Vector2(0, -6), "MISS", Color("b8b8b8"), 8, 36.0)
 			for i in 3:
 				_px(p, Vector2.from_angle(randf() * TAU) * 0.8, Color("d8d8d8"), 10)
+		"stunned":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "STUNNED", C_TENDER, 7, 44.0)
 		"rooted":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -3292,7 +3296,7 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					_draw_thrown_knife(ci, pr)
 				"fire":
 					_draw_fireball(ci, pr)
-				"mallet", "cleaver":
+				"mallet", "cleaver", "spatula":
 					_draw_spinner(ci, pr, _proj_kind(pr))
 				"venom":
 					_draw_venom(ci, pr)
@@ -4262,8 +4266,8 @@ func _draw_held_pan(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## The mallet and the cleaver in flight, spinning end over end in a violet glow (he
-## throws with his mind).
+## The mallet, the cleaver and the spatula in flight, spinning end over end in a violet
+## glow (he throws with his mind).
 func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
 	var pp: Vector2 = Vector2(pr["pos"]).round()
 	var at := pp + Vector2(0, -THROW_Z)
@@ -4283,6 +4287,18 @@ func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
 			head + n * 4.0 + d * 2.5, head - n * 4.0 + d * 2.5])
 		ci.draw_colored_polygon(quad, C_MALLET[0])
 		ci.draw_polyline(quad + PackedVector2Array([quad[0]]), C_OUTLINE, 1.0)
+	elif kind == "spatula":
+		# Flip Out's spatula: a wooden handle and a broad flat turner with slots
+		var butt := at - d * 8.0
+		var neck := at + d * 1.0
+		ci.draw_line(butt, neck, C_OUTLINE, 3.0)
+		ci.draw_line(butt, neck, C_MALLET[1], 1.0)
+		var blade := PackedVector2Array([neck - n * 2.0, neck + n * 2.0, at + n * 5.0 + d * 9.0,
+			at - n * 5.0 + d * 9.0])
+		ci.draw_colored_polygon(blade, C_GREY[3])
+		ci.draw_polyline(blade + PackedVector2Array([blade[0]]), C_OUTLINE, 1.0)
+		for k in [-2.0, 0.0, 2.0]:
+			ci.draw_line(at + d * 4.0 + n * k, at + d * 7.5 + n * k * 1.4, C_OUTLINE, 1.0)
 	else:
 		# the big chef's knife: a long blade and a black handle
 		var butt := at - d * 8.0
@@ -4600,6 +4616,10 @@ func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
 
 
 ## Shield plates, slowed pebbles and the taunt mark, drawn over the creature.
+## A fixed stun's ring is full at this many ticks left (Tenderize's 3 s).
+const STUN_RING_TICKS := 180.0
+
+
 func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 	if c.swallow_t > 0:
 		return
@@ -4641,6 +4661,14 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
 	if c.root > 0:
 		_draw_leaf_roots(ci, c, true)  # the near ones over the feet (the far ones: the floor pass)
+	if c.stun_lock > 0 and c.state != CreatureSim.State.KO:
+		# a fixed stun ("stun_ticks", the thrown Tenderize): a pink ring round the feet that
+		# runs down with the time left (a true circle: floor areas aren't squashed)
+		var left := clampf(c.stun_lock / STUN_RING_TICKS, 0.0, 1.0)
+		var r := c.radius + 5.0
+		var at := (c.pos + Vector2(0, 1)).round()
+		ci.draw_arc(at, r, -PI * 0.5, -PI * 0.5 + TAU * left, 32, C_OUTLINE, 3.0)
+		ci.draw_arc(at, r, -PI * 0.5, -PI * 0.5 + TAU * left, 32, C_TENDER, 1.0)
 	if c.vuln > 0 and (c.vuln > 40 or (_tick / 4) % 2 == 0):
 		# tenderized: a pink down-arrow bobbing over the head
 		var bob := float((_tick / 8) % 2)

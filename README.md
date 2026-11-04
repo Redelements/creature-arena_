@@ -39,7 +39,7 @@ Eleven fighters, each with a full moveset and a CPU opponent. The class is in br
 - **Chef Cerebro** (mage), a floating brain in sunglasses who only wants to cook (the finest
   dishes, and his opponents): a mage whose kitchen floats around him and flies by
   telekinesis. He flicks knives, tosses a meat mallet and hurls his cleaver from range,
-  tenderizes anyone who gets close, flips them over his head with a spatula, finishes with
+  throws the mallet to tenderize and stun, flings a spatula that flips foes, finishes with
   a stream of knives, and dodges by teleporting.
 - **Hissy Fitz** (fighter), kicked out of the museum for turning the guards to stone: a boxer with a
   head of hair snakes and a pair of red gloves who jabs up close, spits venom that poisons
@@ -691,8 +691,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Cast Line (6f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Tenderize (8f), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f, the thrown spatula), Mountain Maw (12f, the hook), Cast Line (6f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Tenderize (8f, the thrown mallet), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -799,14 +799,14 @@ walls but not by pits (blinking onto a hole drops him in). It **recharges for 1 
 each blink (a violet bar beside his stamina drains away; a dodge pressed just before it's
 ready comes out when it is). **Most of his attacks are thrown, and
 his skills reach 120–130 px (about half Gillbert's Cast Line), his lights a little shorter (about 115 px)**, so he wants foes at knife
-range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
+range, where he softens them up and stuns them with a thrown mallet or flips them with a thrown spatula. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 70% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives never stagger: they only chip. **Mise en place:** the Mallet Toss staggers a foe he has **tenderized** ("STAGGERED!"), so Tenderize first and then the string is a real combo: Flick, Flick, Mallet, then Cleaver Toss or Tenderize again. On a foe that isn't tenderized it only chips, and what follows it can be blocked or dodged |
-| Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
+| Heavy | Tenderize | **Throws** the meat mallet in a straight line, about 110 px, **slower** than anything else he throws (4 px a frame). The first foe it hits is **tenderized** (they take 20% more damage for 4 s; a pink arrow shows it) and **stunned on their feet for 3 s** ("STUNNED", a pink ring round their feet runs down): long enough for his whole kit, and his own hits don't cut it short (only a breakaway does). No lock-on: dodge it or step out of its lane. Hold to charge (harder). A guard blocks it like any shot |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the first foe in its path and then **bounces once** to the nearest other foe within 80 px (60% damage). Keeps a juggle going |
-| Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
+| Skill 2 | Flip Out | **Throws** the spatula in a straight line, about 110 px; the first foe it meets is scooped up and flipped. **Tap** it: they're flipped **toward him**, over his head, to land behind him (he turns to follow). **Hold** it (the button still down 20 frames after the press, the same hold as Culvert's Gulp): they're flipped **away**, landing about 64 px further out. A grab: it beats guard (red tell), but a dodge or a step out of its lane makes it miss |
 | Surge | Cooking with Fire (was Knife Flurry) | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line (a fat knife, with the outer ones fanned a little wider so a lane isn't a single pixel); the last one knocks down and **tenderizes** (takes 25% more damage for 4 s), so follow it up. Block it (it only drains stamina) or sidestep the lane. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup. He fires it from a cast-iron pan: the eight shots fly as fireballs (looks only; the same hits as knives) |
 
 The sheet gives him no passive, so he has none. His victory emote (hibachi tricks) waits
@@ -949,7 +949,7 @@ storm.
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 78.5 |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 19.0 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (not a combo) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (the string isn't a combo; once the thrown Tenderize lands, its 3 s stun makes the Cleaver sure) |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Cooking with Fire | 61.5 (not a combo) |
 | Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 24.2 (a combo: the mallet staggers) |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |

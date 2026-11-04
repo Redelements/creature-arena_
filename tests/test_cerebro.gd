@@ -1,7 +1,8 @@
 extends TestCase
 ## Chef Cerebro's kit: thrown knives, a thrown mallet and a thrown cleaver that all reach
-## about as far as Gillbert's Cast Line, Tenderize softening foes up, Flip Out throwing a
-## foe over his head, and Knife Flurry's stream of knives through everything in line.
+## about as far as Gillbert's Cast Line, a thrown Tenderize that softens foes up and stuns
+## them for 3 s, a thrown Flip Out that flips a foe toward him (tapped) or away (held), and
+## Knife Flurry's stream of knives through everything in line.
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -101,15 +102,89 @@ func test_cleaver_toss_bounces_from_the_first_foe_to_one_more() -> void:
 	assert_eq(third.hp, third.max_hp, "and stops there:")
 
 
-func test_tenderize_hits_all_around_and_softens_them_up() -> void:
-	var sim := _duel("cairn", 2.0)
+## Since the Nov 2026 balance pass Tenderize is thrown: the meat mallet, slower than
+## anything else he throws, about as far as his skills.
+func test_tenderize_is_thrown_slower_than_his_other_shots() -> void:
+	var chef := _duel().creatures[0]
+	var mv: Dictionary = chef.def["moves"]["heavy"]
+	assert_true(mv.has("projectile"), "Tenderize is a projectile")
+	var speed := float(mv["projectile"]["speed"])
+	for mid in ["light_1", "light_2", "light_3", "skill_1", "skill_2", "surge"]:
+		var other := float(chef.def["moves"][mid]["projectile"]["speed"])
+		assert_lt(speed, other, "slower than %s (%.1f):" % [mid, other])
+	assert_true(absf(chef.move_range("heavy") - 110.0) <= 10.0,
+		"reaches about 110 px (%.0f)" % chef.move_range("heavy"))
+	assert_false(mv["projectile"].has("home"), "no homing")
+
+
+## On a hit: tenderized, and stunned on its feet for exactly 180 ticks (3 s) of play, not
+## shortened by combo decay. The match-wide hitstop of the hit itself comes on top.
+func test_thrown_tenderize_tenderizes_and_stuns_for_exactly_3_s() -> void:
+	var sim := _duel("cairn", 70.0)
 	var foe := sim.creatures[1]
-	foe.pos.x = sim.creatures[0].pos.x - 24.0  # behind him
-	var soft := run_until(sim, func(): return not _events(sim, "tenderized").is_empty(), 60, H)
-	assert_true(soft, "the mallet reaches behind him too")
 	var mv: Dictionary = sim.creatures[0].def["moves"]["heavy"]
+	sim.step(PackedInt32Array([H, 0]))
+	var hit := run_until(sim, func(): return not _events(sim, "stunned").is_empty(), 80)
+	assert_true(hit, "the thrown mallet lands from 70 px")
 	assert_eq(foe.vuln, int(mv["vuln_ticks"]), "tenderized for:")
 	assert_near(foe.vuln_mult, float(mv["vuln_mult"]), 0.001, "taking extra damage:")
+	assert_eq(foe.state, CreatureSim.State.CRUMPLE, "stunned on its feet, not launched:")
+	assert_eq(foe.stun_lock, 180, "a fixed stun of 3 s:")
+	var stop := sim.hitstop
+	var helpless := 0
+	var played := 0
+	for i in 400:
+		var before := foe.stun_lock
+		sim.step(PackedInt32Array([0, SimDefs.IN_LIGHT if i % 2 == 0 else 0]))
+		if foe.stun_lock != before:
+			played += 1
+		if foe.state == CreatureSim.State.CRUMPLE:
+			helpless += 1
+		else:
+			break
+	assert_eq(helpless, 179 + stop, "helpless for the rest of the 180 ticks plus the hit's own hitstop (%d):" % stop)
+	assert_eq(played, 180, "180 ticks of play:")
+	run(sim, 0, 2, SimDefs.IN_LIGHT)
+	assert_eq(foe.state, CreatureSim.State.ATTACK, "and then it acts at once:")
+
+
+## His own follow-ups don't cut the stun short: a Mallet Toss that staggers the tenderized
+## foe (a short, decayed hitstun of its own) leaves it helpless until the 3 s are up.
+func test_the_stun_outlasts_his_follow_ups() -> void:
+	var sim := _duel("cairn", 60.0)
+	var foe := sim.creatures[1]
+	sim.step(PackedInt32Array([H, 0]))
+	run_until(sim, func(): return foe.stun_lock > 0, 80)
+	var free_early := false
+	var hits := 0
+	for i in 240:
+		sim.step(PackedInt32Array([L if i % 2 == 0 else 0, 0]))
+		hits += _events(sim, "hit").size()
+		if foe.stun_lock > 1 and not foe.is_stunned():
+			free_early = true
+	assert_gt(hits, 2, "the string lands on the stunned foe")
+	assert_false(free_early, "never free while the stun runs")
+
+
+func test_a_dodge_avoids_the_thrown_tenderize() -> void:
+	for dir in [SimDefs.IN_UP, SimDefs.IN_LEFT]:
+		var sim := _duel("cairn", 90.0)
+		var foe := sim.creatures[1]
+		sim.step(PackedInt32Array([H, 0]))
+		run_until(sim, func(): return _shot_near(sim, foe, 44.0), 80)
+		run(sim, 0, 1, SimDefs.IN_DODGE | dir)
+		var stunned := run_until(sim, func(): return not _events(sim, "stunned").is_empty(), 60)
+		assert_false(stunned, "a dodge (%d) gets past the mallet" % dir)
+		assert_eq(foe.vuln, 0, "not tenderized (%d):" % dir)
+		assert_eq(foe.hp, foe.max_hp, "untouched (%d):" % dir)
+
+
+## One of his shots in flight within `d` px of `foe`.
+func _shot_near(sim: MatchSim, foe: CreatureSim, d: float) -> bool:
+	for p in sim.projectiles:
+		if Vector2(p["pos"]).distance_to(foe.pos) < d:
+			return true
+	return false
 
 
 func test_a_tenderized_foe_takes_more_damage_until_it_wears_off() -> void:
@@ -130,16 +205,67 @@ func test_a_tenderized_foe_takes_more_damage_until_it_wears_off() -> void:
 	assert_eq(sim2.creatures[1].vuln, 0, "it wears off:")
 
 
-func test_flip_out_throws_the_foe_over_his_head_through_guard() -> void:
-	var sim := _duel("cairn", 4.0)
+## Flip Out is thrown (Nov 2026 balance pass): the spatula flies about 110 px and flips
+## whoever it meets. Tapped, the foe comes toward him, over his head, and lands behind him
+## (he turns to follow); held to a full charge (Culvert's Gulp rule: the button still down
+## for `charge_max` (20) ticks after the press, windup included) it's flipped away instead.
+func test_flip_out_tapped_flips_the_foe_over_his_head_toward_him() -> void:
+	var sim := _duel("cairn", 60.0)
 	var chef := sim.creatures[0]
 	var foe := sim.creatures[1]
-	var grabbed := run_until(sim, func(): return not _events(sim, "grab").is_empty(), 60, S2, GUARD)
-	assert_true(grabbed, "the spatula scoops a guarding foe")
+	assert_true(absf(chef.move_range("skill_2") - 110.0) <= 10.0,
+		"the spatula reaches about 110 px (%.0f)" % chef.move_range("skill_2"))
+	sim.step(PackedInt32Array([S2, GUARD]))
+	var grabbed := run_until(sim, func(): return not _events(sim, "grab").is_empty(), 60, 0, GUARD)
+	assert_true(grabbed, "the spatula scoops a guarding foe from 60 px")
+	assert_lt(chef.charge_ratio, 1.0, "tapped:")
 	assert_eq(foe.state, CreatureSim.State.AIRBORNE, "flipped into the air:")
 	assert_eq(chef.facing, Vector2.LEFT, "he turns to follow it:")
 	run_until(sim, func(): return foe.state != CreatureSim.State.AIRBORNE, 80)
 	assert_lt(foe.pos.x, chef.pos.x - chef.radius - foe.radius, "it lands behind him")
+
+
+func test_flip_out_held_flips_the_foe_away() -> void:
+	var sim := _duel("cairn", 60.0)
+	var chef := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var start := foe.pos.x
+	var hold := int(chef.def["moves"]["skill_2"]["charge_max"])
+	assert_eq(hold, int(MatchFactory.load_def("culvert")["moves"]["skill_1"]["charge_max"]),
+		"held as long as Culvert's Gulp:")
+	run(sim, S2, hold + 1)  # the press starts it, then charge_max ticks of charge
+	var grabbed := run_until(sim, func(): return not _events(sim, "grab").is_empty(), 60)
+	assert_true(grabbed, "the held spatula flips it too")
+	assert_near(chef.charge_ratio, 1.0, 0.001, "held to a full charge:")
+	assert_eq(chef.facing, Vector2.RIGHT, "he keeps facing it:")
+	run_until(sim, func(): return foe.state != CreatureSim.State.AIRBORNE, 80)
+	var away := float(chef.def["moves"]["skill_2"]["hold"]["flip_away"])
+	assert_near(foe.pos.x - start, away, 6.0, "it lands about flip_away px further out:")
+
+
+## One tick short of the full charge is still a tap.
+func test_flip_out_a_tick_short_of_the_hold_is_a_tap() -> void:
+	var sim := _duel("cairn", 60.0)
+	var chef := sim.creatures[0]
+	var foe := sim.creatures[1]
+	run(sim, S2, int(chef.def["moves"]["skill_2"]["charge_max"]))
+	run_until(sim, func(): return not _events(sim, "grab").is_empty(), 60)
+	run_until(sim, func(): return foe.state != CreatureSim.State.AIRBORNE, 80)
+	assert_lt(foe.pos.x, chef.pos.x, "flipped toward him and over:")
+
+
+func test_flip_out_misses_out_of_its_lane_and_through_a_dodge() -> void:
+	var sim := _duel("cairn", 60.0)
+	sim.creatures[1].pos.y += 30.0  # off the line he throws along
+	tap(sim, S2, 60)
+	assert_eq(sim.creatures[1].hp, sim.creatures[1].max_hp, "out of the lane: missed:")
+	var sim2 := _duel("cairn", 80.0)
+	var foe := sim2.creatures[1]
+	sim2.step(PackedInt32Array([S2, 0]))
+	run_until(sim2, func(): return _shot_near(sim2, foe, 44.0), 80)
+	run(sim2, 0, 1, SimDefs.IN_DODGE | SimDefs.IN_UP)
+	var grabbed := run_until(sim2, func(): return not _events(sim2, "grab").is_empty(), 60)
+	assert_false(grabbed, "a dodge gets past the spatula")
 
 
 func test_flip_out_into_knife_flurry() -> void:

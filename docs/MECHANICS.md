@@ -120,7 +120,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | barkley (Branch Grab, with `pull`), cerebro, culvert, gillbert skill_2 (Cast Line, with `reel`) |
 | `grab_air` | bool | move | With `grab`: still gets past guard, armor and counters, but otherwise lands like an ordinary hit (hitstun, its own `pull` event, a juggle float in the air), so it can also snag a juggled target (with `juggle`). A grab with neither `pull`, `flip` nor `swallow` needs it, or it takes the plain-grab branch (placed behind, knockdown) | barkley skill_1 (Branch Grab), gillbert skill_2 (Cast Line: a grab that reels him in, not one that moves the target) |
 | `pull` | px | seg | Target slides in, stopping `pull` px short of the attacker. With `grab`: a hook (hitstun, `hook` event) | barkley, craglash, culvert |
-| `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round. With `swallow`: how far behind the body it comes out | cerebro, culvert `hold` |
+| `flip` | px | seg | With `grab`: carried toward the attacker along the line from him through the target (the strike's or the shot's push), over his head to `flip` px behind his body, airborne `max(launch, 2)` ticks (the carry takes the first half); he turns to face where it lands, unless he's busy in another move by then. With `swallow`: how far behind the body it comes out | cerebro skill_2 (Flip Out tapped, a grab shot), culvert `hold` |
+| `flip_away` | px | seg | With `grab`, instead of `flip`: thrown the other way, carried along that line to `flip_away` px beyond where it stood; the attacker doesn't turn (ms:`_flip`) | cerebro skill_2 `hold` (Flip Out held) |
 | `swallow` | ticks | seg | With `grab`: swallowed. Rides inside the attacker this long (`swallow_t`; hidden, invulnerable, not solid), then pushed out `flip` px behind him, hopping away from him (`POOP_SPEED` 2.2 px/tick) for `launch` ticks. The attacker keeps facing forward. Events `swallow`, `poop` | culvert `hold` (Gulp held) |
 | `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `reel_speed` (default 5); at most 60 ticks; ends the move on arrival | gillbert skill_2 |
 | `skip_struck` | bool | seg | This segment passes over a foe an earlier segment of the same attack already hit (a wide finisher that would shatter the statue its first hit made); ms:`_resolve_hits`, cs:`struck_before` | hissy surge |
@@ -141,6 +142,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `poison_look` | move | How the poison shows: `"bleed"` (a red cut, "BLEEDING") instead of venom; kept on the target (`poison_look`) and in the `poisoned` / `poison` events (`look`) | crease heavy |
 | `petrify` | seg | Statue for N ticks | hissy surge |
 | `freeze_ticks` | seg | Ice statue for N ticks | sno surge |
+| `stun_ticks` | seg | Fixed stun: crumpled on its feet for exactly N ticks (even out of the air), not shortened by combo decay or stale moves; while it lasts (`stun_lock`) no later hit leaves it helpless for less (hitstun and crumples last at least what's left) and a launch or knockdown ends in a crumple for the rest, with no get-up invulnerability. A breakaway ends it. `stunned` event | cerebro heavy (Tenderize, 180) |
 | `blind_ticks` | seg | Next attack misses | digby skill_1, pete surge |
 | `root_ticks` | seg | No walking, no dodging (attacks still come out) | digby surge, barkley skill_2 (Pinecone Bomb, on a hit; its plant roots for `seed.root_share` of it), barkley surge (every ring, 60; a later ring refreshes it) |
 | `root_through_guard` | move (bool) | With `root_ticks`: a blocked hit still roots (the guard pays its stamina and takes no damage as usual; the `rooted` event says `blocked`). A drained guard (stamina short of the drain) drops as always and the hit lands in full | barkley surge |
@@ -159,9 +161,9 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 
 | Key | Meaning | Used by | Code |
 | --- | --- | --- | --- |
-| `charge_max` | Hold the starting button (Heavy, or the Skill's own) up to N ticks, aiming; `charge_ratio = charge / charge_max` | heavies, barkley skill_2, culvert skill_1 and skill_2, crease surge | cs:`_update_attack` |
+| `charge_max` | Hold the starting button (Heavy, or the Skill's own) up to N ticks, aiming; `charge_ratio = charge / charge_max` | heavies, barkley skill_2, culvert skill_1 and skill_2, cerebro skill_2, crease surge | cs:`_update_attack` |
 | `<key>_charged` | Value at a full charge, blended linearly | many | cs:`move_value` |
-| `hold` | At `charge_ratio >= 1`, its keys replace the move's values: hit parameters and shape alike (`reach`, `hit_radius`, `slow_*`, anything read through `move_value`) | culvert skill_1 (Gulp: hook / swallow), skill_2 (Runoff: shove / wave); pete heavy, cairn heavy, crease heavy (`{"guard_break": true}`: they break guard only at a full charge) | cs:`move_value`, `hit_params` |
+| `hold` | At `charge_ratio >= 1`, its keys replace the move's values: hit parameters and shape alike (`reach`, `hit_radius`, `slow_*`, anything read through `move_value`) | culvert skill_1 (Gulp: hook / swallow), skill_2 (Runoff: shove / wave); cerebro skill_2 (Flip Out: tapped flips toward him, held 20 ticks flips away); pete heavy, cairn heavy, crease heavy (`{"guard_break": true}`: they break guard only at a full charge) | cs:`move_value`, `hit_params` |
 | `projectile.range_charged` | Lob range at full charge (unless `lock_on` locks onto a foe) | barkley skill_2, crease surge | ms:`lob_aim_range` |
 
 ### Terrain
@@ -173,7 +175,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `terrain_rect` `[w, h]` | Block of cells (w and h swap when facing mostly up/down): 1 step plain, 2 steps plus a cracked rim at full charge | culvert heavy | tg:`damage_rect` |
 | `terrain_at` | px | Where a `terrain_rect` block is centred ahead of the body (default `reach`), so a deeper block can reach further out without coming under the feet | culvert heavy (38) | cs:`_slam` |
 | `terrain_ring` `{inner, outer, side_lanes}` | Holes between the radii around the user, cracked band `CRACK_BAND` 10 outside. `side_lanes` (px): to the user's left and right (across its facing) the ring is only cracked in a lane that wide, so a fighter who sidestepped can walk in and punish; in front and behind the pits stay | culvert surge (36) | tg:`damage_ring` |
-| `terrain_crack` | Cracks (never opens) a circle at `pos + facing × reach` | barkley surge, craglash surge, cerebro heavy, digby surge | tg:`crack_circle` |
+| `terrain_crack` | Cracks (never opens) a circle at `pos + facing × reach` | barkley surge, craglash surge, digby surge | tg:`crack_circle` |
 | `terrain_heal` | × `HEAL_TICKS` before that damage mends (radius, rect, ring only) | culvert (1.5) | cs:`_terrain_heal` |
 
 ### Projectile keys (`projectile`, ms:`spawn_projectile`)
@@ -251,6 +253,8 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 
 **Statue** (`petrify`, `freeze_ticks`): crumple for N ticks, even from the air; `stone` clears the moment the target leaves crumple. The next clean hit shatters it for `STONE_SHATTER_MULT` (`shatter` event, `ice` flag).
 
+**Fixed stun** (`stun_ticks`, Tenderize): the target crumples for N ticks and keeps `stun_lock` = N, counted down with the other statuses (cs:`_tick_status`). `enter_hitstun` / `enter_crumple` use at least what's left of it, and `_recover` (end of a hitstun, crumple or knockdown) crumples it again while any is left, so his follow-ups extend nothing and cut nothing short. Breakaway clears it. Drawn as a pink ring round the feet that runs down (fx_view `_draw_status`).
+
 **Blind** (Headlamp Flash): the next attack the target *starts* misses with every hit, projectiles included (`miss` event); starting it uses the blind up. Waiting it out is the counterplay.
 
 **Root** (Cave-In, Pinecone Bomb and its plants, Root Eruption): walk speed 0 (so `mobile` is 0) and no dodging. Attacking, lunges and dashes still move. A new root takes the max of what's left, never adds. Root Eruption's goes through a guard (`root_through_guard`).
@@ -321,7 +325,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |
 | `swallow`, `poop` | A held Gulp swallows (`attacker`, `target`); the swallowed fighter comes out behind (`pos`) |
 | `frenzy` | Venom Frenzy starts (`who`); `poisoned` and `poison` carry `stacks` |
-| `slow`, `tenderized`, `poisoned`, `poison`, `blinded`, `rooted`, `steal`, `petrify`, `freeze`, `shatter`, `gaze` | Status applied (`poison` = each pulse) |
+| `slow`, `tenderized`, `poisoned`, `poison`, `blinded`, `rooted`, `steal`, `petrify`, `freeze`, `shatter`, `gaze`, `stunned` | Status applied (`poison` = each pulse; `stunned`: a `stun_ticks` hit, power = the ticks) |
 | `stealth`, `unstealth`, `blink`, `taunt`, `roar`, `shield_up`, `shield_break` | Self effects (`taunt` per foe, `roar` once) |
 | `smash` | A charge broke rubble wall cells (`who`) |
 | `projectile`, `projectile_end`, `projectile_pierce`, `burst` | Projectile life (`sound`, `end_sound`) |

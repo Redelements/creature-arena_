@@ -62,7 +62,7 @@ const STATE_FIELDS := [
 	"blind", "whiff_serial", "ambush_serial", "ambush_t", "root", "hitstop",
 	"stealth", "haste", "haste_mult", "carry_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
-	"sheets", "sheet_t", "folded", "poison_look", "regen_wait", "exhaust_slow",
+	"sheets", "sheet_t", "folded", "poison_look", "regen_wait", "exhaust_slow", "stun_lock",
 ]
 ## Permanent buffs from the Crater's shrine (Shrines, "boost" reward): saved by save_state
 ## like STATE_FIELDS, but in the match digest only when the match has shrines (so every
@@ -196,6 +196,11 @@ var frenzy_t := 0
 var hit_streak := 0
 var streak_t := 0
 var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
+## Ticks left of a fixed stun (a hit's "stun_ticks": Chef Cerebro's thrown Tenderize).
+## While it lasts no hit leaves the target helpless for less: hitstun and crumples last
+## at least this long, and getting up from a launch or a knockdown crumples it again.
+## A breakaway ends it.
+var stun_lock := 0
 var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
 var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
 ## The attack that sprang out of stealth (Tiptoe): its hits land harder, by the
@@ -467,7 +472,7 @@ func _foe_in_strike(sim: MatchSim) -> bool:
 const HIT_SEG_KEYS := ["damage", "knockback", "hitstun", "hitstop", "launch", "crumple",
 	"knockdown", "slow_ticks", "juggle_float", "pull", "reel", "reel_speed", "vuln_ticks",
 	"flip", "swallow", "poison_ticks", "poison_damage", "poison_every", "petrify",
-	"blind_ticks", "root_ticks", "steal_ticks", "freeze_ticks"]
+	"blind_ticks", "root_ticks", "steal_ticks", "freeze_ticks", "stun_ticks", "flip_away"]
 ## Hit flags read from the move itself.
 const HIT_FLAG_KEYS := ["guard_break", "grab", "grab_air", "juggle", "no_flinch", "root_through_guard"]
 
@@ -846,7 +851,8 @@ func step(buttons: int, sim: MatchSim) -> void:
 			State.KNOCKDOWN:
 				stun -= 1
 				if stun <= 0:
-					invuln = GETUP_INVULN
+					if stun_lock <= 0:
+						invuln = GETUP_INVULN  # a fixed stun still running: no get-up grace
 					_recover()
 			State.FALLING:
 				if state_t >= FALL_TICKS:
@@ -859,6 +865,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 					stamina = max_stamina
 					regen_wait = 0
 					exhaust_slow = 0
+					stun_lock = 0
 					reset_combo()
 					invuln = 20
 					_set_state(State.IDLE)
@@ -895,6 +902,8 @@ func _tick_status(sim: MatchSim) -> void:
 		blind -= 1
 	if root > 0:
 		root -= 1
+	if stun_lock > 0:
+		stun_lock -= 1
 	if stealth > 0:
 		stealth -= 1
 	if ambush_t > 0:
@@ -1642,6 +1651,9 @@ func reset_combo() -> void:
 
 
 func _recover() -> void:
+	if stun_lock > 0 and hp > 0.0:
+		enter_crumple(stun_lock, Vector2.ZERO)  # still under a fixed stun ("stun_ticks")
+		return
 	stun = 0
 	reset_combo()
 	_set_state(State.IDLE)
@@ -1711,7 +1723,7 @@ func enter_hitstun(ticks: int, kb: Vector2) -> void:
 	cancel_attack()
 	walk_vel = Vector2.ZERO
 	knock_vel = kb
-	stun = maxi(ticks, 1)
+	stun = maxi(maxi(ticks, stun_lock), 1)
 	_set_state(State.HITSTUN)
 
 
@@ -1719,7 +1731,7 @@ func enter_crumple(ticks: int, kb: Vector2) -> void:
 	cancel_attack()
 	walk_vel = Vector2.ZERO
 	knock_vel = kb
-	stun = maxi(ticks, 1)
+	stun = maxi(maxi(ticks, stun_lock), 1)
 	_set_state(State.CRUMPLE)
 
 
