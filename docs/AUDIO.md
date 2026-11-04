@@ -44,7 +44,7 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `swallow` | A held Gulp swallows someone whole | A long, deep, wobbling gulp |
 | [ ] | `plop` | ...and they come out the back end | A wet, comic plop; a little squelch |
 | [ ] | `parry` | Slip counter triggers | Bright, satisfying ting |
-| [ ] | `breakaway` | Breakaway escape | Whoosh + chime |
+| [ ] | `breakaway` | Tag-in whoosh (the `tag` event plays it; the escape is gone) | Whoosh + chime |
 | [ ] | `windup_red` | Unblockable / guard-break windup starts | Alarm-like; must read instantly |
 | [ ] | `windup_gold` | Strong (blockable) windup starts | Shimmer; less urgent than red |
 | [ ] | `fall` | Falling into a pit | Falling whistle |
