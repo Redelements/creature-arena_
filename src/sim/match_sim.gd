@@ -857,11 +857,19 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.stone = ticks
 		d.stone_ice = ice
 		emit_event("freeze" if ice else "petrify", d.pos, total, {"who": d.id, "by": a.id})
+	elif float(hit.get("stun_ticks", 0.0)) > 0.0:
+		# A fixed stun (Chef Cerebro's thrown Tenderize): helpless on its feet for exactly
+		# `stun_ticks`, never shortened by combo decay or by the hits that follow
+		# (CreatureSim.stun_lock). Even out of the air.
+		var lock := int(hit["stun_ticks"])
+		d.enter_crumple(lock, kb * 0.3)
+		d.stun_lock = maxi(d.stun_lock, lock)
+		emit_event("stunned", d.pos, float(lock), {"who": d.id, "by": a.id})
 	elif grabbed and float(hit.get("swallow", 0.0)) > 0.0:
 		_swallow(a, d, hit)
 		emit_event("swallow", a.pos + Vector2(0, -16), total, {"attacker": a.id, "target": d.id})
-	elif grabbed and float(hit.get("flip", 0.0)) > 0.0:
-		_flip(a, d, hit)
+	elif grabbed and (float(hit.get("flip", 0.0)) > 0.0 or float(hit.get("flip_away", 0.0)) > 0.0):
+		_flip(a, d, hit, push, same_attack or a.state != CreatureSim.State.ATTACK)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
 	elif grabbed and float(hit.get("pull", 0.0)) > 0.0:
 		# A hook (Culvert's tongue, tapped): the target is stunned and hauled in to him.
@@ -921,8 +929,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 
 ## The crowd control a blocked hit still lands (stamina.json "cc_through_guard"; every kind
 ## when the key is left out). Plain hitstun, damage, poison, a tenderize and a steal stay blocked.
-const CC_KINDS := ["slow", "root", "blind", "freeze", "petrify", "launch", "knockdown", "crumple",
-	"pull", "stagger"]
+const CC_KINDS := ["slow", "root", "blind", "freeze", "petrify", "stun", "launch", "knockdown",
+	"crumple", "pull", "stagger"]
 
 
 static func cc_through_guard() -> Array:
@@ -965,6 +973,13 @@ func _cc_through_guard(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Ve
 			d.stone_ice = ice
 			emit_event("freeze" if ice else "petrify", d.pos, 0.0, {"who": d.id, "by": a.id, "blocked": true})
 			out.append("freeze" if ice else "petrify")
+		elif "stun" in through and float(hit.get("stun_ticks", 0.0)) > 0.0:
+			# A fixed stun (the thrown Tenderize) lands in full on a guard too.
+			var lock := int(hit["stun_ticks"])
+			d.enter_crumple(lock, kb * 0.3)
+			d.stun_lock = maxi(d.stun_lock, lock)
+			emit_event("stunned", d.pos, float(lock), {"who": d.id, "by": a.id, "blocked": true})
+			out.append("stun")
 		elif "knockdown" in through and float(hit["knockdown"]) > 0.0:
 			d.enter_knockdown(int(hit["knockdown"]), kb)
 			out.append("knockdown")
@@ -996,10 +1011,25 @@ func _cc_through_guard(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Ve
 func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
 	var behind := a.pos - a.facing * (a.radius + d.radius + float(hit["flip"]))
 	behind = behind.clamp(d.floor_min(), d.floor_max())
+## Flip Out: the target is scooped up and carried in an arc along `dir` (the line from the
+## attacker through it: the strike's or the shot's push). With "flip" it comes toward him,
+## over his head, landing `flip` px behind his body, and he turns to face where it lands
+## (`turn`: unless he's busy with another move by then). With "flip_away" it's thrown the
+## other way, landing `flip_away` px beyond where it stood. The carry takes the first half
+## of the launch; it hangs there for the rest.
+func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary, dir: Vector2, turn := true) -> void:
+	var away := float(hit.get("flip_away", 0.0))
+	var to: Vector2
+	if away > 0.0:
+		to = d.pos + dir * away
+	else:
+		to = a.pos - dir * (a.radius + d.radius + float(hit["flip"]))
+	to = to.clamp(d.floor_min(), d.floor_max())
 	var ticks := maxi(int(hit["launch"]), 2)
 	d.enter_air(ticks, Vector2.ZERO)
-	d.start_flip(behind, ticks / 2)
-	a.facing = -a.facing
+	d.start_flip(to, ticks / 2)
+	if away <= 0.0 and turn:
+		a.facing = -dir
 
 
 ## Venom Frenzy (creature key "venom_frenzy", Hissy Fitz's passive): landing `at_hits`

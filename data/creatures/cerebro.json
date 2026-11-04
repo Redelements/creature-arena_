@@ -64,10 +64,10 @@
     "poke": "skill_1",
     "poke_range": [40, 112],
     "grab": "skill_2",
-    "grab_range": 34,
+    "grab_range": 60,
     "weights": {"poke": 0},
     "surge_line": 112,
-    "setup": { "move": "heavy", "range": 16, "mark": "tenderized", "chance": 0.1 },
+    "setup": { "move": "heavy", "range": 60, "mark": "tenderized", "chance": 0.1 },
     "setup_routes": [
       ["light", "heavy", "skill_1", "surge"],
       ["light", "heavy", "skill_1"],
@@ -128,16 +128,16 @@
     },
     "heavy": {
       "name": "Tenderize", "anim": "tenderize", "windup": 8, "tell": "strong",
-      "charge_max": 30, "startup": 8, "active": 4, "recovery": 20,
+      "charge_max": 30, "startup": 8, "active": 0, "recovery": 24,
       "damage": 7, "damage_charged": 11,
       "knockback": 1.2, "knockback_charged": 2.0,
-      "hitstun": 24, "hitstop": 7, "hitstop_charged": 11,
-      "launch": 30, "launch_charged": 38,
-      "reach": 6, "hit_radius": 26, "hit_radius_charged": 32, "juggle": true,
-      "vuln_ticks": 240, "vuln_mult": 1.2,
-      "terrain_crack": 14,
+      "hitstun": 24, "hitstop": 7, "hitstop_charged": 11, "juggle": true,
+      "vuln_ticks": 240, "vuln_mult": 1.2, "stun_ticks": 180,
+      "projectile": { "speed": 4.0, "life": 23, "radius": 8, "offset": 12, "crack_trail": false,
+        "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 4], [3, 5], [5, 6], [8, 7], [13, 8], [16, 9], [20, 10], [26, 11]], "anim_charge": [0, 4, 6],
-      "fx": { "charge": "psychic", "impact": "tenderize",
+      "fx": { "charge": "psychic", "impact": "tenderize", "projectile": "mallet",
+        "projectile_light": { "color": "#d58cff", "radius": 26, "strength": 0.5 },
         "light": { "color": "#d58cff", "radius": 40, "height": 30, "charge": true, "strength": 0.55 }, "move_fx": "res://assets/vfx/hit_burst_pink.tres" }
     },
     "skill_1": {
@@ -152,12 +152,15 @@
     },
     "skill_2": {
       "name": "Flip Out", "anim": "flipout", "windup": 12, "tell": "unblockable", "cooldown": 180,
-      "startup": 7, "active": 4, "recovery": 24,
-      "damage": 7, "hitstop": 8, "launch": 34, "flip": 8,
-      "reach": 30, "hit_radius": 13, "grab": true,
+      "charge_max": 20, "startup": 7, "active": 0, "recovery": 28,
+      "damage": 7, "hitstop": 8, "launch": 34, "flip": 8, "grab": true,
+      "hold": { "flip": 0, "flip_away": 64 },
+      "projectile": { "speed": 6.0, "life": 15, "radius": 7, "offset": 12, "crack_trail": false,
+        "sound": "knife_throw", "end_sound": "grab" },
       "anim_at": [[0, 0], [3, 1], [5, 2], [7, 3], [11, 4], [13, 5], [15, 6], [17, 7], [20, 8], [24, 9], [28, 10],
         [31, 11]],
-      "fx": { "smear": "rise", "size": 1.3, "flip": true, "move_fx": "res://assets/vfx/wisp_purple.tres" }
+      "fx": { "smear": "rise", "size": 1.3, "flip": true, "projectile": "spatula",
+        "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 }, "move_fx": "res://assets/vfx/wisp_purple.tres" }
     },
     "surge": {
       "name": "Cooking with Fire", "anim": "flurry", "energy_cost": 100, "aim": 0.4,
