@@ -1005,12 +1005,6 @@ func _cc_through_guard(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Ve
 	return out
 
 
-## Flip Out: the target is scooped up and carried in an arc over the attacker's head,
-## landing `flip` pixels behind its body, and the attacker turns to face where it lands.
-## The carry takes the first half of the launch; it hangs there for the rest.
-func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
-	var behind := a.pos - a.facing * (a.radius + d.radius + float(hit["flip"]))
-	behind = behind.clamp(d.floor_min(), d.floor_max())
 ## Flip Out: the target is scooped up and carried in an arc along `dir` (the line from the
 ## attacker through it: the strike's or the shot's push). With "flip" it comes toward him,
 ## over his head, landing `flip` px behind his body, and he turns to face where it lands

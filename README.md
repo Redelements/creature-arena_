@@ -846,7 +846,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | --- | --- | --- |
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
-| Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
+| Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding doesn't stop it: a blind is crowd control |
 | Skill 2 | Burrow | Dives underground and tunnels about 130 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s**, and in that window his swipes stagger, so the pop-up runs into Swipe, Swipe, Pickaxe |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
