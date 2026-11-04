@@ -156,6 +156,22 @@ func test_a_kind_taken_out_of_the_rules_is_blocked_again() -> void:
 	assert_eq(d.slow, 40, "slow kept in: it lands:")
 
 
+func test_a_blocked_fixed_stun_lands_in_full() -> void:
+	# The thrown Tenderize's 3 s stun (stun_ticks) is crowd control: a guard still eats it.
+	var sim := _duel()
+	var d := _guarding(sim)
+	var r := _apply(sim, _hit("heavy", {"stun_ticks": 180.0}))
+	assert_eq(r, "block", "still a block:")
+	assert_near(d.hp, d.max_hp, 0.001, "no health lost:")
+	assert_eq(d.state, CreatureSim.State.CRUMPLE, "crumpled out of the guard:")
+	assert_eq(d.stun_lock, 180, "locked for the full stun:")
+	assert_true(d.stun >= 180, "helpless for all of it:")
+	var b := _blocks()
+	assert_eq(b.size(), 1, "one block event")
+	if b.size() == 1:
+		assert_eq(b[0]["cc"], ["stun"], "naming the stun:")
+
+
 func test_the_default_list_is_every_kind() -> void:
 	var listed: Array = CreatureSim.stamina_rules().get("cc_through_guard", [])
 	for k in MatchSim.CC_KINDS:
