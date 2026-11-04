@@ -211,16 +211,44 @@ func test_the_frog_sends_three_frogs_side_by_side() -> void:
 	assert_near(float(ys[2]) - float(ys[1]), 18.0, 0.01, "18 px apart:")
 
 
-func test_the_middle_frog_pushes_back_the_outer_ones_push_aside() -> void:
-	var mid := _frog_at(0.0)
-	assert_true(mid["hit"], "the middle frog lands and slows")
-	assert_gt(Vector2(mid["moved"]).x, 6.0, "straight back:")
-	assert_lt(absf(Vector2(mid["moved"]).y), 2.0, "not aside:")
-	var low := _frog_at(18.0)
-	assert_true(low["hit"], "the outer frog lands")
-	assert_gt(Vector2(low["moved"]).y, 6.0, "pushed out to its own side:")
-	var high := _frog_at(-18.0)
-	assert_lt(Vector2(high["moved"]).y, -6.0, "and the other side the other way:")
+## Nov 2026: every frog knocks square across its flight ("knock": "side"), toward the side
+## of its line the foe stands on, so the row shoves a foe into (or keeps them in) the storm.
+func test_a_frog_knocks_the_foe_sideways_toward_their_side_of_its_line() -> void:
+	for dy in [4.0, -4.0, 18.0, -18.0, 22.0]:
+		var r := _frog_at(dy)
+		var moved := Vector2(r["moved"])
+		assert_true(r["hit"], "a frog lands and slows (%s px off the middle)" % dy)
+		assert_gt(moved.y * signf(dy), 6.0, "pushed out to the foe's side of the line (%s):" % dy)
+		assert_lt(absf(moved.x), 1.5, "not back along the flight (%s):" % dy)
+	var on := _frog_at(18.0)  # dead on an outer lane: out to that lane's side
+	assert_gt(Vector2(on["moved"]).y, 6.0, "an outer frog dead on pushes out:")
+
+
+## The sideways knock is the flight turned a quarter, with no trig: square to it at any angle.
+func test_the_side_knock_is_perpendicular_to_the_flight() -> void:
+	var sim := _duel()
+	for v in [Vector2(4, 0), Vector2(3, 4), Vector2(-2.5, 1.0), Vector2(0, -4)]:
+		var p := {"vel": v, "pos": Vector2(100, 100), "lane": 0}
+		var left := Vector2(-v.y, v.x)
+		var k: Vector2 = sim._side_knock(p, Vector2(100, 100) + left * 3.0 + v)
+		assert_near(k.dot(v), 0.0, 0.0001, "square to the flight %s:" % v)
+		assert_near(k.length(), 1.0, 0.0001, "a unit push:")
+		assert_gt(k.dot(left), 0.0, "toward the foe's side:")
+		var k2: Vector2 = sim._side_knock(p, Vector2(100, 100) - left * 3.0)
+		assert_lt(k2.dot(left), 0.0, "and the other side the other way:")
+
+
+## Blocking a frog still means facing where it comes from, not where it shoves.
+func test_a_frog_on_the_outer_lane_is_blocked_facing_it() -> void:
+	var sim := _duel("cairn", 90.0)
+	var c := sim.creatures[0]
+	var foe := sim.creatures[1]
+	_press_and_settle(sim, S2)  # fold
+	foe.pos = Vector2(c.pos.x + 90.0, c.pos.y + 18.0)
+	var hp := foe.hp
+	tap(sim, S2, 0, SimDefs.IN_GUARD)
+	run(sim, 0, 60, SimDefs.IN_GUARD)
+	assert_near(foe.hp, hp, 0.01, "blocked:")
 
 
 func test_a_foe_is_hit_by_one_frog_of_the_row() -> void:
@@ -417,3 +445,119 @@ func test_the_paper_plane_glides_at_least_as_far_as_cerebros_blink() -> void:
 		dist[id] = c.pos.x - x0
 	assert_gt(float(dist["crease"]), float(dist["cerebro"]) - 1.0, "at least as far:")
 	assert_near(float(dist["crease"]), 116.0, 1.0, "the plane still glides about 116 px:")
+
+
+## Thousand Cranes, Nov 2026: a pulse knocks up a foe standing in the storm's center
+## ("center_launch"), once per foe per storm; every other pulse, and the last hit, slows.
+func _storm_on_foe() -> MatchSim:
+	var sim := _duel("cairn", 150.0)
+	var at := _storm_at(sim, 1)
+	assert_lt(at.distance_to(sim.creatures[1].pos), 6.0, "the storm lands on the foe")
+	return sim
+
+
+## Steps until the storm ends (at most `ticks`), counting the times `foe` goes up.
+func _airborne_edges(sim: MatchSim, foe: CreatureSim, ticks: int) -> int:
+	var ups := 0
+	var was := foe.state == CreatureSim.State.AIRBORNE
+	for i in ticks:
+		if sim.storms.is_empty():
+			break  # (stops the tick the storm ends)
+		sim.step(PackedInt32Array([0, 0]))
+		var now := foe.state == CreatureSim.State.AIRBORNE
+		if now and not was:
+			ups += 1
+		was = now
+	return ups
+
+
+func test_the_storm_center_knocks_up_once_on_the_first_pulse_then_slows() -> void:
+	var sim := _storm_on_foe()
+	var foe := sim.creatures[1]
+	var st: Dictionary = sim.storms[0]
+	foe.slow = 0
+	assert_true(run_until(sim, func(): return foe.state == CreatureSim.State.AIRBORNE, 30), "the first pulse knocks them up")
+	assert_eq(int(st["t"]), int(st["every"]), "on the first pulse:")
+	assert_eq(foe.slow, 0, "a knock-up, not a slow:")
+	assert_eq((st["launched"] as Array), [foe.id], "remembered by the storm:")
+	# Bring them down early, still in the center, and let them get up.
+	foe.air_total = foe.air_t + 1
+	assert_true(run_until(sim, func(): return foe.state != CreatureSim.State.AIRBORNE \
+		and foe.state != CreatureSim.State.KNOCKDOWN and foe.invuln == 0, 80), "back on their feet")
+	foe.pos = st["pos"]
+	foe.slow = 0
+	var ups := _airborne_edges(sim, foe, 300)
+	assert_eq(ups, 0, "never knocked up again by this storm:")
+	assert_true(sim.storms.is_empty(), "the storm ran out")
+	assert_gt(float(foe.slow), 0.0, "the later pulses and the last hit slow them:")
+
+
+func test_outside_the_center_the_storm_only_slows() -> void:
+	var sim := _storm_on_foe()
+	var foe := sim.creatures[1]
+	var st: Dictionary = sim.storms[0]
+	foe.pos = Vector2(st["pos"]) + Vector2(40, 0)
+	foe.slow = 0
+	assert_true(run_until(sim, func(): return foe.slow > 0, 30), "a pulse slows them")
+	var ups := _airborne_edges(sim, foe, 300)
+	assert_eq(ups, 0, "never knocked up outside the center:")
+	assert_true(sim.storms.is_empty(), "the storm ran out")
+	assert_true(not (st["launched"] as Array).has(foe.id), "")
+
+
+func test_walking_into_the_center_knocks_up_on_the_next_pulse_and_rolls_back() -> void:
+	var sim := _storm_on_foe()
+	var foe := sim.creatures[1]
+	var st: Dictionary = sim.storms[0]
+	foe.pos = Vector2(st["pos"]) + Vector2(40, 0)
+	assert_true(run_until(sim, func(): return int(sim.storms[0]["t"]) > 25, 60), "two pulses outside")
+	assert_true(foe.state != CreatureSim.State.AIRBORNE, "only slowed so far")
+	var snap := sim.snapshot()
+	var digest := sim.state_digest()
+	foe.pos = st["pos"]  # into the center
+	foe.walk_vel = Vector2.ZERO
+	assert_true(run_until(sim, func(): return foe.state == CreatureSim.State.AIRBORNE, 20), "knocked up on the next pulse")
+	assert_eq((sim.storms[0]["launched"] as Array), [foe.id], "")
+	var later := sim.state_digest()
+	sim.restore(snap)
+	assert_eq(sim.state_digest(), digest, "rolled back to before:")
+	assert_eq((sim.storms[0]["launched"] as Array), [], "the storm forgets the knock-up:")
+	sim.creatures[1].pos = Vector2(sim.storms[0]["pos"])
+	sim.creatures[1].walk_vel = Vector2.ZERO
+	assert_true(run_until(sim, func(): return sim.creatures[1].state == CreatureSim.State.AIRBORNE, 20), "and again")
+	assert_eq(sim.state_digest(), later, "the same ticks again:")
+
+
+## Nov 2026 balance pass: every crowd control of his lasts long enough to follow up. The
+## window: the move's recovery, then fold the follow-up craft (fold startup + recovery),
+## its windup from neutral, its startup, its flight to 110 px, plus 15 ticks of reaction.
+func _follow_up(mv: Dictionary) -> int:
+	var fd: Dictionary = mv["fold"]
+	return int(fd["startup"]) + int(fd["recovery"]) + int(mv.get("windup", 0)) + int(mv["startup"]) \
+		+ int(ceilf(110.0 / float(mv["projectile"]["speed"])))
+
+
+func test_every_crowd_control_lasts_long_enough_to_follow_up() -> void:
+	var m: Dictionary = MatchFactory.versus("crease", "cairn").creatures[0].def["moves"]
+	var shuriken := _follow_up(m["heavy"])
+	var crane := _follow_up(m["skill_1"])
+	var frog := _follow_up(m["skill_2"])
+	const REACT := 15
+	# Paper Frog's slow -> Paper Crane.
+	var w := int(m["skill_2"]["recovery"]) + crane + REACT
+	assert_gt(float(m["skill_2"]["slow_ticks"]) + 0.5, float(w), "frog slow >= its window:")
+	# Paper Crane's pop-up (and its float on a foe already up) -> Paper Shuriken.
+	w = int(m["skill_1"]["recovery"]) + shuriken + REACT
+	assert_gt(float(m["skill_1"]["launch"]) + 0.5, float(w), "crane launch >= its window:")
+	assert_gt(float(m["skill_1"]["juggle_float"]) + 0.5, float(w), "crane float >= its window:")
+	# Paper Shuriken's stagger -> Paper Crane.
+	w = int(m["heavy"]["recovery"]) + crane + REACT
+	assert_gt(float(m["heavy"]["hitstun"]) + 0.5, float(w), "shuriken hitstun >= its window:")
+	assert_gt(float(m["heavy"]["hitstun_charged"]) + 0.5, float(w), "charged too:")
+	# Thousand Cranes: the storm's slow -> Paper Frog; its center knock-up -> Paper Crane.
+	var su: Dictionary = m["surge"]
+	w = int(su["recovery"]) + frog + REACT
+	assert_gt(float(su["slow_ticks"]) + 0.5, float(w), "storm slow >= its window:")
+	w = int(su["recovery"]) + crane + REACT
+	assert_gt(float(su["projectile"]["storm"]["center_launch"]["launch"]) + 0.5, float(w), "center knock-up >= its window:")
+	assert_false(su["projectile"]["storm"].has("launch_end"), "the last hit doesn't knock up any more")
