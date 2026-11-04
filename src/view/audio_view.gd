@@ -7,9 +7,22 @@ extends Node
 ## TODO(audio): all sounds and music are PLACEHOLDERS from tools/gen_audio.py. Which
 ## file plays for what, and how loud, is in data/audio.json; docs/AUDIO.md is the
 ## replacement checklist. New files with the same names drop in without code changes.
+##
+## Fight sounds are placed: each plays from an AudioStreamPlayer2D at its event's world
+## spot (`play_at`) and fades with distance from `listener` (an AudioListener2D that main
+## moves every tick: the one local player's fighter, else the camera's centre), by Godot's
+## own 2D curve and the ONE shared `falloff` block of data/audio.json (`falloff()`).
+## Proximity voice chat fades by the same curve (`falloff_gain`, VoiceChat.gain_for).
+## Menu sounds, music, the crowd and match-wide stingers stay unplaced (`play`).
 
 const DATA_PATH := "res://data/audio.json"
+## Placed fight sounds (AudioStreamPlayer2D, round robin): enough for a crowded 4v4.
 const VOICES := 16
+## Unplaced effects (the crowd, round and KO stingers, alerts, Settings previews).
+const GLOBAL_VOICES := 4
+## The shared distance falloff when data/audio.json has no "falloff" block. Keys are the
+## AudioStreamPlayer2D properties of the same names; distances are world units.
+const FALLOFF_DEFAULT := {"max_distance": 720.0, "attenuation": 1.5, "panning_strength": 1.0}
 ## Volume groups, each its own audio bus under Master: the player sets each in Settings.
 ##   Music    the music tracks
 ##   Effects  everything in a fight (hits, moves, the crowd, knockouts)
@@ -27,8 +40,13 @@ var _silent := DisplayServer.get_name() == "headless"
 var _sounds := {}
 var _music_tracks := {}
 var _music_volume_db := -14.0
-var _players: Array[AudioStreamPlayer] = []
+var _players: Array[AudioStreamPlayer2D] = []
 var _next := 0
+var _global_players: Array[AudioStreamPlayer] = []
+var _global_next := 0
+## Where placed sounds are heard from (world units); main moves it (`set_listener`).
+var listener := AudioListener2D.new()
+static var _falloff := {}
 var _music := AudioStreamPlayer.new()
 var _music_name := ""
 var _last_play := {}
@@ -59,11 +77,22 @@ func _ready() -> void:
 			_music_tracks[name] = load(String(tracks[name]))
 	_music_volume_db = float(data.get("music_volume_db", -14.0))
 	_make_buses()
+	var fo := falloff()
 	for i in VOICES:
+		var p := AudioStreamPlayer2D.new()
+		p.bus = "Effects"
+		p.max_distance = float(fo["max_distance"])
+		p.attenuation = float(fo["attenuation"])
+		p.panning_strength = float(fo["panning_strength"])
+		add_child(p)
+		_players.append(p)
+	for i in GLOBAL_VOICES:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Effects"
 		add_child(p)
-		_players.append(p)
+		_global_players.append(p)
+	add_child(listener)
+	listener.make_current()
 	for i in 4:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Menu"
@@ -76,28 +105,84 @@ func _ready() -> void:
 	_music.finished.connect(_on_music_finished)
 
 
-## Plays a sound by name. `ui` sounds play even while the menu has gameplay sounds off.
-func play(name: String, volume := 0.0, pitch := 1.0, ui := false) -> void:
-	if _silent or (not sfx_enabled and not ui) or not _sounds.has(name):
-		return
-	# The same sound at most once per frame, so multi-hit moves don't stack up.
+## The shared distance falloff (data/audio.json "falloff"): `max_distance` (world units:
+## silent from there on), `attenuation` (the curve's exponent) and `panning_strength`,
+## the AudioStreamPlayer2D properties every placed fight sound uses. Voice chat reads the
+## same `max_distance` and `attenuation` (`falloff_gain`).
+static func falloff() -> Dictionary:
+	if _falloff.is_empty():
+		var out := FALLOFF_DEFAULT.duplicate()
+		var data = JSON.parse_string(FileAccess.get_file_as_string(DATA_PATH))
+		if data is Dictionary and data.get("falloff") is Dictionary:
+			for k in out:
+				out[k] = float(data["falloff"].get(k, out[k]))
+		_falloff = out
+	return _falloff
+
+
+## Godot's AudioStreamPlayer2D distance curve (audio_stream_player_2d.cpp, _update_panning):
+## pow(1 - dist / max_distance, attenuation), silent at max_distance and past it. What a
+## placed sound's gain is `dist` world units from the listener, 0..1, before its volume.
+static func falloff_gain(dist: float, fo: Dictionary = {}) -> float:
+	if fo.is_empty():
+		fo = falloff()
+	var most := maxf(1.0, float(fo["max_distance"]))
+	if dist >= most:
+		return 0.0
+	return pow(1.0 - maxf(dist, 0.0) / most, float(fo["attenuation"]))
+
+
+## Puts the listener at `at` (world units). Main calls it every tick.
+func set_listener(at: Vector2) -> void:
+	listener.position = at
+
+
+## The same sound at most once per frame, so multi-hit moves don't stack up.
+func _once(name: String) -> bool:
 	var frame := Engine.get_physics_frames()
 	if int(_last_play.get(name, -10)) >= frame:
-		return
+		return false
 	_last_play[name] = frame
+	return true
+
+
+func _load(p, name: String, volume: float, pitch: float) -> void:
 	var s: Dictionary = _sounds[name]
+	var j := float(s["jitter"])
+	p.stream = s["stream"]
+	p.volume_db = float(s["volume_db"]) + volume
+	p.pitch_scale = maxf(0.1, pitch * (1.0 + randf_range(-j, j)))
+
+
+## Plays a sound by name, everywhere at once (not placed): menu sounds, the crowd,
+## match-wide stingers. `ui` sounds play even while the menu has gameplay sounds off.
+func play(name: String, volume := 0.0, pitch := 1.0, ui := false) -> void:
+	if _silent or (not sfx_enabled and not ui) or not _sounds.has(name) or not _once(name):
+		return
 	var p: AudioStreamPlayer
 	if ui:
 		p = _ui_players[_ui_next]
 		_ui_next = (_ui_next + 1) % _ui_players.size()
 	else:
-		p = _players[_next]
-		_next = (_next + 1) % VOICES
-	var j := float(s["jitter"])
-	p.stream = s["stream"]
-	p.volume_db = float(s["volume_db"]) + volume
-	p.pitch_scale = maxf(0.1, pitch * (1.0 + randf_range(-j, j)))
+		p = _global_players[_global_next]
+		_global_next = (_global_next + 1) % GLOBAL_VOICES
+	_load(p, name, volume, pitch)
 	p.play()
+
+
+## Plays a fight sound from world spot `at`: it fades with the distance to `listener`
+## (the shared falloff) and pans to its side. Returns the player it took (also when
+## headless: placed and loaded but not started), or null when nothing plays.
+func play_at(name: String, at: Vector2, volume := 0.0, pitch := 1.0) -> AudioStreamPlayer2D:
+	if not sfx_enabled or not _sounds.has(name) or not _once(name):
+		return null
+	var p := _players[_next]
+	_next = (_next + 1) % VOICES
+	p.position = at
+	_load(p, name, volume, pitch)
+	if not _silent:
+		p.play()
+	return p
 
 
 ## Plays a sound on a volume group even while gameplay sounds are off (the menu), so a
@@ -109,8 +194,8 @@ func preview(name: String, bus: String) -> void:
 	var s: Dictionary = _sounds[name]
 	var p: AudioStreamPlayer
 	if bus == "Effects":
-		p = _players[_next]
-		_next = (_next + 1) % VOICES
+		p = _global_players[_global_next]
+		_global_next = (_global_next + 1) % GLOBAL_VOICES
 	else:
 		p = _ui_players[_ui_next]
 		_ui_next = (_ui_next + 1) % _ui_players.size()
@@ -178,143 +263,148 @@ func _on_music_finished() -> void:
 		_music.play()  # loop
 
 
+## A fight event's sounds, placed at its `pos` (`play_at`). Unplaced (`play`), heard alike
+## everywhere: the crowd (it rings the whole stadium), the KO sting, a fighter's entrance
+## and the round's end (match-wide stingers), the closing ring's move (`zone_move`: the
+## whole field changes) and a hazard's warning (`hazard_warn`: it must reach everyone).
 func on_event(e: Dictionary) -> void:
 	var power := float(e["power"])
+	var at: Vector2 = e.get("pos", listener.position)
 	match String(e["type"]):
 		"hit":
 			var heavy := power >= 9.0 or bool(e.get("heavy", false))
-			play("hit_heavy" if heavy else "hit_light", 0.0, clampf(1.15 - power * 0.015, 0.8, 1.15))
+			play_at("hit_heavy" if heavy else "hit_light", at, 0.0, clampf(1.15 - power * 0.015, 0.8, 1.15))
 			if power >= 14.0:
 				play("crowd_cheer")
 		"block":
-			play("block")
+			play_at("block", at)
 		"guard_break":
-			play("guard_break")
+			play_at("guard_break", at)
 			play("crowd_cheer", -4.0)
 		"slam":
-			play("slam", 0.0 if power >= 1.0 else -5.0, 1.0 if power >= 1.0 else 1.15)
+			play_at("slam", at, 0.0 if power >= 1.0 else -5.0, 1.0 if power >= 1.0 else 1.15)
 		"bounce":
-			play("land", 0.0, 1.25)
+			play_at("land", at, 0.0, 1.25)
 		"ram_wall":
-			play("land", 2.0, 0.8)
+			play_at("land", at, 2.0, 0.8)
 		"smash":
-			play("slam", -2.0, 1.2)
+			play_at("slam", at, -2.0, 1.2)
 		"zone_move":
 			play("slam", -4.0, 0.8)
 			play("crowd_cheer", -8.0)
 		"sink_warn":
-			play("slam", -6.0, 0.6)
+			play_at("slam", at, -6.0, 0.6)
 		"sink":
-			play("slam", 1.0, 0.5)
+			play_at("slam", at, 1.0, 0.5)
 			play("crowd_cheer", -6.0)
 		"fall":
-			play("fall")
+			play_at("fall", at)
 		"land", "land_hard":
-			play("land")
+			play_at("land", at)
 		"dodge":
-			play("dodge")
+			play_at("dodge", at)
 		"ko":
 			play("ko")
 			play("crowd_roar")
 		"slip":
-			play("parry")
+			play_at("parry", at)
 		"grab":
-			play("flip" if bool(e.get("flip", false)) else "grab")
+			play_at("flip" if bool(e.get("flip", false)) else "grab", at)
 		"swallow":
-			play("swallow")
+			play_at("swallow", at)
 		"poop":
-			play("plop")
+			play_at("plop", at)
 		"breakaway":
-			play("breakaway")
+			play_at("breakaway", at)
 		"surge":
-			play("surge")
+			play_at("surge", at)
 			play("crowd_cheer", -2.0)
 		"projectile":
 			if String(e.get("sound", "")) != "":
-				play(String(e["sound"]))  # the move's own throw sound (Chef Cerebro's knives)
+				play_at(String(e["sound"]), at)  # the move's own throw sound (Chef Cerebro's knives)
 			elif bool(e.get("lob", false)):
-				play("swing_heavy", -2.0, 1.3)  # a pinecone tossed up
+				play_at("swing_heavy", at, -2.0, 1.3)  # a pinecone tossed up
 			else:
-				play("wave")
+				play_at("wave", at)
 		"burst":
-			play("pinecone")
+			play_at("pinecone", at)
 		# Barkley's plants (placeholders: docs/AUDIO.md)
 		"seed":
-			play("sprout")
+			play_at("sprout", at)
 		"plant_hit":
-			play("plant_hit")
+			play_at("plant_hit", at)
 		"plant_root":
-			play("plant_sprung")
+			play_at("plant_sprung", at)
 		"plant_grow":
-			play("tree_grow")
+			play_at("tree_grow", at)
 		"apple":
-			play("pop", -12.0, 1.8)  # the apple appears
+			play_at("pop", at, -12.0, 1.8)  # the apple appears
 		"apple_eaten":
-			play("apple_munch")
+			play_at("apple_munch", at)
 		"apple_spoiled":
-			play("apple_spoiled")
+			play_at("apple_spoiled", at)
 		"plant_gone":
 			if String(e.get("how", "")) == "killed":
-				play("crack", -6.0, 1.4)  # the sprout snaps
+				play_at("crack", at, -6.0, 1.4)  # the sprout snaps
 		# Mister Crease (placeholders until the audio pass: docs/AUDIO.md lists them).
 		"fold":
-			play("flip", -4.0, 1.5)  # a crisp crease
+			play_at("flip", at, -4.0, 1.5)  # a crisp crease
 		"sheet":
-			play("pop", -10.0, 1.6)  # a sheet of Paper Stock regrows
+			play_at("pop", at, -10.0, 1.6)  # a sheet of Paper Stock regrows
 		"storm":
-			play("twister", -2.0, 1.2)  # Thousand Cranes lands and whirls
+			play_at("twister", at, -2.0, 1.2)  # Thousand Cranes lands and whirls
 		"storm_end":
-			play("crack", 0.0, 0.9)
+			play_at("crack", at, 0.0, 0.9)
 		"hook":
-			play("grab", 0.0, 1.3)
+			play_at("grab", at, 0.0, 1.3)
 		"pull":
-			play("snag")
+			play_at("snag", at)
 		"reel":
-			play("reel")
+			play_at("reel", at)
 		"projectile_end", "projectile_pierce", "projectile_bounce":
 			if String(e.get("sound", "")) != "":
 				if power >= 1.0:  # a thrown utensil is silent when it misses
-					play(String(e["sound"]))
+					play_at(String(e["sound"]), at)
 			elif String(e["type"]) == "projectile_end":
-				play("splash", 0.0 if power >= 1.0 else -6.0)
+				play_at("splash", at, 0.0 if power >= 1.0 else -6.0)
 		"windup":
 			var red := String(e.get("tell", "")) in ["unblockable", "guard_break"]
-			play("windup_red" if red else "windup_gold")
+			play_at("windup_red" if red else "windup_gold", at)
 		"tag":
-			play("breakaway", 0.0, 1.2)
+			play_at("breakaway", at, 0.0, 1.2)
 			play("crowd_cheer", -6.0)
 		"enter":
 			play("round_start", -4.0, 0.8)
 		"duel_over", "round_over":
 			play("round_end")
 		"armor":
-			play("block", -2.0, 0.6)
+			play_at("block", at, -2.0, 0.6)
 		"shield_up":
-			play("stoneskin")
+			play_at("stoneskin", at)
 		"shield_break":
-			play("shield_break")
+			play_at("shield_break", at)
 		"roar":
-			play("roar")
+			play_at("roar", at)
 			play("crowd_cheer", -8.0)
 		"slow":
-			play("land", -6.0, 0.7)
+			play_at("land", at, -6.0, 0.7)
 		"poisoned":
-			play("poison_tick", 0.0, 0.8)
+			play_at("poison_tick", at, 0.0, 0.8)
 		"frenzy":
-			play("hiss")
+			play_at("hiss", at)
 		"poison":
-			play("poison_tick")
+			play_at("poison_tick", at)
 		"gaze":
 			# Stone Gaze: the shimmer once as it first takes hold of someone, not every pulse.
 			if power >= 0.85:
-				play("gaze")
+				play_at("gaze", at)
 		"petrify":
-			play("petrify")
+			play_at("petrify", at)
 			play("crowd_cheer", -4.0)
 		"shatter":
-			play("freeze" if bool(e.get("ice", false)) else "shatter", 0.0, 1.3 if bool(e.get("ice", false)) else 1.0)
+			play_at("freeze" if bool(e.get("ice", false)) else "shatter", at, 0.0, 1.3 if bool(e.get("ice", false)) else 1.0)
 		"blinded":
-			play("flash")
+			play_at("flash", at)
 		# Arena hazards (placeholders: docs/AUDIO.md lists the sounds they want).
 		"hazard_warn":
 			match String(e.get("shape", "")):
@@ -331,48 +421,48 @@ func on_event(e: Dictionary) -> void:
 		"hazard_strike":
 			match String(e.get("shape", "")):
 				"wave":
-					play("splash", 2.0, 0.6)
+					play_at("splash", at, 2.0, 0.6)
 					play("crowd_cheer", -6.0)
 				"boulder":
-					play("slam", -2.0, 0.6)  # it drops in and starts rolling
+					play_at("slam", at, -2.0, 0.6)  # it drops in and starts rolling
 				"fault":
-					play("cave_in", 2.0, 0.7)  # the floor splits
+					play_at("cave_in", at, 2.0, 0.7)  # the floor splits
 				_:
-					play("cave_in" if bool(e.get("big", false)) else "slam", -2.0, 1.1)
+					play_at("cave_in" if bool(e.get("big", false)) else "slam", at, -2.0, 1.1)
 		"hazard_hit":
 			match String(e.get("shape", "")):
 				"wave":
-					play("splash", -4.0, 0.9)
+					play_at("splash", at, -4.0, 0.9)
 				"boulder":
-					play("hit_heavy", -1.0, 0.7)
+					play_at("hit_heavy", at, -1.0, 0.7)
 				_:
-					play("hit_heavy", -4.0, 0.9)
+					play_at("hit_heavy", at, -4.0, 0.9)
 		"hazard_ricochet":
-			play("slam", -2.0, 1.5)  # stone on stone (or on a wall)
-			play("stones_scatter", -6.0, 1.2)
+			play_at("slam", at, -2.0, 1.5)  # stone on stone (or on a wall)
+			play_at("stones_scatter", at, -6.0, 1.2)
 		"hazard_reverse":
-			play("hit_heavy", 0.0, 0.8)  # a heavy meets the rock
+			play_at("hit_heavy", at, 0.0, 0.8)  # a heavy meets the rock
 			play("crowd_cheer", -4.0)
 		"hazard_end":
 			match String(e.get("shape", "")):
 				"boulder":
 					if String(e.get("how", "")) != "edge":
-						play("cave_in", -2.0, 0.9)  # into a pit, or smashed on rubble
+						play_at("cave_in", at, -2.0, 0.9)  # into a pit, or smashed on rubble
 				"fault":
-					play("crack", -4.0, 0.7)  # it grinds shut
+					play_at("crack", at, -4.0, 0.7)  # it grinds shut
 		"hazard_pickup":
-			play("stoneskin", 0.0, 1.4)
+			play_at("stoneskin", at, 0.0, 1.4)
 		"steal":
-			play("coins", 0.0, 1.2)
+			play_at("coins", at, 0.0, 1.2)
 		"blink":
-			play("poof")
+			play_at("poof", at)
 		"warp":
-			play("warp")
+			play_at("warp", at)
 		"freeze":
-			play("freeze")
+			play_at("freeze", at)
 			play("crowd_cheer", -4.0)
 		"miss":
-			play("miss")
+			play_at("miss", at)
 
 
 ## A swing sound each time a strike becomes active (once per hit of a multi-hit move),
@@ -384,10 +474,10 @@ func watch(sim: MatchSim) -> void:
 		var step: Dictionary = c.def.get("step_sound", {})
 		if not step.is_empty() and c.state == CreatureSim.State.MOVE \
 				and c.anim_t % maxi(1, int(step.get("every", 20))) == 0:
-			play(String(step["sound"]), float(step.get("volume_db", -6.0)))
+			play_at(String(step["sound"]), c.pos, float(step.get("volume_db", -6.0)))
 		var seg := c.active_seg()
 		if seg >= 0 and seg != int(_seg.get(c.id, -1)):
-			play("swing_light" if c.move_type() == "light" else "swing_heavy")
+			play_at("swing_light" if c.move_type() == "light" else "swing_heavy", c.pos)
 		_seg[c.id] = seg
 
 
@@ -406,12 +496,15 @@ func _flight_sounds(sim: MatchSim) -> void:
 		var flown := int(pr.get("life_total", int(mv.get("projectile", {}).get("life", pr["life"])))) - int(pr["life"])
 		var k := flown - int(fs.get("at", 0))
 		if k >= 0 and k % maxi(1, int(fs.get("every", 8))) == 0:
-			play(String(fs["id"]), float(fs.get("volume_db", 0.0)))
+			play_at(String(fs["id"]), Vector2(pr["pos"]), float(fs.get("volume_db", 0.0)))
 
 
 func _exit_tree() -> void:
 	# Stop everything so no playback holds a stream past shutdown.
 	for p in _players:
+		p.stop()
+		p.stream = null
+	for p in _global_players + _ui_players:
 		p.stop()
 		p.stream = null
 	_music.stop()

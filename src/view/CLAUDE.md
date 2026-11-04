@@ -415,6 +415,12 @@ dig/slosh/poof/chop_chop/shout sounds.
   `trail_z`, `land_mark`. A `bounce` event runs `_wall_reaction`: dust, chips and a white flash on any wall, plus
   fading cracks (`wallmark`, floor layer, capped by `WALL_MARK_CAP`, 10-20 s) only on the arena boundary.
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
+- Fight sounds are placed: `AudioView.play_at(name, at, ...)` on a pool of `AudioStreamPlayer2D`s
+  (all wearing the ONE `falloff` block of `data/audio.json`), heard from `AudioView.listener`
+  (an `AudioListener2D`, moved by `main.gd:_audio_listener`); `play()` is unplaced (menus, crowd,
+  match-wide stingers). A new fight sound uses `play_at` with the event's `pos`; FxView's `cue`
+  carries the spot. Voice chat fades by the same curve (`AudioView.falloff_gain`). docs/AUDIO.md
+  "Distance falloff"; `tests/test_audio_falloff.gd`.
 - Voice chat sound → `voice_view.gd:frame` (capture `_capture_step`, speakers `_play`, placing
   `place`), the HUD's MIC light and MIC MUTED / VOICE MUTED `hud.gd:_draw_mic`, speaker icons `hud.gd:_speaker_after` and
   `fx_view.gd:_draw_side_marks`

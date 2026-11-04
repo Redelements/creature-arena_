@@ -836,7 +836,7 @@ func _ready() -> void:
 	add_child(bloom)
 	audio = AudioView.new()
 	add_child(audio)
-	fx.cue.connect(audio.play)
+	fx.cue.connect(audio.play_at)  # an effect's own sound, from where it is
 	voice_view = VoiceView.new()
 	add_child(voice_view)
 	debug = DebugView.new()
@@ -3202,6 +3202,7 @@ func _step_tick() -> void:
 	cam_ctl._update_camera()
 	cam_ctl._update_letterbox()
 	PerfLog.since("camera", t_cam)
+	audio.set_listener(_audio_listener())
 	var sh := shake * shake_scale
 	if sh <= 0.3:
 		shake_dir = Vector2.ZERO
@@ -3551,6 +3552,10 @@ func is_local_team(team: int) -> bool:
 	return not any and team == 0
 
 
+## A sim event's views, rumble and sounds. Sounds of a place (a respawn, a flag, a bridge,
+## a shrine coming up) play from it (`AudioView.play_at`); a mode's stingers and a team's
+## alerts (crown, overtime, checkpoint, capture, your flag taken, a shrine or Surge won)
+## are heard alike everywhere (`play`).
 func _react(e: Dictionary) -> void:
 	_count_ctf(e)
 	if flow != Flow.MENU:
@@ -3612,7 +3617,7 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.8)
 			audio.play("round_start", -4.0, 1.3)
 		"respawn":
-			audio.play("warp", -4.0, 0.9)  # back on the pad
+			audio.play_at("warp", Vector2(e["pos"]), -4.0, 0.9)  # back on the pad
 		"overtime":
 			audio.play("round_start")
 			crowd.cheer(0.6)
@@ -3634,11 +3639,11 @@ func _react(e: Dictionary) -> void:
 			shake = maxf(shake, 3.0)
 			crowd.roar(40)  # someone hit a boulder back
 		"rockslide":
-			audio.play("cave_in")
+			audio.play_at("cave_in", Vector2(e["pos"]))
 			shake = maxf(shake, 5.0)
 			crowd.roar(40)
 		"rubble_clear":
-			audio.play("stones_scatter", -2.0)
+			audio.play_at("stones_scatter", Vector2(e["pos"]), -2.0)
 			crowd.cheer(0.4)
 		"capture":
 			audio.play("round_start", 0.0, 1.3)
@@ -3646,35 +3651,35 @@ func _react(e: Dictionary) -> void:
 			_flash(Color(1, 0.92, 0.6), 0.45)
 			shake = maxf(shake, 4.0)
 		"flag_take":
-			audio.play("grab", -2.0, 1.2)
+			audio.play_at("grab", Vector2(e["pos"]), -2.0, 1.2)
 			crowd.cheer(0.8 if bool(e.get("catch", false)) else 0.5)
 			if team_battle != null and is_local_team(int(e.get("team", 0))):
 				audio.play("windup_red", -2.0, 0.8)  # the alarm: it's ours
 		"flag_fumble":
-			audio.play("pop", 0.0, 0.9)
+			audio.play_at("pop", Vector2(e["pos"]), 0.0, 0.9)
 			crowd.cheer(0.7)
 			shake = maxf(shake, 2.5)
 		"flag_pass":
-			audio.play("knife_throw", -3.0, 0.8)
+			audio.play_at("knife_throw", Vector2(e["pos"]), -3.0, 0.8)
 		"flag_land":
-			audio.play("land", -4.0, 1.2)
+			audio.play_at("land", Vector2(e["pos"]), -4.0, 1.2)
 		"shrine":
 			audio.play("surge_ready_ally" if is_local_team(int(e.get("team", 0))) else "surge_ready_foe")
 			crowd.cheer(0.5)
 		"shrine_ready":
-			audio.play("chill", -6.0, 1.2)
+			audio.play_at("chill", Vector2(e["pos"]), -6.0, 1.2)
 		"shrine_soon":
-			audio.play("chill", -9.0, 0.8)
+			audio.play_at("chill", Vector2(e["pos"]), -9.0, 0.8)
 		"bridge_strain":
-			audio.play("crack", 0.0, 0.7)
+			audio.play_at("crack", Vector2(e["pos"]), 0.0, 0.7)
 		"bridge_fall":
-			audio.play("cave_in")
+			audio.play_at("cave_in", Vector2(e["pos"]))
 			shake = maxf(shake, 6.0)
 			crowd.roar(60)
 		"bridge_up":
-			audio.play("dig", -3.0, 0.8)
+			audio.play_at("dig", Vector2(e["pos"]), -3.0, 0.8)
 		"flag_drop", "flag_return":
-			audio.play("warp", -4.0, 1.1)
+			audio.play_at("warp", Vector2(e["pos"]), -4.0, 1.1)
 			crowd.cheer(0.3)
 		"surge_ready":
 			# One sound when your side powers up, another when the other side does.
@@ -3937,6 +3942,23 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## Whether slot `i` is a player on this machine (online: the local slot).
+## Where fight sounds are heard from (AudioView's listener, world units): the fighter of
+## the one person playing here (online, or a single local seat), else the camera's centre
+## (2-4 local seats sharing the screen, a spectator, a replay, a showcase, CPU vs CPU).
+func _audio_listener() -> Vector2:
+	var centre := camera.get_screen_center_position()
+	if sim == null or flow == Flow.MENU or _replaying() or showcase != null or watch != null:
+		return centre
+	var c: CreatureSim = null
+	if online != null:
+		c = VoiceView.fighter(online.game_sim(), online.local_slot)
+	else:
+		var mine := local_slots()
+		if mine.size() == 1 and int(mine[0]) < sim.creatures.size():
+			c = sim.creatures[int(mine[0])]
+	return c.pos if c != null else centre
+
+
 func _is_local_fighter(i: int) -> bool:
 	if online != null:
 		return i == online.local_slot

@@ -465,8 +465,8 @@ a bigger packet undecoded, keeping the connection. A spectator's link (`spectate
 capped: its first "start" carries the whole log of the match so far.
 
 **Placing a voice** is the view's (`src/view/voice_view.gd`): `VoiceChat.gain_for(dist,
-same_team)` is full inside `full_radius` (110 world px), falls (squared) to nothing at
-`silent_radius` (420), and a teammate never drops below `team_floor` (0.25) so a team can
+same_team)` fades by the fight sounds' shared distance curve (`"falloff"` in
+`data/audio.json`, Godot's 2D curve, docs/AUDIO.md "Distance falloff"), and a teammate never drops below `team_floor` (0.25) so a team can
 call plays across the map; `pan_for(dx)` places it left or right, at the edges
 `pan_width` (240) away. Tuning in `data/voice.json` (not in `data_hash`: it changes no
 outcome).

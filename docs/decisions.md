@@ -107,3 +107,8 @@ Format: `## YYYY-MM-DD — short title` then **Decision**, **Why**, **Replaces**
 **Decision:** Settings > Credits lists the team (Kevin Winstead, Jake Johnston, Justin Brown, Anthony Smith) and the consultants as one row each, read from `data/credits.json` (sections, people: name, handle, role, tagline); the single "Ready 4 Rambles" row is gone. The fighters are credited as the team's hand drawings adapted into pixel art, never to the generators.
 **Why:** Four owners, all credited; the fighter art is hand-drawn now (Kevin, Oct 2026). Names and titles change without touching the screen's code.
 **Affects:** `src/ui/credits_screen.gd`, `data/credits.json`, `LICENSES.md`, `--menu=credits:<id>` (`src/game/main.gd`).
+
+## 2026-11-04 — Fight sounds fade with distance; voice shares the curve
+**Decision:** Every fight sound with a spot plays from an `AudioStreamPlayer2D` there (`AudioView.play_at`), heard from an `AudioListener2D` at the one local player's fighter (else the camera's centre), with Godot's 2D curve and ONE `"falloff"` block in `data/audio.json` (`max_distance` 720, `attenuation` 1.5, `panning_strength` 1.0). Proximity voice chat fades by the same formula and block (`AudioView.falloff_gain`); `full_radius` / `silent_radius` left `data/voice.json`, `team_floor` stays. The crowd, music, menus and match-wide stingers stay unplaced.
+**Why:** Balance team's notes (Nov 2026 mage pass): fight sounds were heard at full volume everywhere; chat and fight sounds should share one falloff curve.
+**Affects:** `src/view/audio_view.gd`, `src/view/fx_view.gd` (`cue(sound, at)`), `src/game/main.gd` (`_audio_listener`, `_react`), `src/net/voice_chat.gd:gain_for`, `data/audio.json`, `data/voice.json`, `docs/AUDIO.md`, `tests/test_audio_falloff.gd`.
