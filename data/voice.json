@@ -1,10 +1,8 @@
 {
-	"_comment": "Proximity voice chat (src/net/voice_chat.gd, src/view/voice_view.gd). Distances are world pixels: the stadium floor is 672 x 288 and the screen shows 480 x 270 of it.",
+	"_comment": "Proximity voice chat (src/net/voice_chat.gd, src/view/voice_view.gd). Distances are world pixels: the stadium floor is 672 x 288 and the screen shows 480 x 270 of it. How a voice fades with distance is the fight sounds' shared curve, the \"falloff\" block of data/audio.json; team_floor is voice's own.",
 	"sample_rate": 16000,
 	"frame_ms": 20,
 	"frames_per_packet": 2,
-	"full_radius": 110,
-	"silent_radius": 420,
 	"team_floor": 0.25,
 	"pan_width": 240,
 	"gate_db": -40,

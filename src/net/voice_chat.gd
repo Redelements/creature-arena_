@@ -332,19 +332,16 @@ static func _sticky(nm: String) -> bool:
 
 # ------------------------------------------------------------------ placing a voice
 
-## How loud a voice `dist` world pixels away plays, 0..1: full inside `full_radius`,
-## fading to nothing at `silent_radius`. A teammate never drops below `team_floor`,
-## so a team can still call plays across the map.
+## How loud a voice `dist` world pixels away plays, 0..1: the fight sounds' own distance
+## curve (AudioView.falloff_gain: Godot's AudioStreamPlayer2D curve on the ONE shared
+## `falloff` block of data/audio.json), so a voice and a punch from the same spot fade
+## alike. A teammate never drops below `team_floor`, so a team can still call plays
+## across the map (which a 2D player, silent past its max_distance, can't do: so voice
+## keeps its own generator player and computes the same curve here).
 static func gain_for(dist: float, same_team: bool, c: Dictionary = {}) -> float:
 	if c.is_empty():
 		c = data()
-	var full := float(c.get("full_radius", 110.0))
-	var silent := float(c.get("silent_radius", 420.0))
-	var g := 1.0
-	if dist > full:
-		g = 1.0 - (dist - full) / maxf(1.0, silent - full)
-		g = clampf(g, 0.0, 1.0)
-		g = g * g  # quieter sooner, like sound in the open
+	var g := AudioView.falloff_gain(dist)
 	if same_team:
 		g = maxf(g, float(c.get("team_floor", 0.25)))
 	return g
