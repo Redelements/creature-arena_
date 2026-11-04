@@ -3588,7 +3588,7 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.2)
 		"fall":
 			crowd.cheer(0.5)
-		"guard_break", "breakaway", "slip":
+		"guard_break", "slip":
 			crowd.cheer(0.3)
 			if String(e["type"]) == "guard_break" and fx._event_shown(e):
 				cam_ctl._note_clash(Vector2(e["pos"]), 1.0)

@@ -27,7 +27,7 @@ const DATA_PATH := "res://data/challenges.json"
 const SAVE_KEY := "challenges"
 ## Every counter a goal's "stat" may name (tests/test_challenges.gd fails on any other).
 const STATS := ["fights", "wins", "kos", "blocks", "combo_5", "combo_10", "wins_as", "surge_kos",
-	"guard_breaks", "dodge_cancels", "breakaways", "flawless_wins", "clutch_wins", "ring_outs",
+	"guard_breaks", "dodge_cancels", "flawless_wins", "clutch_wins", "ring_outs",
 	"sprees", "flag_captures", "caravan_finishes", "crater_holds", "gauntlet_waves",
 	"arcade_clears_easy", "arcade_clears_normal", "arcade_clears_hard", "arcade_clears_rage",
 	"dailies", "brawl_wins", "chaos_wins", "sinkhole_wins", "online_matches",
@@ -231,8 +231,6 @@ static func note_event(e: Dictionary) -> void:
 		"dodge":
 			if bool(e.get("cancel", false)):
 				_add(int(e.get("who", -1)), "dodge_cancels")
-		"breakaway":
-			_add(int(e.get("who", -1)), "breakaways")
 		"spree":
 			_add(int(e.get("who", -1)), "sprees")
 		"capture":

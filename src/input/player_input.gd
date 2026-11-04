@@ -56,9 +56,9 @@ const ANY_PAD := -1
 const NO_PAD := -2
 ## The controls strip, filled in from the current bindings (they can be remapped).
 const HELP := {
-	"league": "Right-click move / attack   {light} or Left-click light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {dodge}+{guard} breakaway   {tag} tag   {stop} stop   Esc pause",
-	"classic": "{up}{left}{down}{right} move  {light} light  {heavy} heavy  {skill_1} skill 1  {skill_2} skill 2  {surge} surge  {dodge} dodge  {guard} guard  {guard}+{dodge} breakaway  {tag} tag  F1 hitboxes  Esc pause",
-	"gamepad": "L-stick move   R-stick aim   {light} light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {guard}+{dodge} breakaway   {tag} tag   Start pause",
+	"league": "Right-click move / attack   {light} or Left-click light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   {stop} stop   Esc pause",
+	"classic": "{up}{left}{down}{right} move  {light} light  {heavy} heavy  {skill_1} skill 1  {skill_2} skill 2  {surge} surge  {dodge} dodge  {guard} guard  {tag} tag  F1 hitboxes  Esc pause",
+	"gamepad": "L-stick move   R-stick aim   {light} light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
 	"touch": "Left thumb: move   Tap a button: attack (aimed for you)   Drag Heavy / Skills / Surge off the button: aim, let go to throw (in the red circle: cancel)   Hold Guard   Dodge goes the way you move",
 	"twinstick": "L-stick move   R-stick aim 360 + face (strafe; Chef Cerebro and Mister Crease throw)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
 }

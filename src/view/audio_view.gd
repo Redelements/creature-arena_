@@ -224,8 +224,6 @@ func on_event(e: Dictionary) -> void:
 			play("swallow")
 		"poop":
 			play("plop")
-		"breakaway":
-			play("breakaway")
 		"surge":
 			play("surge")
 			play("crowd_cheer", -2.0)

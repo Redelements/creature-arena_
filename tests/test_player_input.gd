@@ -98,18 +98,6 @@ func test_s_stops() -> void:
 	assert_lt(me.pos.distance_to(p), 6.0, "stopped (only sliding to a halt):")
 
 
-func test_dodge_plus_guard_is_a_breakaway() -> void:
-	var sim := MatchFactory.versus("cairn", "culvert")
-	var me := sim.creatures[0]
-	me.energy = 80.0
-	me.combo_hits = 3
-	me.enter_hitstun(30, Vector2.ZERO)
-	var mo := MouseOrders.new()
-	_drive(sim, mo, me.pos, _held(["guard", "dodge"]), _held(["dodge"]))
-	assert_eq(me.state, CreatureSim.State.IDLE, "broke free:")
-	assert_near(me.energy, 30.0, 0.001, "energy spent:")
-
-
 func test_gamepad_right_stick_aims_attacks() -> void:
 	var held := {"light": true}
 	var pressed := {"light": true}

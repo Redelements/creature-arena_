@@ -973,28 +973,6 @@ func _poop(a: CreatureSim, d: CreatureSim) -> void:
 	emit_event("poop", d.pos, 1.0, {"attacker": a.id, "target": d.id})
 
 
-## Guard + Dodge while stunned: spend energy to escape the combo.
-func breakaway(d: CreatureSim) -> void:
-	d.energy -= CreatureSim.BREAKAWAY_COST
-	var away := -d.facing
-	var a: CreatureSim = null
-	if d.last_attacker >= 0 and d.last_attacker < creatures.size():
-		a = creatures[d.last_attacker]
-		if a.pos.distance_squared_to(d.pos) > 0.0001:
-			away = (d.pos - a.pos).normalized()
-	d.reset_combo()
-	d.stun = 0
-	d.cancel_attack()
-	d._set_state(CreatureSim.State.IDLE)
-	d.invuln = CreatureSim.BREAKAWAY_INVULN
-	d.knock_vel = away * 3.2
-	if a != null and a.state == CreatureSim.State.ATTACK:
-		a.cancel_attack()
-		a._set_state(CreatureSim.State.IDLE)
-		a.knock_vel = -away * 2.4
-	emit_event("breakaway", d.pos + Vector2(0, -16), 1.0, {"who": d.id})
-
-
 ## A blocked third light (or later) leaves the attacker open: no cancelling out of it into
 ## a skill, and enough extra recovery that the blocker is free BLOCKED_ENDER_DISADVANTAGE
 ## ticks before the attacker is. (Chaining on to a fourth light is still allowed.)

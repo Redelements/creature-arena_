@@ -386,9 +386,6 @@ func spawn(e: Dictionary) -> void:
 			for i in 6:
 				_dust(p + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
 			_text(p + Vector2(0, -46), String(e.get("name", "")).to_upper() + " IN", Color("ffd166"), 9)
-		"breakaway":
-			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
-			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
 		"projectile":
 			var thrower := _creature(int(e.get("who", -1)))
 			if thrower != null:

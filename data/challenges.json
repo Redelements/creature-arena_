@@ -35,7 +35,6 @@
 		{"id": "surge_ko", "group": "Skills", "name": "Surge Finish", "desc": "Knock out a foe with a Surge", "stat": "surge_kos", "target": 1, "reward": {"xp": 100}},
 		{"id": "guard_break", "group": "Skills", "name": "Guard Crusher", "desc": "Break a foe's guard", "stat": "guard_breaks", "target": 1, "reward": {"xp": 75}},
 		{"id": "dodge_cancel", "group": "Skills", "name": "Slippery", "desc": "Cancel one of your attacks into a dodge", "stat": "dodge_cancels", "target": 1, "reward": {"xp": 75}},
-		{"id": "breakaway", "group": "Skills", "name": "Breakaway", "desc": "Spend energy to break out while stunned", "stat": "breakaways", "target": 1, "reward": {"xp": 75}},
 		{"id": "flawless_win", "group": "Skills", "name": "Untouchable", "desc": "Win a fight without losing any health", "stat": "flawless_wins", "target": 1, "reward": {"xp": 200, "id": "title:untouchable"}},
 		{"id": "clutch_win", "group": "Skills", "name": "By a Whisker", "desc": "Win a fight with under 10% health left", "stat": "clutch_wins", "target": 1, "reward": {"xp": 150}},
 		{"id": "ring_out", "group": "Skills", "name": "Ring Out", "desc": "Knock a foe into a pit", "stat": "ring_outs", "target": 1, "reward": {"xp": 75}},

@@ -27,9 +27,6 @@ const EDGE_TOP := 6.0
 const EDGE_BOTTOM := 3.0
 const BUFFER_TICKS := 10
 const MAX_ENERGY := 100.0
-const BREAKAWAY_COST := 50.0
-const BREAKAWAY_MIN_HITS := 3
-const BREAKAWAY_INVULN := 30
 const JUGGLE_MAX := 3
 const JUGGLE_FLOAT := 16
 const LAND_KNOCKDOWN := 24
@@ -769,11 +766,6 @@ func action_move(action: String) -> String:
 func buffer_input(buttons: int, sim: MatchSim) -> void:
 	var pressed := buttons & ~prev_buttons
 	prev_buttons = buttons
-	if is_stunned() and _wants_breakaway(buttons, pressed):
-		sim.hitstop = 0
-		hitstop = 0
-		sim.breakaway(self)
-		return
 	_buffer_presses(pressed)
 	# Without this, a dodge pressed during a freeze (like a Surge's) would be lost.
 	if pressed & SimDefs.IN_DODGE:
@@ -821,47 +813,44 @@ func step(buttons: int, sim: MatchSim) -> void:
 		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)) * boost_regen)
 	_tick_status(sim)
 
-	if is_stunned() and _wants_breakaway(buttons, pressed):
-		sim.breakaway(self)
-	else:
-		var dir := SimDefs.move_from_bits(buttons)  # walking: 360 degrees from a stick
-		var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
-		match state:
-			State.IDLE, State.MOVE:
-				_update_free(buttons, pressed, dir, aim, sim)
-			State.ATTACK:
-				_update_attack(buttons, pressed, aim, sim)
-			State.DODGE:
-				_update_dodge(sim)
-			State.GUARD:
-				_update_guard(buttons, pressed, dir, aim, sim)
-			State.HITSTUN, State.CRUMPLE:
-				stun -= 1
-				if stun <= 0:
-					_recover()
-			State.AIRBORNE:
-				air_t += 1
-				if air_t >= air_total:
-					_land(sim)
-			State.KNOCKDOWN:
-				stun -= 1
-				if stun <= 0:
-					invuln = GETUP_INVULN
-					_recover()
-			State.FALLING:
-				if state_t >= FALL_TICKS:
-					_land_from_fall(sim)
-			State.KO:
-				# The dummy gets back up; so does anyone in a training match (a meteor or the
-				# dummy's own attacks can knock the player out: a training session never ends).
-				if (is_dummy or sim.training) and state_t >= DUMMY_RESET_TICKS:
-					hp = max_hp
-					stamina = max_stamina
-					regen_wait = 0
-					exhaust_slow = 0
-					reset_combo()
-					invuln = 20
-					_set_state(State.IDLE)
+	var dir := SimDefs.move_from_bits(buttons)  # walking: 360 degrees from a stick
+	var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
+	match state:
+		State.IDLE, State.MOVE:
+			_update_free(buttons, pressed, dir, aim, sim)
+		State.ATTACK:
+			_update_attack(buttons, pressed, aim, sim)
+		State.DODGE:
+			_update_dodge(sim)
+		State.GUARD:
+			_update_guard(buttons, pressed, dir, aim, sim)
+		State.HITSTUN, State.CRUMPLE:
+			stun -= 1
+			if stun <= 0:
+				_recover()
+		State.AIRBORNE:
+			air_t += 1
+			if air_t >= air_total:
+				_land(sim)
+		State.KNOCKDOWN:
+			stun -= 1
+			if stun <= 0:
+				invuln = GETUP_INVULN
+				_recover()
+		State.FALLING:
+			if state_t >= FALL_TICKS:
+				_land_from_fall(sim)
+		State.KO:
+			# The dummy gets back up; so does anyone in a training match (a meteor or the
+			# dummy's own attacks can knock the player out: a training session never ends).
+			if (is_dummy or sim.training) and state_t >= DUMMY_RESET_TICKS:
+				hp = max_hp
+				stamina = max_stamina
+				regen_wait = 0
+				exhaust_slow = 0
+				reset_combo()
+				invuln = 20
+				_set_state(State.IDLE)
 	if reel_t > 0:
 		_reel_step(sim)
 	if flip_t > 0:
@@ -959,12 +948,6 @@ func taunter(sim: MatchSim) -> CreatureSim:
 		return null
 	var t := sim.creatures[taunt_by]
 	return null if t.state == State.KO else t
-
-
-func _wants_breakaway(buttons: int, pressed: int) -> bool:
-	var both := SimDefs.IN_GUARD | SimDefs.IN_DODGE
-	return (buttons & both) == both and (pressed & both) != 0 \
-		and combo_hits >= BREAKAWAY_MIN_HITS and energy >= BREAKAWAY_COST
 
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:

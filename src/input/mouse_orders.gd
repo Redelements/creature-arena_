@@ -9,7 +9,7 @@ extends RefCounted
 ##   E (hold)              heavy, aimed at the cursor while charging
 ##   R                     Surge
 ##   D                     dodge roll toward the cursor
-##   F (hold)              guard;  D + F while stunned = breakaway
+##   F (hold)              guard
 ##   S                     stop
 ##
 ## Walking goes straight at the spot and attacks aim exactly at the cursor (360 degrees,

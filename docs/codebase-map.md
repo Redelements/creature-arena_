@@ -48,7 +48,7 @@ update the map in the same change.
 | puddles, ground zones, storms | `src/sim/match_sim.gd:add_zone`, `_step_zones`, `_add_storm` | sno, crease |
 | poison, slow, freeze, stone, root, blind, stealth | `src/sim/creature_sim.gd:_tick_status` | hissy, sno, pete |
 | knockdown, launch, crumple, reactions | `src/sim/creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown` | combat |
-| energy, Surge meter, breakaway | `src/sim/match_sim.gd:gain_energy`, `breakaway` | combo_rules, surge_ready |
+| energy, Surge meter | `src/sim/match_sim.gd:gain_energy` | combo_rules, surge_ready |
 | hitstop, freeze-frame, KO freeze and slow motion, what stops on a crowded field | `src/sim/match_sim.gd:impact_stop`, `freeze_all`, `emit_event` ("ko"), `step`; `src/sim/creature_sim.gd:hitstop`, `buffer_input` | hitstop, counterplay, combat |
 | pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls`; how they look (pit depth, cracks spreading, pits closing, dust) `src/view/arena_view.gd:_paint_pit_cell`, `_step_fx` | terrain |
 | walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |

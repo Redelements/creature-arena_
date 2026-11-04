@@ -107,3 +107,8 @@ Format: `## YYYY-MM-DD — short title` then **Decision**, **Why**, **Replaces**
 **Decision:** Settings > Credits lists the team (Kevin Winstead, Jake Johnston, Justin Brown, Anthony Smith) and the consultants as one row each, read from `data/credits.json` (sections, people: name, handle, role, tagline); the single "Ready 4 Rambles" row is gone. The fighters are credited as the team's hand drawings adapted into pixel art, never to the generators.
 **Why:** Four owners, all credited; the fighter art is hand-drawn now (Kevin, Oct 2026). Names and titles change without touching the screen's code.
 **Affects:** `src/ui/credits_screen.gd`, `data/credits.json`, `LICENSES.md`, `--menu=credits:<id>` (`src/game/main.gd`).
+
+## 2026-11-04 — Breakaway removed
+**Decision:** Breakaway (Guard + Dodge while stunned, 3+ combo hits, 50 energy: reset the combo, brief invulnerability) is gone: the input, the energy cost, the CPU's `breakaway` knob in `LEVELS` and its Rage helper, the `breakaway` event (BREAKAWAY text, challenge stat `breakaways`, the "Breakaway" challenge), the control hints and the README row. A stunned fighter does nothing until the stun ends. Energy now only buys Surges. `breakaway.wav` stays: the `tag` event still plays it (pitch 1.2).
+**Why:** Balance team's pass: the escape made combos unreliable to finish and competed with the Surge for energy.
+**Affects:** `src/sim/creature_sim.gd`, `src/sim/match_sim.gd`, `src/ai/cpu_controller.gd`, `src/game/challenges.gd`, `data/challenges.json`, `src/view/`, `README.md`, `docs/MECHANICS.md`; `docs/plans/cpu-tiers.md` still lists the knob (plan doc, left as written). NET_VERSION bump is the lead's call.

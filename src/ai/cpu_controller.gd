@@ -18,13 +18,13 @@ extends RefCounted
 
 const LEVELS := [
 	{"name": "Easy", "reaction": 22, "defend": 0.25, "combo": 0.35, "mistake": 0.25,
-		"breakaway": 0.05, "aggression": 0.35, "think": 18, "gap": 0.03, "lead": 0.0},
+		"aggression": 0.35, "think": 18, "gap": 0.03, "lead": 0.0},
 	{"name": "Normal", "reaction": 18, "defend": 0.4, "combo": 0.5, "mistake": 0.19,
-		"breakaway": 0.16, "aggression": 0.44, "think": 15, "gap": 0.11, "lead": 0.25},
+		"aggression": 0.44, "think": 15, "gap": 0.11, "lead": 0.25},
 	{"name": "Hard", "reaction": 7, "defend": 0.85, "combo": 0.95, "mistake": 0.02,
-		"breakaway": 0.5, "aggression": 0.7, "think": 7, "gap": 0.35, "lead": 1.0},
+		"aggression": 0.7, "think": 7, "gap": 0.35, "lead": 1.0},
 	{"name": "Rage", "reaction": 1, "defend": 1.0, "combo": 1.0, "mistake": 0.0,
-		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true, "gap": 1.0, "lead": 1.0},
+		"aggression": 0.9, "think": 2, "rage": true, "gap": 1.0, "lead": 1.0},
 ]
 const RAGE := 3
 ## A guard at or under this share of its stamina is pressed, not waited out: blocked hits
@@ -68,7 +68,6 @@ var _route_drop := false
 var _seen_serial := -1
 var _defense := ""
 var _defense_t := 0
-var _break_combo_checked := -1
 
 # Movement
 var _plan := "approach"
@@ -1035,18 +1034,10 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	_foe_hidden = not _sees(foe)
 	var dist := to_foe.length()
 
-	# Stunned: maybe burn energy on a breakaway, otherwise nothing to do.
+	# Stunned: nothing to do.
 	if me.is_stunned() or me.state == CreatureSim.State.KNOCKDOWN or me.state == CreatureSim.State.FALLING:
 		_route = []
-		if me.is_stunned() and me.combo_hits >= CreatureSim.BREAKAWAY_MIN_HITS \
-				and me.energy >= CreatureSim.BREAKAWAY_COST and _break_combo_checked != me.combo_hits:
-			_break_combo_checked = me.combo_hits
-			if me.combo_hits == CreatureSim.BREAKAWAY_MIN_HITS and _roll(float(p["breakaway"])) \
-					and (not _rage() or _rage_breaks_away(sim, me)):
-				_press(SimDefs.IN_GUARD)
-				_press(SimDefs.IN_DODGE)
 		return
-	_break_combo_checked = -1
 
 	if _boulder_swing:  # a heavy thrown at a boulder (_mind_boulder): a tap, aimed at it
 		if me.state == CreatureSim.State.ATTACK and me.move_id == "heavy":
@@ -2061,19 +2052,6 @@ func _lane_side(sim: MatchSim, me: CreatureSim, mark: CreatureSim, b: CreatureSi
 
 func _rage() -> bool:
 	return level >= RAGE
-
-
-## Rage spends half its energy on a breakaway only when it's worth more than a Surge
-## later: when it's hurt, or the combo's owner has a Surge to finish with.
-func _rage_breaks_away(sim: MatchSim, me: CreatureSim) -> bool:
-	var hurt := me.hp / me.max_hp < 0.5
-	var surging := false
-	for o in sim.creatures:
-		if me.is_foe(o) and _sees(o) and o.energy >= CreatureSim.MAX_ENERGY and o.pos.distance_to(me.pos) < 80.0:
-			surging = true
-	if me.energy >= CreatureSim.MAX_ENERGY and not hurt:
-		return false  # keep the Surge
-	return hurt or surging or me.energy >= CreatureSim.BREAKAWAY_COST * 1.5
 
 
 func _style(me: CreatureSim) -> Dictionary:

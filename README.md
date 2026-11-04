@@ -194,7 +194,7 @@ CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
 - **Punishes every opening.** It hits back on whiffs and blocked swings, and only throws
   a jab that can't be walked away from or out-traded.
 - **Never wastes anything.** It never drops a combo, picks the best route it can afford,
-  leads its shots, and saves its energy for a Surge unless a breakaway is worth more.
+  leads its shots, and saves its energy for a Surge .
 - **Moves smart.** It walks around holes and out of corners.
 - **Plays each fighter by its class** (its `role`, or `"style"` in its `ai` block):
   - **mage:** kites at the edge of its range, strafing so it keeps facing you and
@@ -268,7 +268,6 @@ whichever device you used last.
 | Surge | RT | R | O |
 | Dodge roll | RB | D or Space (toward cursor) | Space |
 | Guard | LB | F or Shift | Shift |
-| Breakaway (while stunned) | LB + RB | D + F | Shift + Space |
 | Tag (Duel) | LT | T | L |
 | Stop | — | S | — |
 | Pause (in a fight) | Start or View | Esc | Esc |
@@ -403,7 +402,7 @@ widen toward the end of their reach.
 **Mixing types pays.** Each hit is multiplied by how many different types have landed in the
 combo so far: ×1.0, ×1.15, ×1.3, ×1.5. **Limits keep it fair:** a move repeated in the same
 combo does half damage, hitstun shrinks with every hit, launched targets take at most three
-juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
+juggle moves.
 
 Energy fills as you deal and take damage (about one Surge per round). It fills fastest
 from combos that mix move types (a light into a heavy into a skill); lights alone barely
@@ -1037,7 +1036,7 @@ godot --headless --path . --script res://tests/run_tests.gd
 
 Over 1,300 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
-hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
+hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, Sneaky Pete's stealth, stolen power and blink, Sno Mercy's cone, syrup puddles and ice, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
@@ -1067,7 +1066,7 @@ replacement checklist; which file plays for what, and how loud, lives in
 ## Roadmap
 
 - [x] **Phase 0 – Prototype:** one creature vs. a dummy; move, dodge, attack, hitstop, knockback, breakable floor
-- [x] **Combat system:** attack types, cancels, variety bonus, launches, counters, grabs, projectiles, Surges, breakaway
+- [x] **Combat system:** attack types, cancels, variety bonus, launches, counters, grabs, projectiles, Surges
 - [x] **Second fighter and CPU opponent:** Cairn, versus mode, best-of-3 rounds, Easy/Normal/Hard
 - [x] **Effects pass:** per-move effects, knockout animations, Surge cut-ins, squash and stretch, combo tracker, crowd reactions
 - [ ] **Vertical slice:** final art for two fighters, one finished arena, tag-team swap, local 2-player
