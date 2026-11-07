@@ -9,5 +9,7 @@
 	"block_regen_pause_seconds": 0.5,
 	"exhaust_delay_seconds": 3.0,
 	"exhaust_speed_mult": 0.8,
-	"exhaust_slow_seconds": 1.5
+	"exhaust_slow_seconds": 1.5,
+	"_cc_doc": "cc_through_guard: the crowd control a blocked hit still lands in full (the guard only stops the damage): slow (slow_ticks), root (root_ticks), blind (blind_ticks), freeze (freeze_ticks), petrify, stun (stun_ticks), launch, knockdown, crumple, pull and stagger (a stagger_if mark that pays off). A launch, knockdown, crumple, freeze, petrify or stagger drops the guard. Remove a kind to block it again; leaving the key out means all of them. Plain hitstun, poison, vuln and steal stay blocked.",
+	"cc_through_guard": ["slow", "root", "blind", "freeze", "petrify", "stun", "launch", "knockdown", "crumple", "pull", "stagger"]
 }

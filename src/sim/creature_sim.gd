@@ -27,9 +27,6 @@ const EDGE_TOP := 6.0
 const EDGE_BOTTOM := 3.0
 const BUFFER_TICKS := 10
 const MAX_ENERGY := 100.0
-const BREAKAWAY_COST := 50.0
-const BREAKAWAY_MIN_HITS := 3
-const BREAKAWAY_INVULN := 30
 const JUGGLE_MAX := 3
 const JUGGLE_FLOAT := 16
 const LAND_KNOCKDOWN := 24
@@ -54,7 +51,7 @@ const STATE_FIELDS := [
 	"windup_total", "stun", "invuln", "flash", "guard_hit", "air_t", "air_total",
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
-	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by", "taunt_pull",
+	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by", "taunt_pull", "taunt_contain",
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
@@ -62,7 +59,7 @@ const STATE_FIELDS := [
 	"blind", "whiff_serial", "ambush_serial", "ambush_t", "root", "hitstop",
 	"stealth", "haste", "haste_mult", "carry_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
-	"sheets", "sheet_t", "folded", "poison_look", "regen_wait", "exhaust_slow",
+	"sheets", "sheet_t", "folded", "poison_look", "regen_wait", "exhaust_slow", "stun_lock",
 ]
 ## Permanent buffs from the Crater's shrine (Shrines, "boost" reward): saved by save_state
 ## like STATE_FIELDS, but in the match digest only when the match has shrines (so every
@@ -163,6 +160,7 @@ var slow_mult := 1.0
 var taunt := 0  ## ticks left of being taunted by `taunt_by`
 var taunt_by := -1
 var taunt_pull := TAUNT_PULL  ## px/tick this taunt drags it in
+var taunt_contain := 0.0  ## the taunt's zone radius when it has "contain" (0 = none)
 var reel_t := 0  ## ticks left of being reeled in to `reel_to` (Gillbert's Cast Line)
 var reel_to := -1
 var reel_gap := 0.0
@@ -196,6 +194,10 @@ var frenzy_t := 0
 var hit_streak := 0
 var streak_t := 0
 var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
+## Ticks left of a fixed stun (a hit's "stun_ticks": Chef Cerebro's thrown Tenderize).
+## While it lasts no hit leaves the target helpless for less: hitstun and crumples last
+## at least this long, and getting up from a launch or a knockdown crumples it again.
+var stun_lock := 0
 var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
 var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
 ## The attack that sprang out of stealth (Tiptoe): its hits land harder, by the
@@ -467,7 +469,7 @@ func _foe_in_strike(sim: MatchSim) -> bool:
 const HIT_SEG_KEYS := ["damage", "knockback", "hitstun", "hitstop", "launch", "crumple",
 	"knockdown", "slow_ticks", "juggle_float", "pull", "reel", "reel_speed", "vuln_ticks",
 	"flip", "swallow", "poison_ticks", "poison_damage", "poison_every", "petrify",
-	"blind_ticks", "root_ticks", "steal_ticks", "freeze_ticks"]
+	"blind_ticks", "root_ticks", "steal_ticks", "freeze_ticks", "stun_ticks", "flip_away"]
 ## Hit flags read from the move itself.
 const HIT_FLAG_KEYS := ["guard_break", "grab", "grab_air", "juggle", "no_flinch", "root_through_guard"]
 
@@ -769,11 +771,6 @@ func action_move(action: String) -> String:
 func buffer_input(buttons: int, sim: MatchSim) -> void:
 	var pressed := buttons & ~prev_buttons
 	prev_buttons = buttons
-	if is_stunned() and _wants_breakaway(buttons, pressed):
-		sim.hitstop = 0
-		hitstop = 0
-		sim.breakaway(self)
-		return
 	_buffer_presses(pressed)
 	# Without this, a dodge pressed during a freeze (like a Surge's) would be lost.
 	if pressed & SimDefs.IN_DODGE:
@@ -820,50 +817,58 @@ func step(buttons: int, sim: MatchSim) -> void:
 	elif not (state in [State.DODGE, State.GUARD, State.KO]):
 		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)) * boost_regen)
 	_tick_status(sim)
+	# A containing taunt (Bedrock): a foe inside the zone can't walk, dodge, dash or
+	# blink out of it this tick (clamped below, before throws and knockback move it).
+	var zone := contain_zone(sim)
+	var zone_r := taunt_contain + float(radius)
+	var zone_from := pos
+	if zone != null and pos.distance_squared_to(zone.pos) > zone_r * zone_r + 0.01:
+		zone = null  # outside (knocked out, say): not held until it walks back in
 
-	if is_stunned() and _wants_breakaway(buttons, pressed):
-		sim.breakaway(self)
-	else:
-		var dir := SimDefs.move_from_bits(buttons)  # walking: 360 degrees from a stick
-		var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
-		match state:
-			State.IDLE, State.MOVE:
-				_update_free(buttons, pressed, dir, aim, sim)
-			State.ATTACK:
-				_update_attack(buttons, pressed, aim, sim)
-			State.DODGE:
-				_update_dodge(sim)
-			State.GUARD:
-				_update_guard(buttons, pressed, dir, aim, sim)
-			State.HITSTUN, State.CRUMPLE:
-				stun -= 1
-				if stun <= 0:
-					_recover()
-			State.AIRBORNE:
-				air_t += 1
-				if air_t >= air_total:
-					_land(sim)
-			State.KNOCKDOWN:
-				stun -= 1
-				if stun <= 0:
-					invuln = GETUP_INVULN
-					_recover()
-			State.FALLING:
-				if state_t >= FALL_TICKS:
-					_land_from_fall(sim)
-			State.KO:
-				# The dummy gets back up; so does anyone in a training match (a meteor or the
-				# dummy's own attacks can knock the player out: a training session never ends).
-				if (is_dummy or sim.training) and state_t >= DUMMY_RESET_TICKS:
-					hp = max_hp
-					stamina = max_stamina
-					regen_wait = 0
-					exhaust_slow = 0
-					reset_combo()
-					invuln = 20
-					_set_state(State.IDLE)
+	var dir := SimDefs.move_from_bits(buttons)  # walking: 360 degrees from a stick
+	var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
+	match state:
+		State.IDLE, State.MOVE:
+			_update_free(buttons, pressed, dir, aim, sim)
+		State.ATTACK:
+			_update_attack(buttons, pressed, aim, sim)
+		State.DODGE:
+			_update_dodge(sim)
+		State.GUARD:
+			_update_guard(buttons, pressed, dir, aim, sim)
+		State.HITSTUN, State.CRUMPLE:
+			stun -= 1
+			if stun <= 0:
+				_recover()
+		State.AIRBORNE:
+			air_t += 1
+			if air_t >= air_total:
+				_land(sim)
+		State.KNOCKDOWN:
+			stun -= 1
+			if stun <= 0:
+				if stun_lock <= 0:
+					invuln = GETUP_INVULN  # a fixed stun still running: no get-up grace
+				_recover()
+		State.FALLING:
+			if state_t >= FALL_TICKS:
+				_land_from_fall(sim)
+		State.KO:
+			# The dummy gets back up; so does anyone in a training match (a meteor or the
+			# dummy's own attacks can knock the player out: a training session never ends).
+			if (is_dummy or sim.training) and state_t >= DUMMY_RESET_TICKS:
+				hp = max_hp
+				stamina = max_stamina
+				regen_wait = 0
+				exhaust_slow = 0
+				stun_lock = 0
+				reset_combo()
+				invuln = 20
+				_set_state(State.IDLE)
 	if reel_t > 0:
 		_reel_step(sim)
+	if zone != null:
+		_contain(zone, zone_r, zone_from, sim)
 	if flip_t > 0:
 		_flip_step()
 	_apply_knockback(sim)
@@ -895,6 +900,8 @@ func _tick_status(sim: MatchSim) -> void:
 		blind -= 1
 	if root > 0:
 		root -= 1
+	if stun_lock > 0:
+		stun_lock -= 1
 	if stealth > 0:
 		stealth -= 1
 	if ambush_t > 0:
@@ -953,18 +960,34 @@ func _regrow_sheets(sim: MatchSim) -> void:
 		sim.emit_event("sheet", pos, float(sheets), {"who": id})
 
 
+## The taunter whose zone holds this one in ("taunt.contain"), if any.
+func contain_zone(sim: MatchSim) -> CreatureSim:
+	if taunt_contain <= 0.0:
+		return null
+	return taunter(sim)
+
+
+## Pulls a contained foe back to the zone's edge (`r` from the taunter's centre) after its
+## own walking, dodging, dashing or blinking carried it past. Walls and the arena edge
+## stop the pull as they stop walking; if that still leaves it outside, it stays where it
+## stood at the start of the tick (inside). Comparisons and one square root only.
+func _contain(t: CreatureSim, r: float, from: Vector2, sim: MatchSim) -> void:
+	var off := pos - t.pos
+	if off.length_squared() <= r * r:
+		return
+	var spot := t.pos + off.normalized() * r
+	var walking := state == State.IDLE or state == State.MOVE or state == State.GUARD
+	_move(spot - pos, sim, walking)
+	if pos.distance_squared_to(t.pos) > (r + 0.5) * (r + 0.5):
+		pos = from
+
+
 ## The creature taunting this one, if any.
 func taunter(sim: MatchSim) -> CreatureSim:
 	if taunt <= 0 or taunt_by < 0 or taunt_by >= sim.creatures.size():
 		return null
 	var t := sim.creatures[taunt_by]
 	return null if t.state == State.KO else t
-
-
-func _wants_breakaway(buttons: int, pressed: int) -> bool:
-	var both := SimDefs.IN_GUARD | SimDefs.IN_DODGE
-	return (buttons & both) == both and (pressed & both) != 0 \
-		and combo_hits >= BREAKAWAY_MIN_HITS and energy >= BREAKAWAY_COST
 
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
@@ -1384,6 +1407,7 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt = int(tn["ticks"])
 		o.taunt_by = id
 		o.taunt_pull = float(tn.get("pull", TAUNT_PULL))
+		o.taunt_contain = r if bool(tn.get("contain", false)) else 0.0
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
 
@@ -1642,6 +1666,9 @@ func reset_combo() -> void:
 
 
 func _recover() -> void:
+	if stun_lock > 0 and hp > 0.0:
+		enter_crumple(stun_lock, Vector2.ZERO)  # still under a fixed stun ("stun_ticks")
+		return
 	stun = 0
 	reset_combo()
 	_set_state(State.IDLE)
@@ -1711,7 +1738,7 @@ func enter_hitstun(ticks: int, kb: Vector2) -> void:
 	cancel_attack()
 	walk_vel = Vector2.ZERO
 	knock_vel = kb
-	stun = maxi(ticks, 1)
+	stun = maxi(maxi(ticks, stun_lock), 1)
 	_set_state(State.HITSTUN)
 
 
@@ -1719,7 +1746,7 @@ func enter_crumple(ticks: int, kb: Vector2) -> void:
 	cancel_attack()
 	walk_vel = Vector2.ZERO
 	knock_vel = kb
-	stun = maxi(ticks, 1)
+	stun = maxi(maxi(ticks, stun_lock), 1)
 	_set_state(State.CRUMPLE)
 
 

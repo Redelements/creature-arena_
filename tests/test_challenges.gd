@@ -148,7 +148,6 @@ func test_the_events_count_for_the_accounts_player_only() -> void:
 		{"type": "fall", "who": 3, "pit": "hole"},
 		{"type": "dodge", "who": 0, "cancel": true},
 		{"type": "dodge", "who": 0, "cancel": false},
-		{"type": "breakaway", "who": 1},
 		{"type": "hazard_strike", "shape": "meteors", "hazard": "meteor_shower"},
 		{"type": "hazard_hit", "who": 1, "shape": "meteors", "damage": 5.0, "by": -1},
 		{"type": "hazard_reverse", "by": 0, "hazard": "boulder"},
@@ -161,7 +160,7 @@ func test_the_events_count_for_the_accounts_player_only() -> void:
 		Challenges.note_event(e)
 	var ctx := {"mode": "caravan", "arena": "caravan_pass", "hp": 1.0, "team": 0, "teams": {0: 0, 1: 1, 2: 0, 3: 1}}
 	Challenges.note_match(_report(true, "cpu", ["cairn"]), _rows(0, 2, 6, 3), ctx)
-	var want := {"guard_breaks": 1, "surge_kos": 1, "ring_outs": 1, "dodge_cancels": 1, "breakaways": 0,
+	var want := {"guard_breaks": 1, "surge_kos": 1, "ring_outs": 1, "dodge_cancels": 1,
 		"meteor_untouched": 1, "boulders_sent_back": 1, "boulder_hits": 1, "caravan_finishes": 1,
 		"flag_captures": 1, "kos": 2, "blocks": 3, "combo_5": 1, "combo_10": 0, "flawless_wins": 1,
 		"clutch_wins": 0, "wins_on:caravan_pass": 1, "maps_won": 1}
@@ -170,7 +169,6 @@ func test_the_events_count_for_the_accounts_player_only() -> void:
 	for id in ["guard_break", "surge_ko", "ring_out", "dodge_cancel", "meteor_untouched", "boulder_back",
 			"boulder_hit", "caravan_finish", "flag_capture", "combo_5", "flawless_win", "first_ko"]:
 		assert_true(Challenges.done(id), "%s is done" % id)
-	assert_false(Challenges.done("breakaway"), "slot 1's breakaway isn't ours")
 	# A Chaos Cup won with a sliver of health, hurt along the way.
 	Challenges.begin_match()
 	Challenges.note_event({"type": "hit", "attacker": 1, "target": 0, "move_type": "light", "dealt": 50.0, "power": 50.0})

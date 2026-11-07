@@ -221,7 +221,7 @@ func test_the_cpu_holds_sack_smack_to_a_full_charge_against_a_guard() -> void:
 #   - the fighters don't beat the assassins (Cairn 15-20%).
 # Kevin's call for the pass: trim the assassins and nerf Cerebro a little, never buff a mage.
 # Oct 29 2026, the Normal nerf (docs/plans/cpu-tiers.md: reaction 18, defend 0.4, combo 0.5,
-# mistake 0.19, breakaway 0.16, aggression 0.44, think 15, lead 0.25) re-drew it; a slower
+# mistake 0.19, aggression 0.44, think 15, lead 0.25) re-drew it; a slower
 # Normal is kited harder, so both mages climbed (--matrix --seeds=3, wins against the field):
 # Cerebro 78, Barkley 67, Crease 67, Sno 63, Digby 58, Pete 45, Culvert 43, Hissy 40,
 # Craglash 25, Cairn 22, Gillbert 17. Numbers from before that date aren't comparable. The

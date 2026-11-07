@@ -4,7 +4,7 @@ extends TestCase
 ## every tier reads are present on every row, and a kiting mage leads its shots by its
 ## tier's `lead` (Easy none, Hard and Rage in full). Numbers: docs/plans/cpu-tiers.md.
 
-const KNOBS := ["reaction", "defend", "combo", "mistake", "breakaway", "aggression", "think", "gap", "lead"]
+const KNOBS := ["reaction", "defend", "combo", "mistake", "aggression", "think", "gap", "lead"]
 
 
 func test_every_tier_has_every_knob() -> void:

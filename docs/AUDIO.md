@@ -24,6 +24,52 @@ Every sound plays on one of three audio buses under Master, and each has a volum
 and **Menu sounds** (`ui_move`, `ui_select`: menu navigation). `AudioView` creates the
 buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 
+## Distance falloff
+
+Fight sounds fade with distance from the listener (Nov 2026, balance pass). Each one
+plays from an `AudioStreamPlayer2D` at its event's world spot (`AudioView.play_at`; a
+pool of `VOICES` = 16, round robin, on the Effects bus) and Godot's own 2D curve does the
+fade: gain = `(1 - dist / max_distance) ^ attenuation`, silent from `max_distance` on,
+panned by `panning_strength`. All of them read ONE block, `"falloff"` in
+`data/audio.json` (`AudioView.falloff()`):
+
+| Key | Value | Meaning |
+| --- | --- | --- |
+| `max_distance` | 720 | world units (the stadium floor is 672 x 288; the screen shows about 480 x 270): silent from here |
+| `attenuation` | 1.5 | the curve's exponent: about -5 dB half a screen away, -11 dB across the stadium, -23 dB at 600 |
+| `panning_strength` | 1.0 | left/right placement (times the project's 2D panning strength) |
+
+**The listener** is `AudioView.listener`, an `AudioListener2D` made current at start-up and
+moved every tick by `main.gd:_audio_listener`: the fighter of the one person playing at
+this machine (online, or one local seat, training too), else the camera's centre (2-4
+local seats on one screen, a spectator, a replay, a showcase, CPU vs CPU). Fighters,
+effects, the camera and the listener are all in world units (views draw at the sim's
+`pos`; ArtScale only changes art density), so no conversion is needed.
+
+**Placed** (`play_at`): every sim event sound in `AudioView.on_event` with a spot (hits,
+blocks, swings, footsteps, projectiles and their flight sounds, slams, grabs, statuses,
+plants, hazard strikes, hits and ends, Crease's sheets, KO scatter cues), FxView's timed
+cues (`cue(sound, at)`), and in `main.gd:_react` a respawn, a rockslide, cleared rubble,
+a flag taken / fumbled / passed / landed / dropped / returned, a shrine coming up
+(`shrine_ready`, `shrine_soon`) and a bridge's strain, fall and rise.
+
+**Not placed** (`play`, heard alike everywhere): menu sounds, music, the crowd
+(`crowd_cheer`, `crowd_roar`: it rings the whole stadium), the KO sting (`ko`), a
+fighter's entrance and the round's end (`enter`, `duel_over`, `round_over`), the
+closing ring (`zone_move`), a hazard's warning (`hazard_warn`: a warning must reach
+everyone), the round-start countdown, and the modes' stingers and team alerts
+(`shutdown`, `crown`, `overtime`, `checkpoint`, `caravan_done`, `capture`, your flag
+taken, `shrine` claimed, `surge_ready`), plus Settings previews. A small pool of 4
+`AudioStreamPlayer`s on the Effects bus plays them.
+
+**Proximity voice chat shares the curve.** A voice plays from its own
+`AudioStreamGenerator` player (VoiceView), and `VoiceChat.gain_for` computes the same
+Godot formula from the same block (`AudioView.falloff_gain`). It doesn't go through an
+`AudioStreamPlayer2D` because a 2D player is silent past `max_distance`, and a teammate's
+voice must never drop below `team_floor` (data/voice.json) at any distance. Voice keeps
+its own left/right placement (`pan_width`). `tests/test_audio_falloff.gd` pins the shared
+block, the listener, the placed/unplaced split and the voice curve.
+
 ## Effects
 
 | Done | File | Plays when | Direction for the real version |
@@ -44,7 +90,7 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `swallow` | A held Gulp swallows someone whole | A long, deep, wobbling gulp |
 | [ ] | `plop` | ...and they come out the back end | A wet, comic plop; a little squelch |
 | [ ] | `parry` | Slip counter triggers | Bright, satisfying ting |
-| [ ] | `breakaway` | Breakaway escape | Whoosh + chime |
+| [ ] | `breakaway` | Tag-in whoosh (the `tag` event plays it; the escape is gone) | Whoosh + chime |
 | [ ] | `windup_red` | Unblockable / guard-break windup starts | Alarm-like; must read instantly |
 | [ ] | `windup_gold` | Strong (blockable) windup starts | Shimmer; less urgent than red |
 | [ ] | `fall` | Falling into a pit | Falling whistle |

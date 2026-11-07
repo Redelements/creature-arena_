@@ -57,10 +57,11 @@ func test_blindness_wears_off() -> void:
 	assert_eq(foe.blind, 0, "the blind wears off if they wait it out:")
 
 
-func test_guarding_the_flash_stops_the_blind() -> void:
+func test_guarding_the_flash_still_blinds() -> void:
+	# Nov 2026: a blind is crowd control, so it goes through a guard (cc_through_guard).
 	var sim := _duel("cairn", 8.0)
 	run(sim, 0, 2, GUARD)
-	assert_eq(_count(sim, "blinded", 30, S1, GUARD), 0, "a guarded flash blinds no one:")
+	assert_eq(_count(sim, "blinded", 30, S1, GUARD), 1, "a guarded flash still blinds:")
 
 
 func test_burrow_is_out_of_reach_and_pops_up_under_the_foe() -> void:

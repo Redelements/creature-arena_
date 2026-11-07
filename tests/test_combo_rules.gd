@@ -1,6 +1,6 @@
 extends TestCase
 ## The combo rules one at a time: variety bonus, stale moves, hitstun decay, juggle cap,
-## cancels only on contact, stacks, energy, cooldowns, breakaway, grabs, Slip, Runoff.
+## cancels only on contact, stacks, energy, cooldowns, grabs, Slip, Runoff.
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -172,39 +172,6 @@ func test_skills_have_cooldowns() -> void:
 	assert_true(a.state != CreatureSim.State.ATTACK, "can't Rush again yet")
 	run(sim, 0, 150)
 	assert_true(a.can_use("skill_2"), "Rush ready after 3 s")
-
-
-func test_breakaway_escapes_a_combo() -> void:
-	var sim := _duel("craglash", "cairn")  # every hit of his staggers
-	var d := sim.creatures[1]
-	d.energy = 60.0
-	var press := true
-	for i in 160:  # Rake > Rockslide Stomp > Landslide Charge, mashed, until the third hit lands
-		var bit: int = [L, H, S1][mini(d.combo_hits, 2)]
-		run(sim, bit if press else 0, 1)
-		press = not press
-		if d.combo_hits >= 3:
-			break
-	assert_eq(d.combo_hits, 3, "combo reached 3 hits:")
-	assert_true(d.is_stunned(), "stunned")
-	var energy_before := d.energy
-	run(sim, 0, 1, G | D)
-	assert_eq(d.state, CreatureSim.State.IDLE, "free:")
-	assert_eq(d.invuln, CreatureSim.BREAKAWAY_INVULN, "invulnerable:")
-	assert_near(d.energy, energy_before - 50.0, 0.001, "energy spent:")
-	assert_eq(d.combo_hits, 0, "combo reset:")
-
-
-func test_breakaway_not_on_the_first_hits() -> void:
-	var sim := _duel("craglash", "cairn")  # his lights stagger on every hit
-	var d := sim.creatures[1]
-	d.energy = 100.0
-	tap(sim, L, 1)  # his Rake is slow: wait for it to land
-	run_until(sim, func(): return d.combo_hits >= 1, 40)
-	run(sim, 0, 2)
-	assert_eq(d.combo_hits, 1, "one hit:")
-	run(sim, 0, 1, G | D)
-	assert_true(d.is_stunned(), "still stunned after one hit")
 
 
 func test_gulp_ignores_guard() -> void:

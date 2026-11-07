@@ -1,0 +1,4 @@
+{
+	"_doc": "Class-wide knobs keyed by a fighter's \"role\" (data/creatures/<id>.json). damage_mult: every point of damage a fighter of that role deals is multiplied by it, on the attacker's side: every hit (strikes, projectiles, lobs and their bursts, bounces, storm pulses, rams, armor chip) in MatchSim._apply_hit, and the poison it leaves (poison_damage and venom stacks, scaled when applied). A missing role is 1.0. Not hazards or falls (nobody's attack). Read by MatchSim.class_damage_mult(); part of Netplay.data_hash.",
+	"damage_mult": {"mage": 1.3}
+}

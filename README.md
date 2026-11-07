@@ -39,7 +39,7 @@ Eleven fighters, each with a full moveset and a CPU opponent. The class is in br
 - **Chef Cerebro** (mage), a floating brain in sunglasses who only wants to cook (the finest
   dishes, and his opponents): a mage whose kitchen floats around him and flies by
   telekinesis. He flicks knives, tosses a meat mallet and hurls his cleaver from range,
-  tenderizes anyone who gets close, flips them over his head with a spatula, finishes with
+  throws the mallet to tenderize and stun, flings a spatula that flips foes, finishes with
   a stream of knives, and dodges by teleporting.
 - **Hissy Fitz** (fighter), kicked out of the museum for turning the guards to stone: a boxer with a
   head of hair snakes and a pair of red gloves who jabs up close, spits venom that poisons
@@ -194,7 +194,7 @@ CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
 - **Punishes every opening.** It hits back on whiffs and blocked swings, and only throws
   a jab that can't be walked away from or out-traded.
 - **Never wastes anything.** It never drops a combo, picks the best route it can afford,
-  leads its shots, and saves its energy for a Surge unless a breakaway is worth more.
+  leads its shots, and saves its energy for a Surge .
 - **Moves smart.** It walks around holes and out of corners.
 - **Plays each fighter by its class** (its `role`, or `"style"` in its `ai` block):
   - **mage:** kites at the edge of its range, strafing so it keeps facing you and
@@ -268,7 +268,6 @@ whichever device you used last.
 | Surge | RT | R | O |
 | Dodge roll | RB | D or Space (toward cursor) | Space |
 | Guard | LB | F or Shift | Shift |
-| Breakaway (while stunned) | LB + RB | D + F | Shift + Space |
 | Tag (Duel) | LT | T | L |
 | Stop | — | S | — |
 | Pause (in a fight) | Start or View | Esc | Esc |
@@ -403,7 +402,7 @@ widen toward the end of their reach.
 **Mixing types pays.** Each hit is multiplied by how many different types have landed in the
 combo so far: ×1.0, ×1.15, ×1.3, ×1.5. **Limits keep it fair:** a move repeated in the same
 combo does half damage, hitstun shrinks with every hit, launched targets take at most three
-juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
+juggle moves.
 
 Energy fills as you deal and take damage (about one Surge per round). It fills fastest
 from combos that mix move types (a light into a heavy into a skill); lights alone barely
@@ -691,8 +690,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Cast Line (6f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Tenderize (8f), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f, the thrown spatula), Mountain Maw (12f, the hook), Cast Line (6f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Tenderize (8f, the thrown mallet), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -750,7 +749,7 @@ three-second lockdown while his team does the damage.
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him (16 frames to land out of a combo, a slow recovery). **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 250 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
-| Surge | Bedrock | Roots in place for 3 s: hits only chip him (85% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
+| Surge | Bedrock | Roots in place for 3 s: hits only chip him (85% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. While it lasts, nobody inside the 200 px zone can walk, dodge, dash or blink out of it (only a hit can knock them out). Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 60-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits count too, blocked ones included), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 | Dodge | Landslide Ram | His roll is a shoulder charge about as far as anyone's roll (about 55 px), and it costs **70%** of his stamina (most dodges cost 60%), though he gets it back at the usual rate (0.5 a tick). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
@@ -790,7 +789,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 
 ### Chef Cerebro — a floating brain that cooks with its mind
 
-A mage (210 HP, Lumen affinity). He floats a hand's height off the floor with his
+A mage (140 HP, Lumen affinity). He floats a hand's height off the floor with his
 kitchen hovering around him (big knife, spatula, meat mallet, paring knives, his chef's hat) and
 throws it all with his mind: whatever he's moving glows violet, and so does he.
 **Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
@@ -799,14 +798,14 @@ walls but not by pits (blinking onto a hole drops him in). It **recharges for 1 
 each blink (a violet bar beside his stamina drains away; a dodge pressed just before it's
 ready comes out when it is). **Most of his attacks are thrown, and
 his skills reach 120–130 px (about half Gillbert's Cast Line), his lights a little shorter (about 115 px)**, so he wants foes at knife
-range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
+range, where he softens them up and stuns them with a thrown mallet or flips them with a thrown spatula. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 70% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives never stagger: they only chip. **Mise en place:** the Mallet Toss staggers a foe he has **tenderized** ("STAGGERED!"), so Tenderize first and then the string is a real combo: Flick, Flick, Mallet, then Cleaver Toss or Tenderize again. On a foe that isn't tenderized it only chips, and what follows it can be blocked or dodged |
-| Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
+| Heavy | Tenderize | **Throws** the meat mallet in a straight line, about 110 px, **slower** than anything else he throws (4 px a frame). The first foe it hits is **tenderized** (they take 20% more damage for 4 s; a pink arrow shows it) and **stunned on their feet for 3 s** ("STUNNED", a pink ring round their feet runs down): long enough for his whole kit, and his own hits don't cut it short. No lock-on: dodge it or step out of its lane. Hold to charge (harder). A guard blocks it like any shot |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the first foe in its path and then **bounces once** to the nearest other foe within 80 px (60% damage). Keeps a juggle going |
-| Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
+| Skill 2 | Flip Out | **Throws** the spatula in a straight line, about 110 px; the first foe it meets is scooped up and flipped. **Tap** it: they're flipped **toward him**, over his head, to land behind him (he turns to follow). **Hold** it (the button still down 20 frames after the press, the same hold as Culvert's Gulp): they're flipped **away**, landing about 64 px further out. A grab: it beats guard (red tell), but a dodge or a step out of its lane makes it miss |
 | Surge | Cooking with Fire (was Knife Flurry) | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line (a fat knife, with the outer ones fanned a little wider so a lane isn't a single pixel); the last one knocks down and **tenderizes** (takes 25% more damage for 4 s), so follow it up. Block it (it only drains stamina) or sidestep the lane. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup. He fires it from a cast-iron pan: the eight shots fly as fireballs (looks only; the same hits as knives) |
 
 The sheet gives him no passive, so he has none. His victory emote (hibachi tricks) waits
@@ -847,7 +846,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | --- | --- | --- |
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
-| Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
+| Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding doesn't stop it: a blind is crowd control |
 | Skill 2 | Burrow | Dives underground and tunnels about 130 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s**, and in that window his swipes stagger, so the pop-up runs into Swipe, Swipe, Pickaxe |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
@@ -898,7 +897,7 @@ shivering) waits for a victory-pose system.
 
 ### Mister Crease — folded from a magician's last playbill
 
-A mage (200 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
+A mage (135 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
 paper all over: a huge pleated orange hat with nothing under it but shadow and a red
 collar point, a navy suit cut in panels, a maroon vest and cape, orange paper shoes.
 He's paper, so he's light (weight 0.75): knockback carries him further than anyone.
@@ -915,10 +914,10 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Paper Cut ×3 | Flicks origami darts (about 115 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers. On the Twin-stick layout the right stick flicks them on its own |
-| Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING"). Hold to charge: at a **full charge it breaks guard** |
-| Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
-| Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows**: the middle frog **shoves the foe straight back**, the outer frogs **shove them out to their side**. A foe is hit by one frog at most; blockable. 5 s cooldown |
-| Surge | Thousand Cranes (full meter; no sheets needed) | A lob that **locks on**: point it at a foe (within about 23°, up to about 270 px) and even a tap lands it on them (the landing ring turns gold); point it at empty floor and hold for distance (about 95 to 220 px). It bursts into a **storm of cranes** about 160 px across for 2.5 s: hit after hit inside it, and it **slows** whoever stays in, then everyone is pushed out and the floor cracks in a wide ring. Leave the circle (a roll covers it even slowed) |
+| Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING") and **staggered** long enough to fold and throw the crane after it (94 ticks, 100 charged). Hold to charge: at a **full charge it breaks guard** |
+| Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle, long enough to fold and throw the shuriken under them (85 ticks). 4 s cooldown |
+| Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows** (94 ticks: time to fold and land the crane) and **shoves the foe sideways**, square to the frogs' path, out to whichever side of that frog's line they stand on: aim the row so they're on the storm's side to shove them into Thousand Cranes, or keep them in it. A foe is hit by one frog at most; blockable (face the frogs). 5 s cooldown |
+| Surge | Thousand Cranes (full meter; no sheets needed) | A lob that **locks on**: point it at a foe (within about 23°, up to about 270 px) and even a tap lands it on them (the landing ring turns gold); point it at empty floor and hold for distance (about 95 to 220 px). It bursts into a **storm of cranes** about 160 px across for 2.5 s: hit after hit inside it. Whoever it lands **right on** (its center) is **knocked up** by the first hit, once; anyone who steps into the center later is knocked up by their next hit, once each per storm. Every other hit **slows** (109 ticks, time to fold and send the frogs), and at the end everyone is pushed out (no knock-up) and the floor cracks in a wide ring. Leave the circle (a roll covers it even slowed) |
 | Dodge | Paper Plane | Folds into a paper airplane and glides about 116 px (farther than Chef Cerebro's 90 px blink), **over fences** |
 
 **Victory pose:** he folds himself into a giant crane, flies a loop and unfolds with a
@@ -948,10 +947,10 @@ storm.
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 78.5 |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 19.0 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (not a combo) |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Cooking with Fire | 61.5 (not a combo) |
-| Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 24.2 (a combo: the mallet staggers) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 24.7 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 37.8 (the string isn't a combo; once the thrown Tenderize lands, its 3 s stun makes the Cleaver sure) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Cooking with Fire | 79.9 (not a combo) |
+| Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 31.5 (a combo: the mallet staggers) |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 81.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |
@@ -960,8 +959,9 @@ storm.
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +10%) | 116.4 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 47.8 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 63.9 + |
-| Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |
+| Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 27 + bleed |
 
+The mages' numbers include their class multiplier (×1.3 on everything a mage deals, `data/rules/classes.json`, Nov 2026).
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
 ## Progression
@@ -1037,7 +1037,7 @@ godot --headless --path . --script res://tests/run_tests.gd
 
 Over 1,300 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
-hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
+hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, Sneaky Pete's stealth, stolen power and blink, Sno Mercy's cone, syrup puddles and ice, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
@@ -1067,7 +1067,7 @@ replacement checklist; which file plays for what, and how loud, lives in
 ## Roadmap
 
 - [x] **Phase 0 – Prototype:** one creature vs. a dummy; move, dodge, attack, hitstop, knockback, breakable floor
-- [x] **Combat system:** attack types, cancels, variety bonus, launches, counters, grabs, projectiles, Surges, breakaway
+- [x] **Combat system:** attack types, cancels, variety bonus, launches, counters, grabs, projectiles, Surges
 - [x] **Second fighter and CPU opponent:** Cairn, versus mode, best-of-3 rounds, Easy/Normal/Hard
 - [x] **Effects pass:** per-move effects, knockout animations, Surge cut-ins, squash and stretch, combo tracker, crowd reactions
 - [ ] **Vertical slice:** final art for two fighters, one finished arena, tag-team swap, local 2-player

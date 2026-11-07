@@ -372,15 +372,13 @@ func test_reset_forgets_every_voice() -> void:
 
 func test_gain_fades_with_distance_and_a_teammate_keeps_a_floor() -> void:
 	var c := VoiceChat.data()
-	var full := float(c["full_radius"])
-	var silent := float(c["silent_radius"])
+	var silent := float(AudioView.falloff()["max_distance"])  # the fight sounds' shared falloff
 	assert_eq(VoiceChat.gain_for(0.0, false), 1.0, "right beside:")
-	assert_eq(VoiceChat.gain_for(full, false), 1.0, "at full_radius:")
-	assert_eq(VoiceChat.gain_for(silent, false), 0.0, "an enemy at silent_radius:")
+	assert_eq(VoiceChat.gain_for(silent, false), 0.0, "an enemy at the falloff's max_distance:")
 	assert_eq(VoiceChat.gain_for(silent * 3.0, false), 0.0, "far beyond it:")
 	assert_near(VoiceChat.gain_for(silent * 3.0, true), float(c["team_floor"]), 0.0001, "a teammate far away:")
 	var last := 1.0
-	var d := full + 5.0
+	var d := 5.0
 	while d < silent:
 		var g := VoiceChat.gain_for(d, false)
 		assert_lt(g, last, "quieter at %d than closer in" % int(d))

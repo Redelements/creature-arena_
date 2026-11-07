@@ -34,6 +34,9 @@ static var _projectile_rules := {}
 ## Energy rates and whether the meter carries between rounds (data/rules/energy.json).
 const ENERGY_PATH := "res://data/rules/energy.json"
 static var _energy_rules := {}
+## Class-wide knobs by role (data/rules/classes.json): damage_mult per role.
+const CLASSES_PATH := "res://data/rules/classes.json"
+static var _class_rules := {}
 
 var tick := 0
 var hitstop := 0
@@ -475,7 +478,7 @@ func state_digest() -> String:
 	for z in zones:
 		parts.append_array([z["pos"], z["radius"], z["ticks"], z["owner"], z["slow_mult"]])
 	for st in storms:
-		parts.append_array([st["pos"], st["radius"], st["t"], st["ticks"], st["owner"]])
+		parts.append_array([st["pos"], st["radius"], st["t"], st["ticks"], st["owner"], st.get("launched", [])])
 	for p in projectiles:
 		if p.has("home"):
 			parts.append_array([p["home"]["stop"], p["speed"]])
@@ -581,6 +584,23 @@ static func energy_rules() -> Dictionary:
 	return _energy_rules
 
 
+## The class rules (data/rules/classes.json), loaded once.
+static func class_rules() -> Dictionary:
+	if _class_rules.is_empty():
+		var f := FileAccess.open(CLASSES_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_class_rules = d if d is Dictionary else {}
+	return _class_rules
+
+
+## The attacker-side damage multiplier of `a`'s class (its "role"): classes.json
+## damage_mult[role], 1.0 when missing. Static per fighter. Every damage `a` deals goes
+## through it once: _apply_hit for hits, and the poison a hit leaves.
+static func class_damage_mult(a: CreatureSim) -> float:
+	var t: Dictionary = class_rules().get("damage_mult", {})
+	return float(t.get(String(a.def.get("role", "fighter")), 1.0))
+
+
 static func energy_rate_dealt() -> float:
 	return float(energy_rules().get("per_damage_dealt", ENERGY_PER_DAMAGE))
 
@@ -637,7 +657,10 @@ func _lifesteal(a: CreatureSim, dealt: float) -> void:
 ## Returns "slip", "block" or "hit".
 ## `ranged`: the hit came from a projectile or a lob, not a strike in reach.
 func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, fx_pos: Vector2,
-		ranged := false) -> String:
+		ranged := false, guard_from := Vector2.ZERO) -> String:
+	# Which way a guard has to face to block it: the push, or `guard_from` (the way a shot
+	# flies) when the push isn't along the attack (Paper Frog's sideways knock).
+	var guard_dir := guard_from if guard_from != Vector2.ZERO else push
 	# Blinded when the attack started (Headlamp Flash): it misses.
 	if a.whiff_serial > 0 and int(hit["serial"]) == a.whiff_serial:
 		emit_event("miss", fx_pos, 0.0, {"who": a.id, "target": d.id})
@@ -650,7 +673,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.trigger_counter(a.pos, self)
 		return "slip"
 
-	var damage := float(hit["damage"])
+	var damage := float(hit["damage"]) * class_damage_mult(a)  # the class multiplier (classes.json)
 	if a.atk_buff > 0:
 		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
 	if a.boost_dmg != 1.0:
@@ -677,7 +700,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		return "armor"
 
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]):
-		var facing_attacker := d.facing.dot(-push) > 0.3
+		var facing_attacker := d.facing.dot(-guard_dir) > 0.3
 		var drain := block_drain(d, String(hit["type"]), damage)
 		if facing_attacker and not bool(hit["guard_break"]) and d.stamina - drain <= 0.0:
 			# Out of stamina: the guard drops and this hit lands clean, with nothing extra
@@ -695,20 +718,23 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
+			# Crowd control goes through a guard (stamina.json cc_through_guard): only the
+			# damage is blocked. A reaction (stone, knockdown, launch, crumple, stagger) drops it.
+			var cc := _cc_through_guard(a, d, hit, push)
+			var reacted := d.state != CreatureSim.State.GUARD
+			if reacted:
+				d.guard_hit = 0
 			if same_attack:
 				a.connected = true
-				_punish_blocked_ender(a, d)
-			if bool(hit.get("root_through_guard", false)) and float(hit.get("root_ticks", 0.0)) > 0.0:
-				# The roots take hold through a guard (Root Eruption): only the damage is blocked.
-				d.root = maxi(d.root, int(hit["root_ticks"]))
-				emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
+				if not reacted:
+					_punish_blocked_ender(a, d)
 			impact_stop(a, d, int(float(hit["hitstop"]) * 0.5), ranged)
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id, "move_type": String(hit["type"]),
-				"dealt": 0.0})
+				"dealt": 0.0, "cc": cc})
 			return "block"
 	var broke_guard := false
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]) and bool(hit["guard_break"]) \
-			and d.facing.dot(-push) > 0.3:
+			and d.facing.dot(-guard_dir) > 0.3:
 		broke_guard = true
 		emit_event("guard_break", d.pos, 1.0, {"who": d.id})
 
@@ -787,7 +813,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		# has to be applied here, not in get().
 		var every := int(hit.get("poison_every", 0))
 		d.poison_every = every if every > 0 else POISON_EVERY_DEFAULT
-		d.poison_dmg = float(hit["poison_damage"])
+		d.poison_dmg = float(hit["poison_damage"]) * class_damage_mult(a)
 		d.poison_by = a.id
 		d.poison_look = String(hit.get("poison_look", ""))
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id, "look": d.poison_look})
@@ -831,11 +857,19 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.stone = ticks
 		d.stone_ice = ice
 		emit_event("freeze" if ice else "petrify", d.pos, total, {"who": d.id, "by": a.id})
+	elif float(hit.get("stun_ticks", 0.0)) > 0.0:
+		# A fixed stun (Chef Cerebro's thrown Tenderize): helpless on its feet for exactly
+		# `stun_ticks`, never shortened by combo decay or by the hits that follow
+		# (CreatureSim.stun_lock). Even out of the air.
+		var lock := int(hit["stun_ticks"])
+		d.enter_crumple(lock, kb * 0.3)
+		d.stun_lock = maxi(d.stun_lock, lock)
+		emit_event("stunned", d.pos, float(lock), {"who": d.id, "by": a.id})
 	elif grabbed and float(hit.get("swallow", 0.0)) > 0.0:
 		_swallow(a, d, hit)
 		emit_event("swallow", a.pos + Vector2(0, -16), total, {"attacker": a.id, "target": d.id})
-	elif grabbed and float(hit.get("flip", 0.0)) > 0.0:
-		_flip(a, d, hit)
+	elif grabbed and (float(hit.get("flip", 0.0)) > 0.0 or float(hit.get("flip_away", 0.0)) > 0.0):
+		_flip(a, d, hit, push, same_attack or a.state != CreatureSim.State.ATTACK)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
 	elif grabbed and float(hit.get("pull", 0.0)) > 0.0:
 		# A hook (Culvert's tongue, tapped): the target is stunned and hauled in to him.
@@ -856,8 +890,9 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		else:
 			d.enter_air(int(hit["launch"]), kb * 0.5)
 	elif was_air:
-		var float_t := int(hit.get("juggle_float", 0.0))
-		d.extend_air(float_t if float_t > 0 else CreatureSim.JUGGLE_FLOAT, kb * 0.5)
+		if not bool(hit.get("no_float", false)):  # a storm's pulse hurts but doesn't keep it up
+			var float_t := int(hit.get("juggle_float", 0.0))
+			d.extend_air(float_t if float_t > 0 else CreatureSim.JUGGLE_FLOAT, kb * 0.5)
 	elif float(hit["crumple"]) > 0.0:
 		d.enter_crumple(int(hit["crumple"]), kb)
 	elif broke_guard:
@@ -892,16 +927,103 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	return "hit"
 
 
-## Flip Out: the target is scooped up and carried in an arc over the attacker's head,
-## landing `flip` pixels behind its body, and the attacker turns to face where it lands.
-## The carry takes the first half of the launch; it hangs there for the rest.
-func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
-	var behind := a.pos - a.facing * (a.radius + d.radius + float(hit["flip"]))
-	behind = behind.clamp(d.floor_min(), d.floor_max())
+## The crowd control a blocked hit still lands (stamina.json "cc_through_guard"; every kind
+## when the key is left out). Plain hitstun, damage, poison, a tenderize and a steal stay blocked.
+const CC_KINDS := ["slow", "root", "blind", "freeze", "petrify", "stun", "launch", "knockdown",
+	"crumple", "pull", "stagger"]
+
+
+static func cc_through_guard() -> Array:
+	return CreatureSim.stamina_rules().get("cc_through_guard", CC_KINDS)
+
+
+## A blocked hit's crowd control: each kind in cc_through_guard the hit carries lands on the
+## guarding `d` with its full duration, as on a clean hit (the same status values and the same
+## enter_* reaction, so a launch, knockdown, crumple, stone or stagger drops the guard). No
+## health is lost. Returns the kinds that landed (the "block" event's "cc").
+func _cc_through_guard(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2) -> Array:
+	var through := cc_through_guard()
+	var out: Array = []
+	if "slow" in through and float(hit.get("slow_ticks", 0.0)) > 0.0:
+		d.slow = maxi(d.slow, int(hit["slow_ticks"]))
+		d.slow_mult = float(hit["slow_mult"])
+		emit_event("slow", d.pos, float(hit["slow_ticks"]), {"who": d.id, "blocked": true})
+		out.append("slow")
+	if "blind" in through and float(hit.get("blind_ticks", 0.0)) > 0.0:
+		d.blind = maxi(d.blind, int(hit["blind_ticks"]))
+		emit_event("blinded", d.pos, float(hit["blind_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
+		out.append("blind")
+	# root_through_guard (Root Eruption) roots through a guard even when "root" is left out.
+	if ("root" in through or bool(hit.get("root_through_guard", false))) and float(hit.get("root_ticks", 0.0)) > 0.0:
+		d.root = maxi(d.root, int(hit["root_ticks"]))
+		emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
+		out.append("root")
+	# The reaction, in a clean hit's order. A hit that doesn't stagger (no_flinch) has none,
+	# unless its stagger_if mark pays off (then it lands as an ordinary hit would).
+	var no_flinch := bool(hit.get("no_flinch", false))
+	var paid_off := no_flinch and d.has_mark(String(hit.get("stagger_if", "")))
+	if not no_flinch or (paid_off and "stagger" in through):
+		var kb := push * float(hit["knockback"]) / d.weight
+		var ice := float(hit.get("freeze_ticks", 0.0)) > 0.0
+		var stone := float(hit.get("petrify", 0.0)) > 0.0
+		if (ice and "freeze" in through) or (stone and not ice and "petrify" in through):
+			var ticks := int(hit["freeze_ticks"]) if ice else int(hit["petrify"])
+			d.enter_crumple(ticks, kb * 0.3)
+			d.stone = ticks
+			d.stone_ice = ice
+			emit_event("freeze" if ice else "petrify", d.pos, 0.0, {"who": d.id, "by": a.id, "blocked": true})
+			out.append("freeze" if ice else "petrify")
+		elif "stun" in through and float(hit.get("stun_ticks", 0.0)) > 0.0:
+			# A fixed stun (the thrown Tenderize) lands in full on a guard too.
+			var lock := int(hit["stun_ticks"])
+			d.enter_crumple(lock, kb * 0.3)
+			d.stun_lock = maxi(d.stun_lock, lock)
+			emit_event("stunned", d.pos, float(lock), {"who": d.id, "by": a.id, "blocked": true})
+			out.append("stun")
+		elif "knockdown" in through and float(hit["knockdown"]) > 0.0:
+			d.enter_knockdown(int(hit["knockdown"]), kb)
+			out.append("knockdown")
+		elif "launch" in through and float(hit["launch"]) > 0.0:
+			d.enter_air(int(hit["launch"]), kb * 0.5)
+			out.append("launch")
+		elif "crumple" in through and float(hit["crumple"]) > 0.0:
+			d.enter_crumple(int(hit["crumple"]), kb)
+			out.append("crumple")
+		elif paid_off:
+			d.enter_hitstun(int(hit["hitstun"]), kb)
+			out.append("stagger")
+	# A pull (not a grab's: grabs never reach a guard) reels the guard in as on a clean hit.
+	var pull := float(hit.get("pull", 0.0))
+	if "pull" in through and pull > 0.0 and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + pull)
+		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
+		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
+		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id, "blocked": true})
+		out.append("pull")
+	if not out.is_empty():
+		d.last_attacker = a.id
+	return out
+
+
+## Flip Out: the target is scooped up and carried in an arc along `dir` (the line from the
+## attacker through it: the strike's or the shot's push). With "flip" it comes toward him,
+## over his head, landing `flip` px behind his body, and he turns to face where it lands
+## (`turn`: unless he's busy with another move by then). With "flip_away" it's thrown the
+## other way, landing `flip_away` px beyond where it stood. The carry takes the first half
+## of the launch; it hangs there for the rest.
+func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary, dir: Vector2, turn := true) -> void:
+	var away := float(hit.get("flip_away", 0.0))
+	var to: Vector2
+	if away > 0.0:
+		to = d.pos + dir * away
+	else:
+		to = a.pos - dir * (a.radius + d.radius + float(hit["flip"]))
+	to = to.clamp(d.floor_min(), d.floor_max())
 	var ticks := maxi(int(hit["launch"]), 2)
 	d.enter_air(ticks, Vector2.ZERO)
-	d.start_flip(behind, ticks / 2)
-	a.facing = -a.facing
+	d.start_flip(to, ticks / 2)
+	if away <= 0.0 and turn:
+		a.facing = -dir
 
 
 ## Venom Frenzy (creature key "venom_frenzy", Hissy Fitz's passive): landing `at_hits`
@@ -919,7 +1041,7 @@ func _venom_frenzy(a: CreatureSim, d: CreatureSim) -> void:
 			d.poison_stacks = 0
 			d.poison_dmg = 0.0
 		d.poison_stacks = mini(d.poison_stacks + 1, int(vf.get("max_stacks", 5)))
-		d.poison_stack_dmg = float(vf.get("poison_damage", 1.0))
+		d.poison_stack_dmg = float(vf.get("poison_damage", 1.0)) * class_damage_mult(a)
 		d.poison = maxi(d.poison, int(vf.get("poison_ticks", 180)))
 		d.poison_every = int(vf.get("poison_every", POISON_EVERY_DEFAULT))
 		d.poison_by = a.id
@@ -971,28 +1093,6 @@ func _poop(a: CreatureSim, d: CreatureSim) -> void:
 	if d.state != CreatureSim.State.KO:
 		d.enter_air(d.swallow_air, -a.facing * POOP_SPEED)
 	emit_event("poop", d.pos, 1.0, {"attacker": a.id, "target": d.id})
-
-
-## Guard + Dodge while stunned: spend energy to escape the combo.
-func breakaway(d: CreatureSim) -> void:
-	d.energy -= CreatureSim.BREAKAWAY_COST
-	var away := -d.facing
-	var a: CreatureSim = null
-	if d.last_attacker >= 0 and d.last_attacker < creatures.size():
-		a = creatures[d.last_attacker]
-		if a.pos.distance_squared_to(d.pos) > 0.0001:
-			away = (d.pos - a.pos).normalized()
-	d.reset_combo()
-	d.stun = 0
-	d.cancel_attack()
-	d._set_state(CreatureSim.State.IDLE)
-	d.invuln = CreatureSim.BREAKAWAY_INVULN
-	d.knock_vel = away * 3.2
-	if a != null and a.state == CreatureSim.State.ATTACK:
-		a.cancel_attack()
-		a._set_state(CreatureSim.State.IDLE)
-		a.knock_vel = -away * 2.4
-	emit_event("breakaway", d.pos + Vector2(0, -16), 1.0, {"who": d.id})
 
 
 ## A blocked third light (or later) leaves the attacker open: no cancelling out of it into
@@ -1166,6 +1266,8 @@ func _new_projectile(owner: CreatureSim, p: Dictionary, hit: Dictionary, vel: Ve
 		pr["end_sound"] = String(p["end_sound"])  # cosmetic, passed on to the view
 	if not bool(p.get("crack_trail", true)):
 		pr["no_crack"] = true
+	if String(p.get("knock", "")) == "side" and not lob:
+		pr["knock"] = "side"  # knocks square across its flight (Paper Frog): _side_knock
 	if lob:
 		pr["lob"] = true
 		pr["time"] = life
@@ -1240,7 +1342,10 @@ func _step_projectiles() -> void:
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
 				continue
 			var vel: Vector2 = p["vel"]
-			_apply_hit(owner, d, hit, Vector2(p.get("push", vel.normalized())), pos + Vector2(0, -10), true)
+			var push := Vector2(p.get("push", vel.normalized()))
+			if String(p.get("knock", "")) == "side":
+				push = _side_knock(p, d.pos)
+			_apply_hit(owner, d, hit, push, pos + Vector2(0, -10), true, vel.normalized())
 			if p.has("row_struck"):
 				_row_struck(p, d.id)
 			if pierce:
@@ -1295,6 +1400,21 @@ func _bounce(p: Dictionary, from: CreatureSim) -> bool:
 	emit_event("projectile_bounce", at, 1.0, {"who": owner.id, "from": from.id, "to": best.id,
 		"sound": String(p.get("end_sound", ""))})
 	return true
+
+
+## A shot with "knock": "side" (Paper Frog) knocks square across its flight, toward the
+## side of its line the foe's center is on: (vx, vy) turned a quarter to (-vy, vx) or
+## (vy, -vx), no trig. Dead on the line: an outer one of a row pushes out to its own side,
+## anything else to the left of its flight.
+func _side_knock(p: Dictionary, at: Vector2) -> Vector2:
+	var dir := Vector2(p["vel"]).normalized()
+	var across := Vector2(-dir.y, dir.x)
+	var off := at - Vector2(p["pos"])
+	var side := signf(dir.x * off.y - dir.y * off.x)
+	if side == 0.0:
+		side = signf(float(p.get("lane", 0)))  # a row's lanes are laid out along the same `across`
+		side = side if side != 0.0 else 1.0
+	return across * side
 
 
 ## One of a row hit `foe_id`: the rest of that row (in flight, or yet to move this tick) pass them by.
@@ -1359,8 +1479,11 @@ func _burst(p: Dictionary) -> void:
 # ------------------------------------------------------------------ storms
 
 ## A storm where a lob landed: storm keys {radius, ticks, every, damage, hitstun,
-## knockback_end, launch_end, crack_inner, crack_outer}; the throw's hit values
-## otherwise.
+## knockback_end, launch_end, crack_inner, crack_outer, center_launch}; the throw's hit
+## values otherwise. A pulse never keeps an airborne target up ("no_float").
+## "center_launch" {radius, launch}: a pulse knocks up (instead of slowing) a foe whose
+## body is within `radius` of the storm's center, once per foe per storm (the ids in the
+## storm's "launched", saved with it); every other pulse, and the last hit, only slow.
 func _add_storm(owner: CreatureSim, at: Vector2, sd: Dictionary, hit: Dictionary) -> void:
 	var pulse := hit.duplicate()
 	pulse["damage"] = float(sd.get("damage", 2.0))
@@ -1369,15 +1492,25 @@ func _add_storm(owner: CreatureSim, at: Vector2, sd: Dictionary, hit: Dictionary
 	pulse["launch"] = 0.0
 	pulse["knockdown"] = 0.0
 	pulse["hitstop"] = float(sd.get("hitstop", 2.0))
+	pulse["no_float"] = true
 	var last := hit.duplicate()
 	last["damage"] = float(sd.get("damage_end", pulse["damage"]))
 	last["knockback"] = float(sd.get("knockback_end", 4.0))
 	last["launch"] = float(sd.get("launch_end", 0.0))
 	last["knockdown"] = float(sd.get("knockdown_end", 0.0))
 	last["hitstop"] = float(sd.get("hitstop_end", 10.0))
-	storms.append({"owner": owner.id, "pos": at, "radius": float(sd.get("radius", 40.0)), "t": 0,
+	var st := {"owner": owner.id, "pos": at, "radius": float(sd.get("radius", 40.0)), "t": 0,
 		"ticks": int(sd.get("ticks", 120)), "every": maxi(1, int(sd.get("every", 12))), "hit": pulse, "end": last,
-		"crack_inner": float(sd.get("crack_inner", 0.0)), "crack_outer": float(sd.get("crack_outer", 0.0))})
+		"crack_inner": float(sd.get("crack_inner", 0.0)), "crack_outer": float(sd.get("crack_outer", 0.0))}
+	var cl: Dictionary = sd.get("center_launch", {})
+	if not cl.is_empty():
+		var up := pulse.duplicate()
+		up["launch"] = float(cl.get("launch", 20.0))
+		up["slow_ticks"] = 0.0  # the knock-up instead of the slow
+		st["center"] = float(cl.get("radius", 0.0))
+		st["up"] = up
+		st["launched"] = []
+	storms.append(st)
 	emit_event("storm", at, float(sd.get("radius", 40.0)), {"who": owner.id, "ticks": int(sd.get("ticks", 120))})
 
 
@@ -1399,7 +1532,12 @@ func _step_storms() -> void:
 					continue
 				var push := d.pos - at
 				push = push.normalized() if push.length_squared() > 0.0001 else Vector2.RIGHT
-				_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10), true)
+				var h := hit
+				if not done and st.has("center") and not (st["launched"] as Array).has(d.id) \
+						and at.distance_to(d.pos) <= float(st["center"]) + d.radius:
+					h = st["up"]  # in the center: knocked up, once per foe per storm
+					(st["launched"] as Array).append(d.id)
+				_apply_hit(owner, d, h, push, d.pos + Vector2(0, -10), true)
 		if done:
 			if float(st["crack_outer"]) > 0.0:
 				terrain.crack_ring(at, float(st["crack_inner"]), float(st["crack_outer"]))

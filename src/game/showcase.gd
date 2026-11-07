@@ -223,12 +223,12 @@ const SCRIPTS := {
 		],
 	},
 	"cerebro": {
-		"left": "cerebro", "right": "cairn", "energy": [100, 0], "gap": 86.0, "hp": [-1, 70],
+		"left": "cerebro", "right": "cairn", "energy": [100, 0], "gap": 86.0, "hp": [-1, 91],  # 70 x1.3: the mage class multiplier
 		"title": "CHEF CEREBRO  -  FULL KIT",
 		"captions": [
 			["From range:", "Knife Flick", "Backhand Flick", "Mallet Toss", "Cleaver Toss"],
 			["Dodge: he teleports", "away", "and back"],
-			["Up close:", "Tenderize (sets them up)", "then:", "Flick", "Flick", "Mallet staggers them", "Cleaver Toss"],
+			["Thrown:", "Tenderize (stuns 3 s, sets them up)", "then:", "Flick", "Flick", "Mallet staggers them", "Cleaver Toss"],
 			["Flick", "Flick", "Mallet", "Flip Out", "Cooking with Fire"],
 		],
 		"steps": [
@@ -243,18 +243,18 @@ const SCRIPTS := {
 			{"do": "wait", "t": 50},
 			{"do": "dodge", "who": 0, "dir": "down", "show": 2},
 			{"do": "wait", "t": 50},
-			{"do": "place", "part": 2, "gap": 2.0},
+			{"do": "place", "part": 2, "gap": 60.0},
 			{"do": "wait", "t": 20, "show": 0},
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 1},
-			{"do": "until", "cond": "settled"},
-			{"do": "place", "gap": 60.0, "show": 2},
+			{"do": "until", "cond": "free:0"},
+			{"do": "wait", "t": 4, "show": 2},
 			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 3},
 			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 4},
 			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 5},
 			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 6},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 40},
-			{"do": "place", "part": 3, "gap": 2.0},
+			{"do": "place", "part": 3, "gap": 60.0},
 			{"do": "wait", "t": 20},
 			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
 			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
@@ -369,7 +369,7 @@ const SCRIPTS := {
 		],
 	},
 	"crease": {
-		"left": "crease", "right": "cairn", "energy": [100, 0], "gap": 110.0, "hp": [-1, 140],
+		"left": "crease", "right": "cairn", "energy": [100, 0], "gap": 110.0, "hp": [-1, 182],  # 140 x1.3: the mage class multiplier
 		"title": "MISTER CREASE  -  FULL KIT",
 		"captions": [
 			["Paper Stock: three sheets", "Fold a Crane", "Fold a Shuriken", "Fold a Frog", "All three in hand"],
