@@ -94,10 +94,12 @@ class CairnCutoutTests(unittest.TestCase):
     def test_every_frame_fits_and_retains_palette(self):
         allowed = {tuple(c) for c in palette.ALL}
         failures=[]
-        # Only the rows the cut-out draws so far (READY_ROWS); the rest still come from the old sheet.
+        sprite = json.loads((ROOT/"data/creatures/cairn.json").read_text())["sprite"]
+        side_only = sprite.get("side_only", [])
         for view in SOURCES:
             for row,count in poses.frame_counts().items():
                 if row not in renderer.READY_ROWS:continue
+                if view != "side" and row in side_only:continue   # never drawn in that view
                 for index in range(count):
                     image,trace=renderer.render(view,row,index)
                     label=f"{view}/{row}/{index}"

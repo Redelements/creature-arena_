@@ -1,8 +1,8 @@
 # Status: handoff snapshot
 
 Stamped: 2026-11-08
-Branch: codex/cairn-cutout-animation (same HEAD line as `cairn-rework`'s successor; base f91d274), local commits only, nothing pushed
-Trigger: Kevin's Cairn redesign; cut-out animation of his approved stills
+Branch: cairn-rework (PR pending)
+Trigger: Cairn cut-out extended to every row and view
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
 this and CLAUDE.md, states the next step in one line and continues (no re-exploration).
@@ -10,29 +10,38 @@ this and CLAUDE.md, states the next step in one line and continues (no re-explor
 ## Current state
 
 Cairn's look is five approved stills (`assets/sprites/source/cairn_cutout/`), animated as a
-cut-out (decision 2026-11-08, `docs/SPRITES.md` "Cut-out"). The rig `tools/gen_cairn.py` is only
+cut-out (decisions 2026-11-08, `docs/SPRITES.md` "Cut-out"). The rig `tools/gen_cairn.py` is only
 the pose source; it does not draw the sheets.
 
-Done:
-- Idle frame 0 rebuilds the still exactly in all five views (`tools/test_cairn_cutout.py`, 6 checks pass).
-  The old failures were the renderer's placement (rounded pivots) and hidden fills that weren't
-  limited to areas under later parts; the test's premise was right.
-- Side view `idle` (8) and `jab` (8) are drawn from the parts and live in `cairn_2x.png` / `_n`
-  (flat normals; emissive empty), packed, imported. Every other row and the four other views are
-  still the OLD stacked-stones sheets (he changes look between rows; expected, temporary).
-- Jab glove centre vs the rig: the MOVEMENT from idle 0 is within 0.5 px on every frame; the
-  absolute position sits (-5.5, -10.5) px off because the still's guard is tighter and its body
-  slimmer than the rig's.
-- Arm: two-bone solve (shoulder and glove from the rig, painted bone lengths, elbow below);
-  upper arm and forearm rotate, everything else is whole-pixel translation.
+Done (Nov 8):
+- Kevin approved the side idle + jab ("looks great") and asked for every animation in this style
+  and the health bar lifted off his face.
+- `fx_top` 44 -> 56 (the still is 54.5 units tall; the bar sat across his face). `ko_fx` bands and
+  eye spot re-measured on the still; HUD `portrait` moved to the head. NET_VERSION 76 -> 77
+  (`cairn.json` is in the data hash; no sim change).
+- `tools/gen_cairn_cutout.py` now draws all 15 rows of all five views (`--views all --live`;
+  `ko` side-only). New: head swings about the neck when the rig turns it 4 degrees or more
+  (hurt, ko, idle_alt); arm bones stretch up to 1.3 before the glove is held back; a glove that
+  travels past `GLOVE_SNAP` lands on the rig's absolute glove (the hit circle); gloves scale with
+  depth toward the camera (`GLOVE_GROW`, 0.7..1.5); facing the camera or away the arm parts follow
+  the rig's projection (`TRANSLATED_ARMS`); a part whose covering neighbour moves `REVEAL` px away
+  takes its `_complete` image. `cairn_cutout_parts.py`: a glove box keeps no stone pixels.
+- Idle 0 still rebuilds every still exactly; idle frames 1-7 match the approved sheet except a
+  24 px far-glove fill on frames 2-3. Six cut-out checks pass; packed sheets verified;
+  `anim_preview --check cairn` ok; showcase screenshots clean.
+- Windows build for Kevin: `C:\Users\Kevin\Downloads\CreatureArena-windows-cairn-rework\CreatureArena.exe`.
+  Review media: session scratchpad `cairn/cutout/review2/` (`<view>-sheet.png`, GIFs per row).
 
-Next (Kevin to judge first):
-1. His verdict on the idle/jab feel (GIFs in the session scratchpad `cairn/cutout/`, Windows build in
-   `Downloads/CreatureArena-windows-cairn-rework/`).
-2. Then the other rows of the side view (power, hook, heavy, hurt, guard, ko ...), then the four
-   other views. KO needs the old `ko_fx` slices re-measured (`gen_cairn.py kofx` is rig-based).
-3. Open: a second painted head for blinks/fidgets (idle has no blink), how much arm rotation reads
-   well, the cloth wrap on the forearm (it turns with the forearm), the far arm's hidden stub.
+Next:
+1. Kevin plays the build and judges every move in every direction; rulings wanted on the limits
+   below.
+2. Open the PR from `cairn-rework` (full suite + smoke were running at the stamp); server rebuild
+   after merge (NET 77).
+3. Known limits to put to Kevin: no blink / expression (one painted head per view: a second head
+   still would give blinks and the x-eyes); a punch facing the camera is the glove growing and
+   dropping toward the hips (the rig's camera); the knockout row lays the stones in a line (the
+   game scatters him from idle 0 anyway); the far arm's painted reach is 27 px, so the cross and
+   uppercut stretch the stones 1.3x and still stop short of the rig's glove by a few px.
 
-Commands: see `tools/CLAUDE.md` (cut-out bullet) for the sys.path wrapper; `--live` rebuilds the
-side sheets, then `pack_sheets.py cairn`, `--import`.
+Commands: `tools/CLAUDE.md` (cut-out bullet): the runpy wrapper, `--views all --live`, then
+`pack_sheets.py cairn`, `--import`.

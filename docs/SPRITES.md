@@ -217,12 +217,21 @@ files: the same part with its hidden surface filled under the parts above it, so
 still exactly); `tools/cairn_cutout_pose.py` projects `gen_cairn.py`'s rig poses (kept only as the pose
 source, it no longer draws the sheets) into a centre and angle per part; `tools/gen_cairn_cutout.py`
 puts the parts back together: the still is idle frame 0, every other frame is the rig's pose minus its
-idle-0 pose in whole pixels, only the arms rotate (two-bone solve to the rig's glove), and a turned
-part is re-inked. So frame counts, timing and glove reach are the rig's (jab glove centre within 0.5 px
-of the rig's movement on every frame). **So far** only the side view's `idle` and `jab` rows are cut-out
-(`--live` writes them into `cairn_2x.png`); every other row and the four other views are still the old
-stacked-stones sheets, so he changes look between rows until the rest is done. The cut-out rows' normal
-sheet is flat (facing the camera, `pack_normals` packing), their emissive rows empty.
+idle-0 pose in whole pixels. What may move beyond a translation: the arms (side and 3/4 views: a two-bone
+solve from the painted shoulder and elbow to the rig's glove; the bones stretch up to `STRETCH` 1.3 with
+the stones sliding apart before the glove is held back, since the painted far arm is foreshortened), the
+head (it swings about the neck on the hurt, knockout and fidget rows: `TURNING`, turns under `MIN_TURN` 4
+degrees translate), and the gloves alone scale (`GLOVE_GROW`: bigger coming at the camera, smaller going
+away, so a punch facing the camera reads). Facing the camera or away (`TRANSLATED_ARMS`: down, up) the
+arm parts move by the rig's own projection instead of a flat bone chain. A glove that travels more than
+`GLOVE_SNAP` is placed on the rig's absolute glove (where the hit circle is), blending from the still's
+guard, so strikes arrive where they hit and idle 0 stays exact. A part whose covering neighbour moves
+more than `REVEAL` px away from it (or that turns `REVEAL_TURN`) is drawn from its `_complete` file.
+Every turned or scaled part is re-inked; only palette colours and hard alpha reach a frame. Since Nov 8
+2026 every row of all five views is cut-out (`--views all --live`; `ko` is side-only). The normal sheets
+are flat (facing the camera, `pack_normals` packing), the emissive sheets empty. `ko_fx` bands and the eye
+spot were measured on the still (head 58-96, chest 96-117, belly 117-124, base and legs 124-170; the eye
+at (94, 70)); `fx_top` 56 (he is 109 px / 54.5 units tall).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |

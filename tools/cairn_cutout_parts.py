@@ -84,6 +84,13 @@ def _prepare(view):
  region('head',box(0,0,191,p['head']-1),(p['chest'][0],p['head']-20))
  for n,poly,c in p['arms']:region(n,poly,c)
  labels=np.array(label)
+ # a glove's box also catches stone pixels of the chest or arm behind it: those stay with the
+ # body (the chest label), and so does any outline pixel not touching the glove's red
+ red=opaque&(a[:,:,0].astype(int)>a[:,:,1].astype(int)+40)
+ pad=np.pad(red,1); nearred=red|pad[:-2,1:-1]|pad[2:,1:-1]|pad[1:-1,:-2]|pad[1:-1,2:]
+ for gname in ('near_glove','far_glove'):
+  g=labels==NAMES.index(gname)
+  labels[g&opaque&~nearred]=NAMES.index('chest')
  if view=='side': # the cloth wrapped round the elbow turns with the forearm it ties, not the elbow stone
   red=(a[:,:,0].astype(int)>a[:,:,1].astype(int)+40)&(labels==NAMES.index('near_upperarm'))
   labels[red]=NAMES.index('near_forearm')

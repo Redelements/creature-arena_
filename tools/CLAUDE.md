@@ -93,9 +93,11 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 - `cairn_cutout_parts.py`, `cairn_cutout_pose.py`, `gen_cairn_cutout.py`, `test_cairn_cutout.py`: Cairn's cut-out
   animation (`docs/SPRITES.md`, "Cut-out"): parts from the approved stills in
   `assets/sprites/source/cairn_cutout/`, per-part poses from `gen_cairn.py`'s rig, the renderer
-  (`--out DIR` for review GIFs/frames, `--live` rebuilds the side sheets' `READY_ROWS` and keeps every other
-  row), the six checks. The embeddable Python can't import siblings, so run from the repo root with
-  `python -c "import sys,runpy; sys.path.insert(0,'tools'); sys.argv=['x','--live']; runpy.run_path('tools/gen_cairn_cutout.py', run_name='__main__')"`
+  (`--out DIR` for review GIFs, frames and a `<view>-sheet.png` contact sheet per view; `--views all --live`
+  rebuilds all five game sheets, `--rows a,b` a subset, the rest kept from the committed sheet), the six
+  checks. The knobs (`GLOVE_SNAP`, `STRETCH`, `TURNING`, `MIN_TURN`, `REVEAL`, `GLOVE_GROW`, `TRANSLATED_ARMS`)
+  are explained in `docs/SPRITES.md` "Cut-out". The embeddable Python can't import siblings, so run from the repo root with
+  `python -c "import sys,runpy; sys.path.insert(0,'tools'); sys.argv=['x','--views','all','--live']; runpy.run_path('tools/gen_cairn_cutout.py', run_name='__main__')"`
   (same for `cairn_cutout_parts.py` after a mask change, `test_cairn_cutout.py`, `cairn_cutout_pose.py --check`);
   then `pack_sheets.py cairn`, `--import`.
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of splat3d's
