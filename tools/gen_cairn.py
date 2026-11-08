@@ -11,12 +11,15 @@ cairn_up.png, cairn_down_side.png and cairn_up_side.png (96x96: facing the camer
 away, and the diagonals facing down-right and up-right), plus labelled previews in docs/.
 Rendered with the shared splat renderer (tools/splat3d.py).
 
-Cairn is four flat river stones stacked into a boxer: a broad warm-grey hip stone, a
-smaller blue-grey belly stone, the widest stone for the shoulders (dark steel) and a
-round pale head stone with a red sparring headband whose tails flutter behind. Stubby
-arms are chains of loose pebbles ending in white-taped fists; two flat pebbles are his
-feet. The face (a heavy brow, two dark eyes, a set mouth) is painted onto the head stone
-by `decorate`, pinned to the stone so it turns with it. Stone doesn't squash: every stone
+The look is Kevin's drawing (docs/fighters/cairn_concept.png) and the turnaround he picked
+(docs/fighters/art/cairn/, reference only: nothing here reads those PNGs). Cairn is rounded
+grey river stones stacked into a boxer: a hip stone, a smaller waist stone, a broad chest
+stone with a round shoulder stone each side, and a tall moai head (a flat-topped block with
+a heavy brow, a long nose, a pout, a long chin and long ears, all geometry) under a red
+sparring headband whose tails flutter behind. The arms are chains of two big rounded stones
+ending in red boxing gloves, one arm with a red cloth tied round it (two short tails); the
+legs are chains of three pebbles down to flat pebble feet. `decorate` paints the deep-set
+eyes and the mouth, pinned to the head so they turn with it. Stone doesn't squash: every stone
 is rigid, and the weight shows in the stack instead (the stones pack together on a
 landing, open up on an uppercut, and slide over each other a frame late: the overlap).
 A point is (lat, up, fwd), like the other rigs.
@@ -61,51 +64,77 @@ VIEWS = {
     "up_side": _frame(96, 96, (44, 84)),
 }
 
-# Master-palette ramps (tools/palette.py). The four stones keep the placeholder's idea of
-# four different river stones: warm grey, blue grey, dark steel and a pale head. There is
-# no dedicated stone line, so they sit on the neutral and steel lines.
+# Master-palette ramps (tools/palette.py), picked closest to the turnaround
+# (docs/fighters/art/cairn/): every stone the same cool mid grey there, so the stones share
+# the concrete line (base step (138, 144, 154)); the waist and the limbs' pebbles sit one
+# line darker (steel) so the stack still reads stone by stone. Red cloth and gloves.
 MAT = {
-    "base": "grey",        # the hip stone: warm mid grey
-    "belly": "steel",      # the narrow waist: the darkest stone, it recedes
-    "chest": "concrete",   # the shoulders: the widest stone, light blue grey
-    "head": "stone",       # pale warm grey
-    "pebble": "slate",     # the arm joints and the feet: small dark pebbles
-    "band": "red",         # the sparring headband
-    "tape": "white",       # taped fists
+    "base": "concrete",    # the hip stone
+    "belly": "steel",      # the waist stone: a step darker, it recedes between hips and chest
+    "chest": "concrete",   # the chest and the two shoulder stones
+    "head": "concrete",    # the moai head
+    "pebble": "steel",     # the arms' and legs' pebbles and the flat pebble feet
+    "band": "red",         # the headband and the cloth on the lead arm
+    "glove": "red",        # the boxing gloves
+    "cuff": "red",         # the gloves' cuffs (a seam parts them from the glove)
 }
 S.configure(MAT, scale=1.0, near=14.0, density=DENSITY)
 if STYLE == "bold":
     # three tones a face: no highlight step (light covers the lit side), no rim light; the
-    # silhouette in one dark ink (seams between stones keep their material's seam colour)
+    # silhouette and every seam between stones in one black ink, as the turnaround draws it
     S.LUM_HIGH = 2.0
+    S.LUM_LIGHT = 0.62   # less of the light step than the roster's bold: the turnaround's mid grey leads
     S.RIM = False
     S.INK = {name: S.OUTLINE[:3] for name in S.INK}
-S.surge_eyes("cairn")   # in Avalanche the dark eyes in his head stone glow in the Surge's gold
+    S.SEAM = {name: S.OUTLINE[:3] for name in S.SEAM}
+    S.SOFT_SEAM = 0.0
+S.surge_eyes("cairn")   # in Avalanche his deep-set eyes glow in the Surge's gold
 S.COLS = 12
 
-# The stack, bottom to top: (name, material, centre height, radii (lat, up, fwd)).
+# The stack, bottom to top: (name, material, centre height, radii (lat, up, fwd)). The head
+# is a moai (a block, `_moai`); its radii here are the skull's.
 STONES = [
-    ("base", "base", 8.4, (10.5, 4.4, 8.2)),
-    ("belly", "belly", 16.2, (7.8, 4.0, 6.4)),
-    ("chest", "chest", 24.8, (11.6, 4.9, 8.4)),
-    ("head", "head", 35.8, (7.8, 7.2, 7.4)),
+    ("base", "base", 17.0, (8.2, 3.5, 6.6)),
+    ("belly", "belly", 22.6, (6.4, 2.9, 5.2)),
+    ("chest", "chest", 29.0, (10.4, 4.8, 7.6)),
+    ("head", "head", 43.6, (5.4, 9.2, 4.4)),
 ]
 # A cairn is never a neat column: each stone sits a little off the line and tipped, at rest.
-REST_OFF = ((0.0, 0.0, 0.0), (0.3, 0.0, -0.8), (-0.3, 0.0, 0.3), (0.2, 0.0, 0.6))
-REST_TILT = ((0.0, 3.0, 6.0), (-4.0, -2.0, -10.0), (3.0, -3.0, 8.0), (4.0, 2.0, 0.0))
+# The head sits forward over the chest, as in Kevin's drawing.
+REST_OFF = ((0.0, 0.0, 0.0), (0.3, 0.0, -0.6), (-0.3, 0.0, 0.3), (0.2, 0.0, 1.4))
+REST_TILT = ((0.0, 3.0, 6.0), (-4.0, -2.0, -10.0), (3.0, -3.0, 8.0), (2.0, 1.0, 0.0))
 HEAD = 3
 CHEST = 2
+BASE = 0
+SKULL_C = (0.0, 0.5, -0.8)                # the skull block's centre on the head stone
+SKULL_P = 4.5                             # its squareness (2 an ellipsoid; higher, a block)
 LEAN_PIVOT = np.array([0.0, 2.0, 0.0])    # the stack leans about the feet
 FALL_PIVOT = np.array([0.0, 1.0, -8.0])   # and topples back over its heel (the knockout)
 ROLL_C = np.array([0.0, 18.0, 0.0])       # whole-body roll about the middle of the stack
-NEAR_FIST = (4.5, 31.0, 10.5)             # the guard: lead (near) fist forward, rear by the chin
+NEAR_FIST = (4.5, 31.0, 10.5)             # the guard: lead (near) glove forward, rear by the chin
 FAR_FIST = (-4.0, 29.5, 8.5)
-FIST_DROP, FIST_SPREAD = 2.0, 1.2         # every keyed fist is drawn this much lower and wider
-                                          #   (keeps the face clear facing the camera)
+# The arm the red cloth is tied on: +1 the near (camera-side, lead) arm, as the drawing and the
+# side turnaround show it; -1 the far (rear) arm. Kevin to confirm (docs/fighters/cairn.md).
+CLOTH_ARM = 1.0
+FIST_DROP, FIST_SPREAD = 2.0, 1.2         # every keyed glove is drawn this much lower and wider
+                                          #   (keeps the face clear facing the camera; the
+                                          #   glove's centre is where the old fist's was)
+FOOT_SPREAD = 1.4                         # the feet drawn this much wider than posed (pebble legs apart)
 NEAR_FOOT = (4.6, 2.0, 2.5)               # an orthodox stance: the near foot forward
 FAR_FOOT = (-4.6, 2.0, -2.5)
 ZERO4 = ((0.0, 0.0, 0.0),) * 4
-FACE_CHEAT = {"side": 40.0}               # degrees the painted face turns toward the camera, per view
+# The face is carved into the moai (brow, nose, lips, chin are geometry); decorate paints
+# the eyes, the frown and the mouth. Facing the camera they are projected onto the front
+# (lat, up); side-on (PROFILE views) the near eye and the mouth's corner go on the head's
+# near side (fwd, up), so he reads in profile as in the drawing.
+PROFILE = ("side",)
+# Side-on the cheated camera (splat3d.Cam: x = fwd - lat / 2) would show the moai half from
+# the front and bury the nose; the head is turned this many degrees away from the camera
+# there so the profile (brow, nose, lips, chin) is the silhouette's right edge.
+HEAD_CHEAT = {"side": 27.0}
+EYE_LAT, EYE_UP, EYE_FWD = 2.4, 1.0, 2.2  # the eyes: front (+-lat, up), profile (fwd, up)
+MOUTH_UP = -6.0
+INK_EYE = (14, 12, 20)
 
 
 # ------------------------------------------------------------------ the rig
@@ -152,8 +181,9 @@ def _rot(axis, deg):
 class Rig:
     """The pose's transforms: stack space (the stones' column) -> world."""
 
-    def __init__(self, p):
+    def __init__(self, p, view=None):
         self.p = p
+        self.head_yaw = HEAD_CHEAT.get(view, 0.0)
         self.L = _rot("roll", p.sway) @ _rot("pitch", -p.lean)
         self.F = _rot("pitch", p.fall)
         self.W = _rot("yaw", p.yaw) @ _rot("roll", p.roll)
@@ -185,6 +215,8 @@ class Rig:
         lift = (-self.p.pack * 0.7 * i) if self.p.pack >= 0 else (-self.p.pack * 1.0 * i)
         c = np.array([o[0], up + lift, o[2]]) + np.array([0.0, o[1], 0.0])
         tp, tr, ty = np.add(self.p.tilt[i], REST_TILT[i])
+        if i == HEAD:
+            ty += self.head_yaw
         R = _rot("yaw", ty) @ _rot("pitch", -tp) @ _rot("roll", tr)
         return c, R
 
@@ -231,61 +263,183 @@ def _bez(a, b, c, t):
     return (1 - t) ** 2 * a + 2 * (1 - t) * t * b + t * t * c
 
 
-def build(p, view):
-    rig = Rig(p)
+def _superell(radii, mat, center=(0.0, 0.0, 0.0), p=SKULL_P):
+    """A rounded block in local axes (a superellipsoid, radii (lat, up, fwd), squareness p):
+    flat faces with rounded edges, for the moai's skull, brow and chin."""
+    rl, ru, rf = radii
+    rmax = max(radii)
+    k = 1.8   # the flat faces sit farther out than a sphere's: sample more densely
+    nt = max(24, int(k * 2 * math.pi * rmax / S.STEP))
+    nph = max(12, int(k * math.pi * rmax / S.STEP))
+    th = np.linspace(0, 2 * math.pi, nt, endpoint=False)
+    ph = np.linspace(0.02, math.pi - 0.02, nph)
+    T, PH = np.meshgrid(th, ph)
+    d = np.stack([(np.sin(PH) * np.cos(T)).ravel(), np.cos(PH).ravel(), (np.sin(PH) * np.sin(T)).ravel()], 1)
+    r = np.array([rl, ru, rf])
+    t = (np.abs(d / r) ** p).sum(axis=1) ** (-1.0 / p)
+    pos = d * t[:, None]
+    nrm = np.sign(pos) * np.abs(pos / r) ** (p - 1.0) / r
+    nrm /= np.linalg.norm(nrm, axis=1, keepdims=True) + 1e-9
+    return S._pack(pos + np.asarray(center, float), nrm, mat)
+
+
+def _local_along(center, d, radii, mat):
+    """An ellipsoid in a stone's local frame whose long axis (radii[0]) lies along d."""
+    return _ell_along(center, d, radii, mat)
+
+
+def _moai(rig, p):
+    """The moai head on the head stone, every piece tagged with the head's local coordinates
+    (decorate paints on them): the skull block, the overhanging brow, the long nose, the
+    lips, the long chin, the ears; then the headband and its tails."""
     parts = []
-    # the stones, bottom to top
-    for i, (_name, mat, _up, r) in enumerate(STONES):
-        parts.append(_place(rig, i, _ell(r, mat), tag=i))
-    rl, ru, rf = STONES[HEAD][3]
-    # the headband round the brow, the knot at the back, two tails fluttering behind
-    parts.append(_place(rig, HEAD, _ell((rl + 0.3, 1.05, rf + 0.3), "band", center=(0.0, 3.4, 0.0))))
-    parts.append(_place(rig, HEAD, _ell((1.5, 1.3, 1.2), "band", center=(0.0, 3.3, -rf - 0.5))))
+    sl, su, sf = STONES[HEAD][3]
+    cx, cy, cz = SKULL_C
+    front = cz + sf
+    pieces = [
+        _superell((sl, su, sf), "head", center=SKULL_C),
+        _superell((sl - 0.1, 1.5, 2.6), "head", center=(0.0, 3.2, front - 0.2), p=3.0),        # the brow
+        _local_along((0.0, -0.6, front + 2.4), (0.0, -0.72, 0.69), (4.6, 1.4, 1.3), "head"),  # the nose's ridge
+        _ell((1.9, 1.3, 1.8), "head", center=(0.0, -3.4, front + 4.2)),                      # its tip
+        _ell((2.4, 1.0, 1.6), "head", center=(0.0, -5.2, front + 1.9)),                      # the pout
+        _superell((3.2, 1.6, 2.4), "head", center=(0.0, -7.4, front + 1.1), p=3.0),           # the chin
+    ]
+    for s in (1.0, -1.0):
+        pieces.append(_ell((0.7, 3.2, 1.1), "head", center=(s * (sl - 0.2), 0.0, cz - 0.4)))  # the long ears
+    for part in pieces:
+        parts.append(_place(rig, HEAD, part, tag=HEAD))
+    # the headband round the forehead, the knot at the back, two tails fluttering behind
+    parts.append(_place(rig, HEAD, _superell((sl + 0.45, 1.25, sf + 0.45), "band", center=(0.0, 5.2, cz))))
+    back = cz - sf - 0.5
+    parts.append(_place(rig, HEAD, _ell((1.6, 1.4, 1.3), "band", center=(0.0, 5.1, back))))
     for s in (1.0, -1.0):
         pts = []
-        for k in range(5):
-            t = k / 4.0
+        for k in range(6):
+            t = k / 5.0
             wave = math.sin(p.tail + t * 2.4 + (0.0 if s > 0 else 0.9))
-            pts.append((s * (0.9 + 1.4 * t) + wave * 1.4 * t * p.tail_amp,
-                        3.1 - 3.0 * t + p.tail_up * 5.0 * t * t + wave * 0.6 * t,
-                        -rf - 0.8 - 7.5 * t))
-        loc = np.array(pts)
-        w = rig.on_stone(HEAD, loc)
-        parts.append(tube(w, [0.95, 0.9, 0.8, 0.7, 0.55], "band"))
-    # arms: a chain of loose pebbles from the shoulder to a taped fist
+            pts.append((s * (0.9 + 1.6 * t) + wave * 1.5 * t * p.tail_amp,
+                        4.9 - 5.0 * t + p.tail_up * 5.5 * t * t + wave * 1.9 * t,
+                        back - 0.4 - 9.0 * t))
+        parts.append(tube(rig.on_stone(HEAD, np.array(pts)), [1.25, 1.2, 1.1, 1.0, 0.9, 0.7], "band"))
+    return parts
+
+
+def _glove(fw, d, s):
+    """A boxing glove centred on fw, punching along d: the mitt, the thumb on the inner top,
+    the cuff behind it. Rigid, like the stones."""
+    d = np.asarray(d, float)
+    d = d / (np.linalg.norm(d) + 1e-9)
+    side = np.cross(d, [0.0, 1.0, 0.0])
+    if np.linalg.norm(side) < 1e-3:
+        side = np.array([1.0, 0.0, 0.0])
+    side /= np.linalg.norm(side)
+    up = np.cross(side, d)
+    out = [_ell_along(fw, d, (4.6, 4.3, 4.0), "glove")]
+    out.append(_ell_along(fw + up * 2.4 - side * s * 2.0 - d * 1.0, d, (2.3, 1.6, 1.6), "glove"))
+    out.append(ellipsoid_oriented(fw - d * 4.1, (1.4, 2.9, 2.9), d, up, side, "cuff"))
+    return out
+
+
+def _cloth(rig, at, arm_d, p):
+    """The red cloth tied round one arm's upper stone (CLOTH_ARM), two short tails off the knot
+    behind (a second flutter, a beat after the headband's)."""
+    arm_d = np.asarray(arm_d, float)
+    arm_d = arm_d / (np.linalg.norm(arm_d) + 1e-9)
+    out = [_ell_along(at, arm_d, (1.0, 3.4, 3.4), "band")]
+    back = rig.stack_dir((0.0, 0.0, -1.0))[0]
+    down = rig.stack_dir((0.0, -1.0, 0.0))[0]
+    lat = rig.stack_dir((1.0, 0.0, 0.0))[0]
+    knot = at + back * 3.0
+    out.append(_ell((1.0, 1.0, 1.0), "band", center=tuple(knot)))
+    for s in (1.0, -1.0):
+        pts = []
+        for k in range(4):
+            t = k / 3.0
+            wave = math.sin(p.tail + 1.6 + t * 2.6 + (0.0 if s > 0 else 1.1))
+            pts.append(knot + back * (3.6 * t) + down * ((1.4 + 0.9 * s) * 1.4 * t - p.tail_up * 1.5 * t)
+                       + lat * (0.4 * s + wave * 0.8 * t * p.tail_amp))
+        out.append(tube(np.array(pts), [0.8, 0.75, 0.65, 0.5], "band"))
+    return out
+
+
+def build(p, view):
+    rig = Rig(p, view)
+    parts = []
+    # the stones, bottom to top (the head is the moai)
+    for i, (_name, mat, _up, r) in enumerate(STONES[:HEAD]):
+        parts.append(_place(rig, i, _ell(r, mat), tag=i))
+    parts += _moai(rig, p)
+    # arms: a shoulder stone, two big rounded stones, a red boxing glove
     for s, fist in ((1.0, p.near), (-1.0, p.far)):
-        sh = rig.on_stone(CHEST, (s * 10.0, 1.2, 0.6))[0]
+        sh = rig.on_stone(CHEST, (s * 10.4, 1.8, 0.0))[0]
+        parts.append(_place(rig, CHEST, _ell((5.0, 4.8, 4.8), "chest", center=(s * 10.4, 1.8, 0.0)), tag=CHEST))
         if fist is None:
             fw = rig.on_stone(CHEST, (s * 5.0, 3.5, 9.0))[0]
         else:
             f = np.asarray(fist, float)
             f = np.array([f[0] * FIST_SPREAD, f[1] - FIST_DROP, f[2]])
             fw = rig.world(f + rig.move)[0]
-        el = (sh + fw) / 2 + rig.stack_dir((s * 2.6, -2.6, -1.4))[0]
+        el = (sh + fw) / 2 + rig.stack_dir((s * 2.6, -3.0, -1.4))[0]
         prev = sh
-        for t, rad in ((0.08, 2.5), (0.33, 2.3), (0.57, 2.1), (0.79, 1.9)):
+        upper = None
+        for t, rad in ((0.36, 3.0), (0.66, 2.6)):
             q = _bez(sh, el, fw, t)
-            parts.append(_ell((rad, rad * 0.92, rad), "pebble", center=tuple(q)))
+            parts.append(_ell((rad, rad * 0.94, rad), "pebble", center=tuple(q)))
+            if upper is None:
+                upper = (q, _bez(sh, el, fw, t + 0.05) - _bez(sh, el, fw, t - 0.05))
             prev = q
-        parts.append(_ell_along(fw, fw - prev, (3.4, 3.0, 3.0), "tape"))
-    # feet: two flat pebbles on the floor
+        parts += _glove(fw, fw - prev, s)
+        if s == CLOTH_ARM:
+            parts += _cloth(rig, upper[0], upper[1], p)
+    # legs: two pebbles from the hip stone down to a flat pebble foot
     for s, foot in ((1.0, p.fn), (-1.0, p.ff)):
-        e = _ell((3.6, 2.0, 4.8), "pebble")
+        e = _ell((3.8, 2.1, 5.0), "pebble")
         if foot is None:  # under the hip stone, wherever it went (the knockout)
             c = rig.stack((s * 4.6, 2.0 - p.lift, s * 2.0))[0]
             e["pos"] = rig.stack_dir(e["pos"]) + c
             e["nrm"] = rig.stack_dir(e["nrm"])
+            ankle = c + rig.stack_dir((0.0, 1.8, -0.6))[0]
         else:
-            c = rig.world(np.asarray(foot, float) + np.array([0.0, 0.0, p.fwd]))[0]
+            f = np.asarray(foot, float) * (FOOT_SPREAD, 1.0, 1.0)
+            c = rig.world(f + np.array([0.0, 0.0, p.fwd]))[0]
             e["pos"] = rig.world(e["pos"]) - rig.world(np.zeros(3)) + c
             e["nrm"] = rig.world(e["nrm"]) - rig.world(np.zeros(3))
+            ankle = c + rig.world((0.0, 1.8, -0.6))[0] - rig.world(np.zeros(3))[0]
         parts.append(e)
+        hip = rig.on_stone(BASE, (s * 4.8, -1.5, 0.3))[0]
+        knee = (hip + ankle) / 2 + rig.stack_dir((s * 1.0, 0.0, 1.4))[0]
+        for t, rad in ((0.2, 3.0), (0.5, 2.8), (0.8, 2.6)):
+            parts.append(_ell((rad, rad * 0.92, rad), "pebble", center=tuple(_bez(hip, knee, ankle, t))))
     return parts
 
 
+def render_bold(pose, view, build_fn, decorate_fn=None):
+    """splat3d.render plus a second ring of ink round the silhouette: the turnaround's
+    thick black outline (the bold look at 2x; one 1x pixel wide)."""
+    r = S.rasterise(pose, view, build_fn)
+    img = S.shade(r)
+    if decorate_fn is not None:
+        img = decorate_fn(r, img)
+    img = S.outline(r, img)
+    for _ in range(DENSITY - 1):
+        filled = img[:, :, 3] > 0
+        ring = np.zeros_like(filled)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ring |= S._shifted(filled, dx, dy, False) & ~filled
+        img[ring, :3] = S.OUTLINE[:3]
+        img[ring, 3] = 255
+    S.finish_frame(r, img)
+    return S.Image.fromarray(img)
+
+
+if STYLE == "bold" and DENSITY > 1:
+    S.render = render_bold
+
+
 def decorate(r, img):
-    """The face on the head stone, the grain on every stone, and a lit top lip per stone.
-    All of it is pinned to the stone (its local coordinates), so it turns and tips with it."""
+    """The eyes, frown and mouth on the moai, the grain on every stone, and a lit top lip
+    per body stone. All of it is pinned to the stone (its local coordinates), so it turns
+    and tips with it."""
     loc = r["local"]
     ok = np.isfinite(loc[..., 0])
     if not ok.any():
@@ -302,52 +456,62 @@ def decorate(r, img):
     for i, (_n, name, _u, rad) in enumerate(STONES):
         on = ok & (idx == i)
         ramp = S.RAMP[name]
-        img[on & (h < 4) & (lum > -0.12), :3] = ramp[3]
-        img[on & (h >= 96), :3] = ramp[1]
-        # the lit lip: the upper rim facing the light catches one step brighter
-        rim = on & (up > rad[1] * 0.55) & (up < rad[1] * 0.85) & (lum > 0.2)
-        img[rim, :3] = ramp[min(4, 3 + (1 if i == HEAD else 0))]
-    # the face, on the front of the head stone; side-on it is cheated round toward the
-    # camera (FACE_CHEAT), or it would sit on the head's edge
-    th = math.radians(FACE_CHEAT.get(r["view"], 0.0))
-    lat, fwd = lat * math.cos(th) - fwd * math.sin(th), lat * math.sin(th) + fwd * math.cos(th)
-    face = ok & (idx == HEAD) & (fwd > 2.5) & (mat == S.MAT_ID["head"])
-    rl, ru, _rf = STONES[HEAD][3]
-    ink = S.RAMP["head"][0]
+        img[on & (h < 1) & (lum > -0.12), :3] = ramp[3]
+        img[on & (h >= 99), :3] = ramp[1]
+        if i != HEAD:
+            # the lit lip: the upper rim facing the light catches one step brighter
+            rim = on & (up > rad[1] * 0.55) & (up < rad[1] * 0.85) & (lum > 0.2)
+            img[rim, :3] = ramp[min(4, 3 + (1 if STYLE == "bold" else 0))]
+    head = ok & (idx == HEAD) & (mat == S.MAT_ID["head"])
     dark = S.RAMP["head"][1]
-    ex, ey = 2.5, 0.4
-    eye_px = np.zeros(face.shape, bool)
-    for sx in (1.0, -1.0):
-        dx, dy = lat - sx * ex, up - ey
+    eye_px = np.zeros(head.shape, bool)
+    front_z = SKULL_C[2] + STONES[HEAD][3][2]
+
+    def eye(u, v, inner, on):
+        """One eye at (u, v) on a 2D face projection; `inner` 0..1 toward the nose."""
+        nonlocal eye_px
+        dy = up - EYE_UP
+        # the socket: deep set under the brow, pulled down at the inner end when he frowns
+        top = 0.9 - 0.9 * p.brow * inner
+        sock = on & ((u / 1.45) ** 2 + (dy / 1.0) ** 2 < 1.0) & (dy < top)
+        img[sock, :3] = dark
         if p.eyes in ("open", "wide"):
-            k = 1.25 if p.eyes == "wide" else 1.0
-            e = face & ((dx / (1.15 * k)) ** 2 + (dy / (1.3 * k)) ** 2 < 1.0)
-            img[e, :3] = (14, 12, 20)
+            k = 1.3 if p.eyes == "wide" else 1.0
+            e = sock & ((u / (0.8 * k)) ** 2 + ((dy + 0.1) / (0.75 * k)) ** 2 < 1.0)
+            img[e, :3] = INK_EYE
             eye_px |= e
         elif p.eyes == "shut":
-            e = face & (np.abs(dy + 0.2) < 0.5) & (np.abs(dx) < 1.2)
-            img[e, :3] = (14, 12, 20)
-            eye_px |= e
+            img[on & (np.abs(dy + 0.1) < 0.4) & (np.abs(u) < 1.3), :3] = INK_EYE
         elif p.eyes == "x":
-            img[face & ((np.abs(dx - dy) < 0.45) | (np.abs(dx + dy) < 0.45)) & (np.abs(dx) < 1.1), :3] = (14, 12, 20)
-        # the brow: a heavy ridge over each eye, lower toward the nose when he frowns
-        a = np.abs(lat)
-        line = 2.0 + 0.4 * (a - 0.8) * (0.5 + p.brow)
-        img[face & (a > 0.6) & (a < 4.0) & (np.abs(up - line) < 0.6), :3] = dark
+            img[on & ((np.abs(u - dy) < 0.45) | (np.abs(u + dy) < 0.45)) & (np.abs(u) < 1.1), :3] = INK_EYE
+
+    if r["view"] in PROFILE:
+        # side-on: the near eye on the head's near side, just behind the brow's front
+        side = head & (lat > 2.0) & (fwd < front_z + 0.2)
+        eye(fwd - EYE_FWD, up, np.clip((fwd - EYE_FWD + 1.4) / 2.8, 0.0, 1.0), side)
+        mouth_on = head & (lat > 0.6) & (fwd > front_z - 1.6)
+        u = fwd - front_z
+    else:
+        face = head & (fwd > front_z - 1.6)
+        for sx in (1.0, -1.0):
+            eye(lat - sx * EYE_LAT, up, np.clip(1.0 - (np.abs(lat) - 1.0) / 2.8, 0.0, 1.0), face)
+        mouth_on = face & (fwd > front_z - 0.6)
+        u = lat
     # the Surge eyes (splat3d.SURGE_EYES): the dark eye spots where they still show
-    r["eye_px"], r["eye_cols"] = eye_px, [(14, 12, 20)]
-    # the mouth
+    r["eye_px"], r["eye_cols"] = eye_px, [INK_EYE]
+    # the mouth, under the pout
+    m_up = MOUTH_UP
     if p.mouth == "set":
-        img[face & (np.abs(up + 2.4) < 0.45) & (np.abs(lat) < 1.6), :3] = dark
+        img[mouth_on & (np.abs(up - m_up) < 0.4) & (np.abs(u) < 2.0), :3] = S.OUTLINE[:3]
     elif p.mouth == "grit":
-        m = face & (np.abs(up + 2.4) < 0.75) & (np.abs(lat) < 2.0)
-        img[m, :3] = ink
-        img[m & (np.abs(up + 2.4) < 0.3) & (np.abs(lat) < 1.5), :3] = S.RAMP["tape"][3]
+        m = mouth_on & (np.abs(up - m_up) < 0.75) & (np.abs(u) < 2.2)
+        img[m, :3] = S.OUTLINE[:3]
+        img[m & (np.abs(up - m_up) < 0.3) & (np.abs(u) < 1.7), :3] = S.RAMP["head"][4]
     elif p.mouth == "open":
-        img[face & ((lat / 1.4) ** 2 + ((up + 2.6) / 1.1) ** 2 < 1.0), :3] = (14, 12, 20)
+        img[mouth_on & ((u / 1.5) ** 2 + ((up - m_up - 0.2) / 1.1) ** 2 < 1.0), :3] = INK_EYE
     elif p.mouth == "grin":
-        curve = -2.5 + 0.22 * lat * lat
-        img[face & (np.abs(up - curve) < 0.5) & (np.abs(lat) < 2.2), :3] = ink
+        curve = m_up + 0.4 + 0.2 * u * u
+        img[mouth_on & (np.abs(up - curve) < 0.45) & (np.abs(u) < 2.3), :3] = S.OUTLINE[:3]
     return img
 
 
@@ -612,11 +776,11 @@ def ko():
     """Knocked out: struck (the head stone flung back), toppling back over the heel, flat
     on the floor (frames 1 and 2 are also the knockdown), then the stones roll apart and
     the head rolls the farthest (x eyes). The game scatters him from idle frame 0."""
-    lie = dict(fall=90.0, fwd=15.0, near=None, far=None, fn=None, ff=None)
+    lie = dict(fall=90.0, fwd=30.0, near=None, far=None, fn=None, ff=None)
     return _row([
         Pz(lean=-20.0, fwd=-2.0, off=offs(base=(0, 0, 1.0), chest=(0, 0, -2.5), head=(-1.0, 0, -6.0)),
            tilt=tilts(head=(-26, -6, 0)), near=(7.0, 35.0, 0.0), far=(-7.0, 33.0, -1.0), eyes="shut", mouth="open"),
-        Pz(**dict(lie, fall=72.0, fwd=10.0, pack=-0.6,
+        Pz(**dict(lie, fall=72.0, fwd=23.0, pack=-0.6,
                   off=offs(head=(0, 1.0, 0.8)), eyes="shut", mouth="open")),
         Pz(**dict(lie, eyes="shut", mouth="open", off=offs(head=(0, 0.6, 0)))),
         Pz(**dict(lie, off=offs(belly=(0.6, 0.6, 0), chest=(-0.8, 1.6, 0.6), head=(0.0, 4.0, 1.4)),
@@ -897,17 +1061,14 @@ def ko_fx_numbers():
         cuts.append(int(round((lo_upper + hi_lower) / 2.0)) + 1)
     cuts.append(bottom)
     pieces = [[cuts[k], cuts[k + 1]] for k in range(4)]
-    rig = Rig(pose)
-    cam = S.Cam("side")
+    # the eye spots: where decorate paints the pupils (side-on, the one near eye of the profile)
+    decorate(r, S.shade(r))
+    eye = r["eye_px"]
     eyes = []
-    th = math.radians(FACE_CHEAT.get("side", 0.0))
-    for sx in (1.0, -1.0):
-        ld, fd = sx * 2.5, STONES[HEAD][3][2] * 0.9   # in the face's (cheated) frame, as decorate paints it
-        lat, fwd = ld * math.cos(th) + fd * math.sin(th), -ld * math.sin(th) + fd * math.cos(th)
-        w = rig.on_stone(HEAD, (lat, 0.4, fwd)) * S.SCALE
-        x, y = cam.P(w)[0]
-        eyes.append([int(math.floor(x)), int(math.floor(y))])
-    eyes.sort()
+    if eye.any():
+        ey, ex = np.nonzero(eye)
+        k = DENSITY   # FxView draws a 3k box from (x - k, y - k): its centre on the pupil's
+        eyes.append([int(round(ex.mean() + 0.5 - 0.5 * k)), int(round(ey.mean() + 0.5 - 0.5 * k))])
     return {"pieces": pieces, "x_eyes": eyes, "fx_top": int(sp["origin"][1] - top)}
 
 

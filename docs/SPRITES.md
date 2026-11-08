@@ -159,72 +159,86 @@ units (unchanged). `CULVERT_DENSITY=1` rebuilds the 1x sheets byte for byte. Gal
 
 Cairn is drawn by `tools/gen_cairn.py` on the shared splat renderer (`tools/splat3d.py`),
 like the roster: a posed 3D rig projected into five views, shaded from the master palette.
-He is four flat river stones stacked into a boxer: a broad warm-grey hip stone (`grey`), a
-narrow dark waist stone (`steel`), the widest stone for the shoulders (`concrete`) and a
-round pale head stone (`stone`; there is no dedicated stone line, so the four sit on the
-neutral and steel lines), each a little off the line and tipped at rest, as a real cairn
-is. A red sparring headband (`red`) with two tails that flutter behind; stubby arms that
-are chains of loose dark pebbles (`slate`) ending in white-taped fists (`white`); two flat
-pebbles for feet. The face (a heavy brow that frowns harder when he commits, two dark eyes,
-a set, gritted, open or grinning mouth) is painted on the head stone by `decorate`, pinned
-to the stone's own coordinates so it turns and tips with it; side-on it is cheated 40°
-toward the camera (`FACE_CHEAT`) or it would sit on the head's edge. `decorate` also
-pins a little grain to each stone and lights each stone's upper lip one step brighter.
-Every keyed fist is drawn 2 px lower and a little wider than posed (`FIST_DROP`,
-`FIST_SPREAD`) so the guard never covers the face facing the camera. Feet at **x 46,
-y 84**; the other views are 96×96 too, feet at x 48, y 78 (`down`), x 48, y 84 (`up`),
-x 44, y 80 (`down_side`) and x 44, y 84 (`up_side`). Design note: keep him **tall and
-stacked**; a round boulder with two arms would read as an existing franchise creature.
+The look is Kevin's drawing (`docs/fighters/cairn_concept.png`, Nov 2026) and the five-view
+turnaround he picked (`docs/fighters/art/cairn/`, reference only: the game never loads it,
+the rig draws every frame). He is rounded grey river stones stacked into a boxer: a hip
+stone (`concrete`), a smaller, darker waist stone (`steel`), a broad chest stone with a
+round shoulder stone each side (`concrete`), and on top a tall **moai head** (`concrete`):
+a flat-topped block (a superellipsoid, `_superell`) with a heavy overhanging brow, a long
+straight nose jutting forward and down, a pout, a long chin and long ears, all geometry, so
+the profile reads in the silhouette. A red sparring headband (`red`) across the forehead
+with two tails that flutter behind; arms that are chains of two big rounded stones (`steel`)
+ending in big **red boxing gloves** (`glove`: the mitt, a thumb, a cuff parted from it by a
+seam); a red cloth tied round the lead (camera-side) arm's upper stone with two short tails,
+a second flutter a beat after the headband's; legs that are chains of three pebbles down to
+flat pebble feet (drawn 1.4 times wider apart than posed, `FOOT_SPREAD`, so the legs read
+as two). Each stone sits a little off the line and tipped at rest, as a real cairn is.
+`decorate` paints the deep-set eyes (a dark socket under the brow, pulled down at the inner
+end when he frowns, and a dark pupil), the mouth (set, gritted, open or grinning) and a little
+grain on each stone, and lights each body stone's upper lip one step, all pinned to the
+stone's own coordinates so they turn and tip with it. Facing the camera the face is
+projected onto the front; side-on (`PROFILE`) the near eye and the mouth's corner go on the
+head's near side, and the head is turned 27° away from the camera (`HEAD_CHEAT`) so the
+brow, nose, lips and chin make the silhouette's right edge (the cheated side camera would
+otherwise show the moai half from the front and bury the nose). Every keyed glove is drawn
+2 px lower and a little wider than posed (`FIST_DROP`, `FIST_SPREAD`) so the guard never
+covers the face facing the camera; the glove's centre is exactly where the old rig's fist
+was, so reach on every strike frame is unchanged. Feet at **x 46, y 84**; the other views
+are 96×96 too, feet at x 48, y 78 (`down`), x 48, y 84 (`up`), x 44, y 80 (`down_side`)
+and x 44, y 84 (`up_side`). Design note: keep him **tall and stacked**; a round boulder
+with two arms would read as an existing franchise creature.
 
-**Material rule (stone): no squash.** Every stone is rigid. The weight shows in the stack
-instead: `pack` presses the stones together on a landing or a crouch and lifts them apart
-on the uppercut (the gaps open), and the stones slide off the stack's line a frame after
-the one beneath them (`off`, `tilt` per stone: the overlap, with the head stone last and
-farthest). Punches turn the stack bottom to top (hips, waist, shoulders, then the head a
-frame late). The headband tails are the free overlap (`_tails`: a flutter, lifted by how
-fast the head moved two frames before).
+**Material rule (stone): no squash.** Every stone and both gloves are rigid. The weight
+shows in the stack instead: `pack` presses the stones together on a landing or a crouch and
+lifts them apart on the uppercut (the gaps open), and the stones slide off the stack's line
+a frame after the one beneath them (`off`, `tilt` per stone: the overlap, with the head
+last and farthest). Punches turn the stack bottom to top (hips, waist, shoulders, then the
+head a frame late). The headband tails and the arm cloth's tails are the free overlap
+(`_tails`: a flutter, lifted by how fast the head moved two frames before).
 
 Animated with the roster pass from the start (motion plan, timelines and the
 before/after GIFs against the placeholder:
 [`anim_preview/cairn_motion_plan.md`](anim_preview/cairn_motion_plan.md);
 `python3 tools/gen_cairn.py anim`). `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (24
 ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, portrait crop
-`[34, 39, 24, 28]`.
+`[38, 28, 24, 28]` (1x).
 
 ![Cairn sheet, 3x](cairn_preview.png)
 
 Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
 [`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
-**2x (route A, Oct 2026, branch `cairn-2x`, stacked on `sprites-vram`).** The game draws
-`cairn_2x*.png`: the same rig at density 2 (`CAIRN_DENSITY`, default 2; `CAIRN_DENSITY=1`
-rebuilds the 1x `cairn*.png` byte for byte), 192×192 frames, feet at (92, 168) side,
-(96, 156) down, (96, 168) up, (88, 160) down_side, (88, 168) up_side, `"ppu": 2` in every
-view, portrait `[68, 78, 48, 56]`; same rows, frame counts and timing. Shaded "bold"
-(`CAIRN_STYLE`): three flat tones a face (no highlight step, no rim light) and one dark ink
-round the silhouette, so the stack's stones stay apart from each other and from dark floors.
-The face, grain and lit lips are painted in stone-local rig units, so they scale with the
-density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pixels and
-double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
-same). Gallery: `pixellab/cairn/cairn_route_a.png`.
+**2x (route A).** The game draws `cairn_2x*.png`: the same rig at density 2
+(`CAIRN_DENSITY`, default 2; `CAIRN_DENSITY=1` rebuilds the 1x `cairn*.png`), 192×192
+frames, feet at (92, 168) side, (96, 156) down, (96, 168) up, (88, 160) down_side, (88, 168)
+up_side, `"ppu": 2` in every view, portrait `[76, 56, 48, 56]`; same rows, frame counts and
+timing. Shaded "bold" (`CAIRN_STYLE`): three flat tones a face (no highlight step, no rim
+light), one black ink round the silhouette and along every seam between stones, and a
+second ring of ink outside the silhouette (`render_bold`: the turnaround's thick outline,
+one 1x pixel wide); the 1x sheets keep the "a" look. The face, grain and lit lips are
+painted in stone-local rig units, so they scale with the density on their own. The
+knockout's `ko_fx` (`python3 tools/gen_cairn.py kofx`): `pieces` are the head, chest, waist
+and hip bands of idle frame 0 in sheet pixels, `x_eyes` the one eye the profile shows (the
+pupil's centre); `fx_top` 55. FxView draws the X's at `ppu` times the size, so they look the
+same at any density.
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |
-| 1 | run | 12 | a bounding run: two steps, each foot planted 3 frames sliding back at ground speed, then 3 in the air (the stones open up); leaning in, fists pumping |
+| 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the gloves a frame behind, a one-frame blink |
+| 1 | run | 12 | a bounding run: two steps, each foot planted 3 frames sliding back at ground speed, then 3 in the air (the stones open up); leaning in, gloves pumping |
 | 2 | jab | 8 | Jab (lights 1 and 2, the lead hand): weight back, the coil (held), one fast frame, the extension held over the hit, the head stone a frame late, snap back, settle |
 | 3 | power | 8 | Cross (light 3, the rear hand): the stack twists bottom to top, the coil held, the drive, the extension held, the head overshooting, the return |
 | 4 | hook | 8 | Hook (light 4, the lead hand on a wide arc): dip, the wind (held), the swing led by the hips, the connect held, the follow-through past his face, unwind, settle |
 | 5 | heavy | 12 | Haymaker: 0-3 the charge loop (the stack rumbling, `anim_charge` `[0, 4, 5]`), the gather (held), rise, the uppercut with the stones lifted apart (held: the hit), overshoot, drop, the landing with the stones clacking together (held), recovery, settle |
 | 6 | dodge | 8 | the duck-and-shuffle (`dodge.anim_at`): folds low and leans in, the head stone trailing, two low shuffle frames, the rise with the head overshooting, settle |
 | 7 | hurt | 4 | the head stone knocked back first, the peak recoil (frame 1 doubles as the crumple pose), the head swinging forward past the stack, recovery; loops in hitstun |
-| 8 | guard | 2 | fists high, chin tucked, the stones packed; frame 1 is the block (pushed back, the head a beat behind) |
-| 9 | ko | 6 | struck, toppling back over his heel, flat on the floor (frames 1-2 double as the knockdown), the stones rolling apart, the head farthest with x eyes; the game scatters him from idle frame 0 (`ko_fx`) |
+| 8 | guard | 2 | gloves high, chin tucked, the stones packed; frame 1 is the block (pushed back, the head a beat behind) |
+| 9 | ko | 6 | struck, toppling back over his heel, flat on the floor (frames 1-2 double as the knockdown), the stones rolling apart, the head farthest with x eyes; the gloves stay on their arms (Kevin, 2026-11-07); the game scatters him from idle frame 0 (`ko_fx`), the gloves going with the chest band |
 | 10 | slip | 12 | Slip and Counter Cross: 0-4 the slip (duck, the stones sliding sideways off the line, a 2-frame wobble while the window is open, rise, settle); 5-11 the counter cross up out of the slip (coil, drive, extension held, the head overshooting, return) |
 | 11 | rush | 12 | Rockslide Rush: crouched and leaning in (held through the windup), push-off, three charge frames with the upper stones trailing, the punch at the end of the dash (held), the skid with the stones sliding on forward over the hips, settle; Rockfall Entry plays from frame 1 |
 | 12 | surge | 12 | Avalanche: the gather (held), step in, the 4-frame flurry loop (one punch out per hit: lead high, back, rear low, back), the deep gather (held), rise, the uppercut with the stones flung apart (held; the cut-in frame, `[12, 8]`), the crash down (held), settle |
-| 13 | victory | 10 | settles (0), then a 7-frame loop of the rear fist pumped overhead (behind his head side-on, so the grin shows), the lead fist on his hip (1-7), then the rear fist held high, the stones lifted proud (8-9) |
-| 14 | idle_alt | 8 | the fidget: the fists drop, the head stone grinds round a full turn on the stack (the band tails swinging round with it), then the fists knock together |
+| 13 | victory | 10 | settles (0), then a 7-frame loop of the rear glove pumped overhead (behind his head side-on, so the grin shows), the lead glove on his hip (1-7), then the rear glove held high, the stones lifted proud (8-9) |
+| 14 | idle_alt | 8 | the fidget: the gloves drop, the moai head grinds round a full turn on the stack (the band tails swinging round with it), then the gloves knock together |
 
 ### Craglash — 96×96 frames, 12 × 18 (1152×1728 px)
 

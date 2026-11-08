@@ -16,10 +16,11 @@
 
 ## Art notes
 - Pose reference: `docs/fighters/cairn_concept.png` (Nov 2026, the official look): a moai head in profile (long nose, heavy brow), a red headband with two tails, rounded grey stones stacked into shoulders, chest, hips and pebble legs, red boxing gloves, a red cloth tied on the rear arm, thick black outlines
-- Art status: rework on branch `cairn-rework`; the shipped sheets are still the old rig (round pale head, white-taped fists)
+- Art status: rig rebuilt to the new look on branch `cairn-rework` (Nov 2026): `tools/gen_cairn.py` draws the moai head, headband, arm cloth, red gloves and pebble legs in all five views; same rows, timing and glove reach as before; awaiting Kevin's look
+- Knockout: the gloves stay on their arms (Kevin, 2026-11-07)
 
 ## Open questions
-- Knockout: do the gloves fly off as their own pieces?
+- Arm cloth: the rig ties it on the camera-side arm (his lead arm, `CLOTH_ARM` in `tools/gen_cairn.py`), where the drawing and the side turnaround show it; the front turnaround has it on the other arm. Lead or rear?
 
 ## Changelog
 - 2026-10-27 — created
