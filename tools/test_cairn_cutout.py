@@ -63,7 +63,8 @@ class CairnCutoutTests(unittest.TestCase):
                     im = part["image"]
                     self.assertEqual(im.mode,"RGBA")
                     self.assertIsNotNone(im.getbbox())
-                    self.assertTrue(set(np.unique(np.array(im)[:,:,3])) <= {0,255})
+                    # alpha 254 marks a completed (fill) pixel; the renderer makes it 255
+                    self.assertTrue(set(np.unique(np.array(im)[:,:,3])) <= {0,254,255})
                     self.assertTrue(opaque_colors(im) <= allowed)
                     target,angle = poses.artwork_transform(reference[name],reference[name],part["center"])
                     self.assertTrue(np.allclose(target,part["center"]))

@@ -62,7 +62,7 @@ PROFILES = {
 # Hidden-surface fills that need more than the default rounded body behind a moving limb:
 # (view, part) -> (centre x, centre y, radius x, radius y). The side chest keeps its back
 # under the shoulder stones, so a jab that swings a shoulder forward shows a body, not a notch.
-HIDDEN = {('side', 'chest'): (91, 107, 13, 11), ('side', 'belly'): (92, 121, 11, 6)}
+HIDDEN = {('side', 'chest'): (91, 107, 13, 11), ('side', 'belly'): (92, 121, 13, 8)}
 
 def _prepare(view):
  view=ALIASES.get(view,view); p=PROFILES[view]
@@ -100,36 +100,96 @@ def _prepare(view):
   order.remove('far_glove');order.insert(order.index('near_glove'),'far_glove')
  rank={n:i for i,n in enumerate(order)}
  ranks=np.vectorize(lambda k:rank[NAMES[k]])(labels)
+ owns={name:opaque&(labels==NAMES.index(name)) for name in NAMES}
+ fits={name:_capped(name,_fit_ellipse(owns[name])) for name in NAMES}
  parts={}
  for name in NAMES:
-  own=opaque&(labels==NAMES.index(name)); cx,cy=centers.get(name,p['chest'])
-  # Rounded concealed stone body, restricted to areas covered by later parts.
-  if 'glove' in name: rx,ry=5,6;fill=tuple(palette.LINES['red'][2])+(255,)
-  elif 'shoulder' in name:rx,ry=6,6;fill=STONE
-  elif 'arm' in name:rx,ry=5,6;fill=STONE
-  elif name=='chest':rx,ry=10,10;fill=STONE
-  elif name=='belly':rx,ry=8,5;fill=STONE
-  elif name=='base':rx,ry=13,5;fill=STONE
-  elif name=='head':rx,ry=7,16;fill=STONE
-  elif 'foot' in name:rx,ry=7,3;fill=STONE
-  else:rx,ry=6,6;fill=STONE
-  if (view,name) in HIDDEN: cx,cy,rx,ry=HIDDEN[(view,name)]
-  hidden=Image.new('RGBA',src.size); hd=ImageDraw.Draw(hidden)
-  hd.ellipse((round(cx-rx),round(cy-ry),round(cx+rx),round(cy+ry)),fill=fill,outline=INK,width=1)
-  if name in ('chest','belly','base'): # a lit top and a shaded underside, so a revealed torso reads as stone
-   hd.ellipse((round(cx-rx),round(cy-ry),round(cx+rx),round(cy+ry)),fill=DARK,outline=INK,width=1)
-   hd.ellipse((round(cx-rx+1),round(cy-ry+1),round(cx+rx-1),round(cy+ry-3)),fill=STONE)
-  if 'glove' not in name:hd.ellipse((round(cx-rx+2),round(cy-ry+1),round(cx+rx-2),round(cy)),fill=LIGHT if name not in ('chest','belly','base') else STONE)
-  motion=np.array(hidden);motion[own]=a[own]
-  h=np.array(hidden); allowed=opaque&(ranks>rank[name]);h[~allowed]=0
+  own=owns[name]; cx,cy=centers.get(name,p['chest'])
+  # The stone completed: an ellipse fitted to the part's visible pixels (a mostly hidden part
+  # borrows its twin's radii round its authored centre), shaded like the painted stones, no
+  # outline of its own except on the hidden side (the renderer inks the frame's outer edge).
+  twin=name.replace('near_','far_') if name.startswith('near_') else name.replace('far_','near_')
+  fit=fits[name]
+  if twin!=name and fits.get(twin) and (fit is None or own.sum()<0.7*owns[twin].sum()):
+   fit=(cx,cy,fits[twin][2],fits[twin][3])
+  if (view,name) in HIDDEN: fit=HIDDEN[(view,name)]
+  red='glove' in name
+  hidden=np.zeros(a.shape,np.uint8)
+  if name!='head' and fit is not None:
+   hidden=_stone(a.shape[:2],fit,red,own)
+  motion=hidden.copy();motion[own]=a[own]
+  h=hidden.copy(); allowed=opaque&(ranks>rank[name]);h[~allowed]=0
   h[own]=a[own]
-  full=Image.fromarray(h);bbox=Image.fromarray(motion).getbbox()
+  bbox=Image.fromarray(motion).getbbox()
   if bbox is None: # concealed part: tiny patch behind the torso, never a missing API entry
    bbox=(round(cx)-1,round(cy)-1,round(cx)+2,round(cy)+2)
-   full=Image.new('RGBA',src.size);ImageDraw.Draw(full).ellipse(bbox,fill=STONE,outline=INK)
-  image=full.crop(bbox)
-  parts[name]={'image':image,'motion_image':Image.fromarray(motion).crop(bbox),'pivot':(cx-bbox[0],cy-bbox[1]),'center':(cx,cy),'order':rank[name],'bounds':bbox}
+   h=np.zeros(a.shape,np.uint8);h[bbox[1]:bbox[3],bbox[0]:bbox[2]]=STONE;motion=h.copy()
+  image=Image.fromarray(h).crop(bbox)
+  still=Image.fromarray((opaque*255).astype(np.uint8)).crop(bbox)
+  parts[name]={'image':image,'motion_image':Image.fromarray(motion).crop(bbox),'still':still,'pivot':(cx-bbox[0],cy-bbox[1]),'center':(cx,cy),'order':rank[name],'bounds':bbox}
  return src,parts
+
+# The largest stone a part may be completed to (rx, ry): a band's fit or a borrowed twin's
+# can run wild (a leg band holding a bit of the other leg, the forearm with its cloth).
+CAPS={'glove':(7,7),'shoulder':(8,8),'upperarm':(7,8),'forearm':(8,8),'thigh':(9,8),'shin':(9,8),
+      'foot':(10,5),'chest':(18,12),'belly':(15,9),'base':(18,8)}
+
+def _capped(name,fit):
+ if fit is None: return None
+ kind=name.split('_')[-1]
+ cx,cy,rx,ry=fit; mx,my=CAPS.get(kind,(9,9))
+ return cx,cy,min(rx,mx),min(ry,my)
+
+def _fit_ellipse(own):
+ """(cx, cy, rx, ry) of the round stone whose visible pixels are `own`: the widest rows give
+ the centre column and rx, the narrowing of the rows above and below the height (least
+ squares on |y - cy| = ry sqrt(1 - (w/2rx)^2)); a band cut from a stone's middle (no
+ narrowing) is taken as the widest part of a stone 0.6 rx tall at least."""
+ ys=np.nonzero(own.any(axis=1))[0]
+ if len(ys)<3: return None
+ rows=[(y,int(np.nonzero(own[y])[0].min()),int(np.nonzero(own[y])[0].max())) for y in ys]
+ widths={y:r-l+1 for y,l,r in rows}; wmax=max(widths.values())
+ if wmax<6: return None
+ cx=float(np.median([(l+r)/2 for y,l,r in rows if widths[y]>=0.7*wmax]))
+ rx=wmax/2
+ ywide=float(np.mean([y for y,l,r in rows if widths[y]>=0.9*wmax]))
+ A=[];b=[]
+ for y,l,r in rows:
+  h=widths[y]/2
+  if h>=0.92*rx: continue
+  u=np.sqrt(max(0.0,1-(h/rx)**2)); A.append((1.0,(-1.0 if y<ywide else 1.0)*u)); b.append(float(y))
+ cy,ry=ywide,None
+ if len(A)>=3:
+  (cy_,ry_),*_=np.linalg.lstsq(np.array(A),np.array(b),rcond=None)
+  if ry_>0: cy,ry=float(cy_),float(ry_)
+ span=ys.max()-ys.min()+1
+ if ry is None or ry<span/2 or ry>1.4*rx+2 or not ys.min()-ry*0.5<=cy<=ys.max()+ry*0.5:
+  ry=max(span/2+2.5,0.6*rx); cy=ywide   # a band from the stone's middle, or a solve gone wild
+ ry=min(ry,1.4*rx+2)
+ return cx,cy,rx,ry
+
+def _stone(shape,fit,red,own):
+ """The completed stone as RGBA (alpha 254: a fill pixel, so the renderer can tell it from
+ painted ones): a light top-left, a dark lower-right crescent and a darker rim, in the
+ still's own colours; its ink ring only where no painted ink of the part is next to it."""
+ cx,cy,rx,ry=fit
+ def ell(d,fill,dx=0.0,dy=0.0,shrink=0.0):
+  d.ellipse((cx-rx+shrink+dx,cy-ry+shrink+dy,cx+rx-shrink+dx,cy+ry-shrink+dy),fill=fill)
+ base,light,dark,rim=((214,38,42,254),(238,84,70,254),(165,21,49,254),(118,14,46,254)) if red else (STONE[:3]+(254,),LIGHT[:3]+(254,),DARK[:3]+(254,),(40,46,62,254))
+ im=Image.new('RGBA',shape[::-1]); d=ImageDraw.Draw(im)
+ ell(d,rim); ell(d,dark,shrink=1); ell(d,base,dx=-0.6,dy=-1.0,shrink=1.6); ell(d,light,dx=-1.2,dy=-2.0,shrink=max(2.6,min(rx,ry)*0.45))
+ ring=Image.new('L',shape[::-1]); ImageDraw.Draw(ring).ellipse((cx-rx,cy-ry,cx+rx,cy+ry),outline=255,width=1)
+ ring=np.array(ring)>0
+ # the painted part's ink: a ring pixel touching it (8-neighbours) would double the outline
+ a=np.array(im)
+ padm=np.pad(own,1)
+ near_own=np.zeros(own.shape,bool)
+ for dy in (-1,0,1):
+  for dx in (-1,0,1):
+   near_own|=padm[1+dy:own.shape[0]+1+dy,1+dx:own.shape[1]+1+dx]
+ keep=ring&~near_own
+ a[keep]=INK[:3]+(254,)
+ return a
 
 @lru_cache(maxsize=5)
 def load_parts(view='side'):
@@ -148,7 +208,7 @@ def main():
   src,parts=_prepare(view);dest=ART/'parts'/view;dest.mkdir(parents=True,exist_ok=True)
   meta={}
   for name,p in parts.items():
-   p['image'].save(dest/(name+'.png'));p['motion_image'].save(dest/(name+'_complete.png'));meta[name]={k:v for k,v in p.items() if k not in ('image','motion_image')}
+   p['image'].save(dest/(name+'.png'));p['motion_image'].save(dest/(name+'_complete.png'));meta[name]={k:v for k,v in p.items() if k not in ('image','motion_image','still')}
   (dest/'parts.json').write_text(json.dumps(meta,indent=2))
   rec=reconstruct(view);rec.save(ART/(view+'_reconstructed.png'))
   diff=np.any(np.array(src)!=np.array(rec),axis=2)

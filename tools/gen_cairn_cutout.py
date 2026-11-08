@@ -290,6 +290,12 @@ def render(view, row, index):
                     reveal = True
                     break
         image = part["motion_image"] if reveal or name in scaled else part["image"]
+        if reveal and shift(name) == shift("chest") and name not in scaled:
+            # the part itself stays with the body: what shows of its completed stone is what a
+            # neighbour uncovered, which lies inside the still's silhouette
+            m = np.array(image).copy()
+            m[np.array(part["still"]) == 0] = 0
+            image = Image.fromarray(m)
         trace[name]["complete"] = reveal
         trace[name]["motion"] = (pivot, target, turn)
         if name in scaled:
@@ -304,12 +310,23 @@ def render(view, row, index):
             placed[name] = (image, (x0 + target[0] - pivot[0], y0 + target[1] - pivot[1]))
         else:
             placed[name] = rotate_about(image, part["bounds"][:2], pivot, turn, target, _ring_colour(view, name))
-    frame = Image.new("RGBA", (192, 192))
+    canvas = np.zeros((192, 192, 4), np.uint8)
     for name in sorted(parts, key=lambda n: parts[n]["order"]):
         tile, at = placed[name]
         clipped = Image.new("RGBA", (192, 192))
         clipped.paste(tile, at)
-        frame.alpha_composite(clipped)
+        t = np.array(clipped)
+        on = t[:, :, 3] > 0            # a hard paste: no blending, alpha 254 fill marks survive
+        canvas[on] = t[on]
+    # fill pixels (alpha 254) on the frame's outer edge take the ink, so a completed stone is
+    # outlined like a painted one; every other fill pixel is simply opaque
+    fill = canvas[:, :, 3] == 254
+    solid = canvas[:, :, 3] > 0
+    pad = np.pad(solid, 1)
+    inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
+    canvas[fill & ~inner] = INK
+    canvas[fill, 3] = 255
+    frame = Image.fromarray(canvas)
     for name in parts:
         tile, at = placed[name]
         bbox = tile.getbbox()

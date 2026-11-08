@@ -26,6 +26,10 @@ Done (Nov 8):
   depth toward the camera (`GLOVE_GROW`, 0.7..1.5); facing the camera or away the arm parts follow
   the rig's projection (`TRANSLATED_ARMS`); a part whose covering neighbour moves `REVEAL` px away
   takes its `_complete` image. `cairn_cutout_parts.py`: a glove box keeps no stone pixels.
+- Clean-up pass (Kevin: after-image outline between animations, stones cut into squares): the
+  hidden-surface fills are now ellipses fitted to each stone's visible pixels, shaded like the
+  painted stones, ring-trimmed beside painted ink, alpha 254 so the renderer can ink the frame's
+  outer edge once (`_fit_ellipse`, `_stone`, `CAPS` in `cairn_cutout_parts.py`).
 - Idle 0 still rebuilds every still exactly; idle frames 1-7 match the approved sheet except a
   24 px far-glove fill on frames 2-3. Six cut-out checks pass; packed sheets verified;
   `anim_preview --check cairn` ok; showcase screenshots clean.

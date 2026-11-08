@@ -212,9 +212,16 @@ same). Gallery: `pixellab/cairn/cairn_route_a.png`.
 is animated as a cut-out of five approved pixel-art stills (`assets/sprites/source/cairn_cutout/`:
 `side`, `front`, `back`, `front_34`, `back_34`; 110 px tall, 12 palette colours, feet on the game's
 foot points; Codex-made from Kevin's drawing, Nov 8 2026). Pixels are never repainted or AI-animated.
-`tools/cairn_cutout_parts.py` splits each still into 18 rigid parts (`parts/<view>/`, `_complete`
-files: the same part with its hidden surface filled under the parts above it, so idle 0 rebuilds the
-still exactly); `tools/cairn_cutout_pose.py` projects `gen_cairn.py`'s rig poses (kept only as the pose
+`tools/cairn_cutout_parts.py` splits each still into 18 rigid parts (`parts/<view>/`; a part's plain
+file carries its hidden surface filled only under the parts above it, so idle 0 rebuilds the still
+exactly, its `_complete` file the whole completed stone). A stone is completed by an ellipse fitted to
+its visible pixels (`_fit_ellipse`: the widest rows give the centre and width, the narrowing rows the
+height; a band cut from a stone's middle is taken as its widest part; a mostly hidden part borrows its
+twin's radii; `CAPS` bound each kind), shaded like the painted stones (light top-left, dark lower-right
+crescent, darker rim) with alpha 254 so the renderer knows a fill pixel, and with an ink ring only where
+no painted ink of the part is next to it (two rings read as an after-image). The renderer inks the
+fill pixels on the frame's outer edge, so every frame has one outline, and a part that stays with the
+body shows its completion only inside the still's silhouette; `tools/cairn_cutout_pose.py` projects `gen_cairn.py`'s rig poses (kept only as the pose
 source, it no longer draws the sheets) into a centre and angle per part; `tools/gen_cairn_cutout.py`
 puts the parts back together: the still is idle frame 0, every other frame is the rig's pose minus its
 idle-0 pose in whole pixels. What may move beyond a translation: the arms (side and 3/4 views: a two-bone
