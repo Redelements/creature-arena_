@@ -41,9 +41,10 @@ jobs:
       - name: Python tool tests (no device; tools/test_*.py)
         if: matrix.shard == 1
         run: |
-          # the Cairn cut-out checks render frames: they need numpy and Pillow
-          python3 -m pip install --quiet --break-system-packages numpy pillow
-          python3 -I -m unittest discover -s tools -p "test_*.py"
+          # the Cairn cut-out checks render frames: they need numpy and Pillow (installed to the
+          # user site, which -I would ignore, so no -I here)
+          python3 -m pip install --quiet --user --break-system-packages numpy pillow
+          python3 -m unittest discover -s tools -p "test_*.py"
 
       - name: Download Godot (checked against the release's SHA512-SUMS)
         run: |
