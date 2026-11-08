@@ -1,8 +1,8 @@
 {
 	"sections": [
 		{
-			"heading": "Team",
-			"note": "Kevin, Jake, Justin and Anthony all drew the fighters by hand; the drawings were then adapted into the game's pixel art.",
+			"heading": "Goomba Gaming",
+			"note": "Four people, one stadium. Every fighter in the ring began as a sketch one of us drew by hand, then got pixelled, armed and dropped into the pit.",
 			"people": [
 				{"id": "kevin", "name": "Kevin Winstead", "handle": "Redelements", "role": "CTO", "tagline": "Benevolent Dictator"},
 				{"id": "jake", "name": "Jake Johnston", "handle": "Dirknasty", "role": "COO", "tagline": "Maverick Virtuoso"},
@@ -12,7 +12,7 @@
 		},
 		{
 			"heading": "Consultants",
-			"note": "",
+			"note": "Unfiltered and usually right. They play the builds first, say what hurts, and keep the roster honest.",
 			"people": [
 				{"id": "billcrittin", "name": "Justin Foster", "handle": "BillCrittin", "role": "Consultant", "tagline": "Chief Instigator"},
 				{"id": "broobs", "name": "David Taylor", "handle": "Broobs", "role": "Consultant", "tagline": "Secret Weapon"}
