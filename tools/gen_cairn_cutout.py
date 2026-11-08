@@ -59,6 +59,10 @@ GLOVE_SNAP = (6.0, 20.0)
 # swings on the hurt, knockout and fidget rows; the stones are round and only translate.
 TURNING = ("head",)
 MIN_TURN = 4.0   # degrees; a smaller turn would only ragged the edge, so it translates
+HEAD_MIN_TURN = 8.0   # the head is big: a small roll (the charge's rumble) would flicker between crisp and resampled
+# A glove the rig holds behind the body (toward-camera depth under the chest's by this many rig
+# units) and below the chest (cocked by the hip) is drawn behind the hips, not over them.
+GLOVE_BEHIND = 3.0
 STRETCH = 1.3    # an arm's bones may lengthen this much before the glove is held back
 # A part whose neighbour (one overlapping it in the still) moves more than this many pixels
 # away from it, or turns, is drawn with its completed image (`*_complete.png`: the hidden
@@ -206,7 +210,7 @@ def render(view, row, index):
         trace[name] = {"center": (part["center"][0] + dx, part["center"][1] + dy), "angle": 0.0}
         if name in TURNING:
             turn = _wrap(cur[name].angle_degrees - ref[name].angle_degrees)
-            if abs(turn) >= MIN_TURN:
+            if abs(turn) >= HEAD_MIN_TURN:
                 # swing about the neck (the painted head's bottom centre): where the rig's
                 # rigid motion carries that point, and the head turned by the rig's angle
                 neck = (c[0], part["bounds"][3] - 1)
@@ -310,8 +314,16 @@ def render(view, row, index):
             placed[name] = (image, (x0 + target[0] - pivot[0], y0 + target[1] - pivot[1]))
         else:
             placed[name] = rotate_about(image, part["bounds"][:2], pivot, turn, target, _ring_colour(view, name))
+    order = {n: float(parts[n]["order"]) for n in parts}
+    toward = np.array(TOWARD_CAMERA[view], float)
+    chest_depth = float(np.dot(cur["chest"].world_center, toward))
+    for g in ("near_glove", "far_glove") if view not in ("up", "up_side") else ():   # rear views: behind already
+        depth = float(np.dot(cur[g].world_center, toward))
+        if depth < chest_depth - GLOVE_BEHIND and trace[g]["center"][1] > cur["belly"].center[1]:
+            order[g] = order["base"] - 0.5
+            trace[g]["behind"] = True
     canvas = np.zeros((192, 192, 4), np.uint8)
-    for name in sorted(parts, key=lambda n: parts[n]["order"]):
+    for name in sorted(parts, key=lambda n: order[n]):
         tile, at = placed[name]
         clipped = Image.new("RGBA", (192, 192))
         clipped.paste(tile, at)

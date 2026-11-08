@@ -30,6 +30,11 @@ Done (Nov 8):
   hidden-surface fills are now ellipses fitted to each stone's visible pixels, shaded like the
   painted stones, ring-trimmed beside painted ink, alpha 254 so the renderer can ink the frame's
   outer edge once (`_fit_ellipse`, `_stone`, `CAPS` in `cairn_cutout_parts.py`).
+- Haymaker charge fix (Kevin: "looks weird mid charge"): the rear fist by the hip is drawn behind
+  the hips (`GLOVE_BEHIND`), parts with no fit get `DEFAULTS` stones, the head's turn threshold is
+  8 degrees (`HEAD_MIN_TURN`), gloves keep their two-pixel outline and pixel scraps join their
+  nearest part (`_adopt_fragments`, `FRAGMENT`): the floating arc beside the lead glove was the
+  rear glove's outline corners riding with the chest.
 - Idle 0 still rebuilds every still exactly; idle frames 1-7 match the approved sheet except a
   24 px far-glove fill on frames 2-3. Six cut-out checks pass; packed sheets verified;
   `anim_preview --check cairn` ok; showcase screenshots clean.

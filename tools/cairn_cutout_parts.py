@@ -87,10 +87,15 @@ def _prepare(view):
  # a glove's box also catches stone pixels of the chest or arm behind it: those stay with the
  # body (the chest label), and so does any outline pixel not touching the glove's red
  red=opaque&(a[:,:,0].astype(int)>a[:,:,1].astype(int)+40)
- pad=np.pad(red,1); nearred=red|pad[:-2,1:-1]|pad[2:,1:-1]|pad[1:-1,:-2]|pad[1:-1,2:]
+ nearred=red
+ for _ in range(2): # the gloves' outline is two pixels thick in places (8-neighbours: corners too)
+  pad=np.pad(nearred,1); nearred=nearred|pad[:-2,1:-1]|pad[2:,1:-1]|pad[1:-1,:-2]|pad[1:-1,2:]|pad[:-2,:-2]|pad[:-2,2:]|pad[2:,:-2]|pad[2:,2:]
  for gname in ('near_glove','far_glove'):
   g=labels==NAMES.index(gname)
   labels[g&opaque&~nearred]=NAMES.index('chest')
+ # a scrap of a few pixels cut off from its part (a glove outline's corner, a far arm's edge) would
+ # float when the parts move: it joins the part whose pixels are nearest
+ labels=_adopt_fragments(labels,opaque)
  if view=='side': # the cloth wrapped round the elbow turns with the forearm it ties, not the elbow stone
   red=(a[:,:,0].astype(int)>a[:,:,1].astype(int)+40)&(labels==NAMES.index('near_upperarm'))
   labels[red]=NAMES.index('near_forearm')
@@ -112,6 +117,7 @@ def _prepare(view):
   fit=fits[name]
   if twin!=name and fits.get(twin) and (fit is None or own.sum()<0.7*owns[twin].sum()):
    fit=(cx,cy,fits[twin][2],fits[twin][3])
+  if fit is None and name!='head': fit=(cx,cy)+DEFAULTS.get(name.split('_')[-1],(7,7))
   if (view,name) in HIDDEN: fit=HIDDEN[(view,name)]
   red='glove' in name
   hidden=np.zeros(a.shape,np.uint8)
@@ -133,12 +139,43 @@ def _prepare(view):
 # can run wild (a leg band holding a bit of the other leg, the forearm with its cloth).
 CAPS={'glove':(7,7),'shoulder':(8,8),'upperarm':(7,8),'forearm':(8,8),'thigh':(9,8),'shin':(9,8),
       'foot':(10,5),'chest':(18,12),'belly':(15,9),'base':(18,8)}
+# The stone a part gets round its authored centre when neither it nor its twin shows enough
+# to fit one (both upper arms of the side still are slivers behind the forearms).
+DEFAULTS={'glove':(6,7),'shoulder':(7,7),'upperarm':(6,7),'forearm':(7,7),'thigh':(8,7),'shin':(8,7),
+          'foot':(9,4),'chest':(14,10),'belly':(13,7),'base':(15,7)}
 
 def _capped(name,fit):
  if fit is None: return None
  kind=name.split('_')[-1]
  cx,cy,rx,ry=fit; mx,my=CAPS.get(kind,(9,9))
  return cx,cy,min(rx,mx),min(ry,my)
+
+FRAGMENT=10   # an 8-connected piece of a part smaller than this many pixels is a scrap
+
+def _adopt_fragments(labels,opaque):
+ from collections import deque
+ out=labels.copy(); H,W=labels.shape
+ for k in range(len(NAMES)):
+  own=opaque&(labels==k); seen=np.zeros_like(own); comps=[]
+  for y0,x0 in zip(*np.nonzero(own)):
+   if seen[y0,x0]: continue
+   q=deque([(y0,x0)]); seen[y0,x0]=True; c=[]
+   while q:
+    y,x=q.popleft(); c.append((y,x))
+    for dy in (-1,0,1):
+     for dx in (-1,0,1):
+      yy,xx=y+dy,x+dx
+      if 0<=yy<H and 0<=xx<W and own[yy,xx] and not seen[yy,xx]: seen[yy,xx]=True; q.append((yy,xx))
+   comps.append(c)
+  if len(comps)<2: continue
+  main=max(len(c) for c in comps)
+  others=opaque&(labels!=k); oy,ox=np.nonzero(others)
+  for c in comps:
+   if len(c)>=FRAGMENT or len(c)==main: continue
+   cy=np.mean([y for y,x in c]); cx=np.mean([x for y,x in c])
+   j=int(np.argmin((oy-cy)**2+(ox-cx)**2))
+   for y,x in c: out[y,x]=labels[oy[j],ox[j]]
+ return out
 
 def _fit_ellipse(own):
  """(cx, cy, rx, ry) of the round stone whose visible pixels are `own`: the widest rows give
