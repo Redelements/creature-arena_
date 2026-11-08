@@ -220,17 +220,8 @@ def preview_background(size):
     return im
 
 
-def flat_normal(frame):
-    """A facing-camera normal for the frame's solid pixels, as splat3d.finish_frame packs a
-    flat one (see write_live)."""
-    import splat3d as S
-    a = np.array(frame)
-    solid = a[:, :, 3] > 0
-    n = np.zeros(a.shape, np.uint8)
-    n[solid] = FLAT
-    return Image.fromarray(n)
-
-
+# A flat, camera-facing normal as splat3d.pack_normals packs it: R = G = 128 (x = y = 0),
+# B = 255 (z = 1), A = the colour frame's alpha. Emissive rows stay transparent.
 FLAT = (128, 128, 255, 255)
 
 
