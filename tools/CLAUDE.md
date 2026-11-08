@@ -90,6 +90,14 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   stone's `local` is offset by 100 per stone, so one buffer tells the stones apart), and
   `python3 tools/gen_cairn.py kofx` prints `ko_fx.pieces` / `x_eyes` for `cairn.json` after
   the rig changes. The dummy is training equipment, not a creature (a sack on a spring).
+- `cairn_cutout_parts.py`, `cairn_cutout_pose.py`, `gen_cairn_cutout.py`, `test_cairn_cutout.py`: Cairn's cut-out
+  animation (`docs/SPRITES.md`, "Cut-out"): parts from the approved stills in
+  `assets/sprites/source/cairn_cutout/`, per-part poses from `gen_cairn.py`'s rig, the renderer
+  (`--out DIR` for review GIFs/frames, `--live` rebuilds the side sheets' `READY_ROWS` and keeps every other
+  row), the six checks. The embeddable Python can't import siblings, so run from the repo root with
+  `python -c "import sys,runpy; sys.path.insert(0,'tools'); sys.argv=['x','--live']; runpy.run_path('tools/gen_cairn_cutout.py', run_name='__main__')"`
+  (same for `cairn_cutout_parts.py` after a mask change, `test_cairn_cutout.py`, `cairn_cutout_pose.py --check`);
+  then `pack_sheets.py cairn`, `--import`.
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of splat3d's
   primitives, `Cam` and rasteriser, but splat3d's shading and outlines: `S.configure(MAT,
   ...)` with MAT on palette ramps, then `S.shade(r)` / `S.outline(r, img)` on their buffers,
@@ -212,6 +220,8 @@ tools, so a fighter's pass is posing work only.
 - `anim_preview.py` — Animation previews and the timeline check, shared by every sprite generator.
 - `build_tiles.gd` — Builds the Godot TileSets and the tiled arenas' ground scenes from a cut set's manifest (assets/tiles/<set>_manifest.js…
 - `build_vfx.gd` — Builds the SpriteFrames and MoveFx resources from assets/vfx/manifest.json (written by tools/cut_vfx.py from kiddolink'…
+- `cairn_cutout_parts.py` — Cairn's approved painted cutouts and completed hidden surfaces.
+- `cairn_cutout_pose.py` — Projected rigid-part poses for Cairn's cut-out renderer.
 - `capture_gallery.py` — Gallery and trailer capture: runs the real game in a window and turns its screenshots into the gallery under docs/galle…
 - `clip.py` — A clip of a saved replay, from a terminal: the Replay theater's Export clip (src/game/clip_export.gd) for trailers and…
 - `codebase_map.py` — Writes the generated file lists and checks the codebase map for drift.
@@ -226,6 +236,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_audio.py` — Generate PLACEHOLDER sound effects and music for Ready 4 Rambles.
 - `gen_barkley.py` — Barkley sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_cairn.py` — Cairn sprite sheets: a boxer made of stacked river stones, drawn as a posed 3D rig.
+- `gen_cairn_cutout.py` — Cairn's cut-out renderer: approved painted stills, moved by the 3D rig's poses.
 - `gen_cerebro.py` — Chef Cerebro sprite sheets: a floating brain who throws his kitchen with his mind.
 - `gen_craglash.py` — Craglash sprite sheet, a pixel-art recreation of the artist's character sheet.
 - `gen_crease.py` — Mister Crease sprite sheets: a pixel-art take on the concept art (an origami magician).
@@ -249,6 +260,7 @@ tools, so a fighter's pass is posing work only.
 - `smoke_sweep.py` — Headless smoke sweep: every mode on every arena, grepping the output for script errors.
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 - `sprite_2x.py` — Switches a fighter's JSON to its 2x sheets (the fighter-2x skill):
+- `test_cairn_cutout.py` — Acceptance checks for Cairn cut-out assets and all authored animation frames.
 - `test_odin_perf.py` — Tests for tools/odin_perf.py that need no device: the arguments, the no-device message, and the reports from canned log…
 - `write_status.py` — Stamps docs/STATUS.md with the time, branch and commit so a compaction never starts without a fresh marker.
 <!-- END GENERATED -->

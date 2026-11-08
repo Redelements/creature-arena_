@@ -208,6 +208,22 @@ density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pix
 double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
 same). Gallery: `pixellab/cairn/cairn_route_a.png`.
 
+**Cut-out (Nov 2026).** Cairn's new look (a moai head, red headband, red gloves, a red cloth on one arm)
+is animated as a cut-out of five approved pixel-art stills (`assets/sprites/source/cairn_cutout/`:
+`side`, `front`, `back`, `front_34`, `back_34`; 110 px tall, 12 palette colours, feet on the game's
+foot points; Codex-made from Kevin's drawing, Nov 8 2026). Pixels are never repainted or AI-animated.
+`tools/cairn_cutout_parts.py` splits each still into 18 rigid parts (`parts/<view>/`, `_complete`
+files: the same part with its hidden surface filled under the parts above it, so idle 0 rebuilds the
+still exactly); `tools/cairn_cutout_pose.py` projects `gen_cairn.py`'s rig poses (kept only as the pose
+source, it no longer draws the sheets) into a centre and angle per part; `tools/gen_cairn_cutout.py`
+puts the parts back together: the still is idle frame 0, every other frame is the rig's pose minus its
+idle-0 pose in whole pixels, only the arms rotate (two-bone solve to the rig's glove), and a turned
+part is re-inked. So frame counts, timing and glove reach are the rig's (jab glove centre within 0.5 px
+of the rig's movement on every frame). **So far** only the side view's `idle` and `jab` rows are cut-out
+(`--live` writes them into `cairn_2x.png`); every other row and the four other views are still the old
+stacked-stones sheets, so he changes look between rows until the rest is done. The cut-out rows' normal
+sheet is flat (facing the camera, `pack_normals` packing), their emissive rows empty.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |

@@ -16,7 +16,7 @@
 
 ## Art notes
 - Pose reference: `docs/fighters/cairn_concept.png` (Nov 2026, the official look): a moai head in profile (long nose, heavy brow), a red headband with two tails, rounded grey stones stacked into shoulders, chest, hips and pebble legs, red boxing gloves, a red cloth tied on the rear arm, thick black outlines
-- Art status: rework on branch `cairn-rework`; the shipped sheets are still the old rig (round pale head, white-taped fists)
+- Art status: rework on branch `cairn-rework`; Nov 8 2026 the side `idle` and `jab` rows are a cut-out of the approved stills (`assets/sprites/source/cairn_cutout/`, `docs/SPRITES.md` "Cut-out"); every other row and view is still the old rig (round pale head, white-taped fists)
 - Knockout: the gloves stay on their arms (Kevin, 2026-11-07)
 
 ## Open questions

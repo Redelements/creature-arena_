@@ -4,6 +4,8 @@ The five views of Cairn's official look, from Kevin's drawing (`../../cairn_conc
 cleaned to pixel art with SpriteCook and picked by Kevin on 2026-11-07. They are the
 reference the rig in `tools/gen_cairn.py` is rebuilt to match; the game never loads them.
 
+**Superseded (Nov 8 2026)** as the turnaround by `assets/sprites/source/cairn_cutout/`: Codex-made stills from Kevin's direction, on the master palette, which are the pixels the game now uses (cut-out animation). Kept for history.
+
 | File | View | SpriteCook asset |
 | --- | --- | --- |
 | `side.png` | side, facing right | `453781ad-384a-4230-8ca2-b620fecc31b7` |

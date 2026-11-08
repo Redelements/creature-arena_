@@ -1,48 +1,38 @@
 # Status: handoff snapshot
 
-Stamped: 2026-11-04
-Branch: balance/mage-pass-nov-2026 (from main after #328; NET_VERSION 76)
-Trigger: the balance team's Nov 2026 notes, implemented in one branch
+Stamped: 2026-11-08
+Branch: codex/cairn-cutout-animation (same HEAD line as `cairn-rework`'s successor; base f91d274), local commits only, nothing pushed
+Trigger: Kevin's Cairn redesign; cut-out animation of his approved stills
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
 this and CLAUDE.md, states the next step in one line and continues (no re-exploration).
 
 ## Current state
 
-The balance pass is merged into this branch from seven sub-branches (balance/mage-dmg,
-breakaway, cc-block, cerebro, crease, craglash, audio-falloff; keep them until the PR merges).
-Done, each with tests and a `docs/decisions.md` entry dated 2026-11-04:
+Cairn's look is five approved stills (`assets/sprites/source/cairn_cutout/`), animated as a
+cut-out (decision 2026-11-08, `docs/SPRITES.md` "Cut-out"). The rig `tools/gen_cairn.py` is only
+the pose source; it does not draw the sheets.
 
-- Mages deal 1.3x (`data/rules/classes.json` damage_mult by role, `MatchSim.class_damage_mult`
-  in `_apply_hit`, poison scaled at apply); mage HP from the top ult combo (Pete's Big Heist
-  route, 116.4 on a mage): Cerebro 210 → 140, Crease 200 → 135.
-- Breakaway removed (input, cost, CPU knob, challenge, hints, docs). `breakaway.wav` stays for
-  the tag-in whoosh.
-- CC goes through a guard (`stamina.json` cc_through_guard; `MatchSim._cc_through_guard`):
-  slow, root, blind, freeze, petrify, stun, launch, knockdown, crumple, pull, stagger land in
-  full; damage, plain hitstun, poison, vuln stay blocked. Rage blocks as before (no CPU change).
-- Chef Cerebro: Tenderize thrown (speed 4, `stun_ticks` 180 = a fixed stun, `stun_lock`),
-  Flip Out thrown (tap flips toward him, hold `flip_away` 64; Culvert's charge_max 20 rule).
-- Mister Crease: CC durations (Frog slow 94, Crane launch 85, Shuriken hitstun 94/100, storm
-  slow 109); Thousand Cranes' knock-up only at the centre, once per foe (`storm.center_launch`),
-  every other pulse slows; frogs knock sideways (`projectile.knock: "side"`).
-- Craglash: Bedrock's taunt zone holds foes in (`taunt.contain`): walking, dodges, dashes,
-  blinks clamp to the 200 px zone; knockback, pulls, falls still move them.
-- Audio: fight sounds on AudioStreamPlayer2D with one `falloff` block in `data/audio.json`
-  (max_distance 720, attenuation 1.5); listener on the local fighter or the camera centre;
-  proximity voice uses the same curve (`VoiceChat.gain_for` → `AudioView.falloff_gain`).
+Done:
+- Idle frame 0 rebuilds the still exactly in all five views (`tools/test_cairn_cutout.py`, 6 checks pass).
+  The old failures were the renderer's placement (rounded pivots) and hidden fills that weren't
+  limited to areas under later parts; the test's premise was right.
+- Side view `idle` (8) and `jab` (8) are drawn from the parts and live in `cairn_2x.png` / `_n`
+  (flat normals; emissive empty), packed, imported. Every other row and the four other views are
+  still the OLD stacked-stones sheets (he changes look between rows; expected, temporary).
+- Jab glove centre vs the rig: the MOVEMENT from idle 0 is within 0.5 px on every frame; the
+  absolute position sits (-5.5, -10.5) px off because the still's guard is tighter and its body
+  slimmer than the rig's.
+- Arm: two-bone solve (shoulder and glove from the rig, painted bone lengths, elbow below);
+  upper arm and forearm rotate, everything else is whole-pixel translation.
 
-Open items (proposals only, nothing implemented): Culvert's holes rework and Hissy Fitz's
-Stone Gaze rework. The options were given to Kevin in the session's report.
+Next (Kevin to judge first):
+1. His verdict on the idle/jab feel (GIFs in the session scratchpad `cairn/cutout/`, Windows build in
+   `Downloads/CreatureArena-windows-cairn-rework/`).
+2. Then the other rows of the side view (power, hook, heavy, hurt, guard, ko ...), then the four
+   other views. KO needs the old `ko_fx` slices re-measured (`gen_cairn.py kofx` is rig-based).
+3. Open: a second painted head for blinks/fidgets (idle has no blink), how much arm rotation reads
+   well, the cloth wrap on the forearm (it turns with the forearm), the far arm's hidden stub.
 
-## Owed
-
-- Kevin's rulings: Culvert holes (slime pools / flooded shallows / gushing drains), Hissy
-  skill 2 (counter glare / quick stone pulse / snake snare); whether Crease's hard CC of
-  1.4–1.8 s is what the team meant (the window includes the fold; without it, 20 ticks less).
-- A PR for this branch, then the server (`/opt/creature-arena/update.sh`, protocol 76).
-- Known looks: Cerebro's held mallet / spatula still drawn while the thrown one flies; the
-  storm's centre zone has no ring yet.
-- Playtest from the branch build: the mage damage and HP, blocking a heavy (it launches now),
-  Tenderize / Flip Out at range, Crease's storm, Bedrock containment, sound falloff in a
-  4v4 and in proximity chat.
+Commands: see `tools/CLAUDE.md` (cut-out bullet) for the sys.path wrapper; `--live` rebuilds the
+side sheets, then `pack_sheets.py cairn`, `--import`.
