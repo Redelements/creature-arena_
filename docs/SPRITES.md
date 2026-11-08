@@ -238,7 +238,15 @@ guard, so strikes arrive where they hit and idle 0 stays exact. A part whose cov
 more than `REVEAL` px away from it (or that turns `REVEAL_TURN`) is drawn from its `_complete` file. A glove
 the rig holds behind the body and below the chest (the Haymaker's rear fist cocked by the hip,
 `GLOVE_BEHIND`) is drawn behind the hips in the views that draw gloves in front.
-Every turned or scaled part is re-inked; only palette colours and hard alpha reach a frame. Since Nov 8
+The stack never parts: a stone may not rise over the one under it (`STACK`), and no clear row
+opens between neighbours (`_stack_clamped`: a torso stone comes down onto the one below, a leg stone
+up to the one above, so the feet hop a few px at the uppercut's peak); the arm and leg chains stay
+linked (`CHAINS`, `glue`: a link drawn clear of the one before it is moved back toward it, up to
+`GLUE_MAX`). After compositing, a stray piece under 4 px goes and an enclosed pocket of 3 to
+`HOLE_FILL` px becomes ink (two stones a pixel apart would show the floor through him).
+Every turned or scaled part is re-inked; only palette colours and hard alpha reach a frame.
+`tools/cairn_cutout_scan.py` lists what is left measurable per frame (scraps, detached pieces, holes,
+jumps); `tools/cairn_review_sheets.py` makes the labelled per-view sheets for a frame-by-frame look. Since Nov 8
 2026 every row of all five views is cut-out (`--views all --live`; `ko` is side-only). The normal sheets
 are flat (facing the camera, `pack_normals` packing), the emissive sheets empty. `ko_fx` bands and the eye
 spot were measured on the still (head 58-96, chest 96-117, belly 117-124, base and legs 124-170; the eye

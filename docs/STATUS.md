@@ -35,6 +35,12 @@ Done (Nov 8):
   8 degrees (`HEAD_MIN_TURN`), gloves keep their two-pixel outline and pixel scraps join their
   nearest part (`_adopt_fragments`, `FRAGMENT`): the floating arc beside the lead glove was the
   rear glove's outline corners riding with the chest.
+- Frame-by-frame pass (Kevin asked for the sheets, then for anomalies): `tools/cairn_cutout_scan.py`
+  found 69 detached pieces and 25 scraps over the 650 frames; now 1 (back view, hook 2, the rear
+  glove 2 px off its hidden forearm). Fixes: the stack closes gaps (`_stack_clamped` with extents),
+  chains glued by pixel adjacency (`glue`), splinters and scraps dropped, pinholes of 3-8 px inked,
+  a turned head may not rise off the chest, STRETCH 1.15, shoulders revealed when their arm turns.
+  `tools/cairn_review_sheets.py` writes the labelled sheets (Kevin's copy: Downloads/cairn-sheets).
 - Idle 0 still rebuilds every still exactly; idle frames 1-7 match the approved sheet except a
   24 px far-glove fill on frames 2-3. Six cut-out checks pass; packed sheets verified;
   `anim_preview --check cairn` ok; showcase screenshots clean.

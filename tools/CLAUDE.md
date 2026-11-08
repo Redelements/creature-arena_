@@ -95,8 +95,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `assets/sprites/source/cairn_cutout/`, per-part poses from `gen_cairn.py`'s rig, the renderer
   (`--out DIR` for review GIFs, frames and a `<view>-sheet.png` contact sheet per view; `--views all --live`
   rebuilds all five game sheets, `--rows a,b` a subset, the rest kept from the committed sheet), the six
-  checks. The knobs (`GLOVE_SNAP`, `STRETCH`, `TURNING`, `MIN_TURN`, `REVEAL`, `GLOVE_GROW`, `TRANSLATED_ARMS`)
-  are explained in `docs/SPRITES.md` "Cut-out". The embeddable Python can't import siblings, so run from the repo root with
+  checks. The knobs (`GLOVE_SNAP`, `STRETCH`, `TURNING`, `MIN_TURN`, `HEAD_MIN_TURN`, `REVEAL`, `GLOVE_GROW`,
+  `TRANSLATED_ARMS`, `GLOVE_BEHIND`, `CHAINS` / `GLUE_MAX`, `HOLE_FILL`) are explained in `docs/SPRITES.md` "Cut-out".
+  After a change: `cairn_cutout_scan.py` (no scraps or detached pieces expected) and
+  `cairn_review_sheets.py [DIR]` (the labelled per-view sheets Kevin reviews). The embeddable Python can't import siblings, so run from the repo root with
   `python -c "import sys,runpy; sys.path.insert(0,'tools'); sys.argv=['x','--views','all','--live']; runpy.run_path('tools/gen_cairn_cutout.py', run_name='__main__')"`
   (same for `cairn_cutout_parts.py` after a mask change, `test_cairn_cutout.py`, `cairn_cutout_pose.py --check`);
   then `pack_sheets.py cairn`, `--import`.
@@ -224,6 +226,8 @@ tools, so a fighter's pass is posing work only.
 - `build_vfx.gd` — Builds the SpriteFrames and MoveFx resources from assets/vfx/manifest.json (written by tools/cut_vfx.py from kiddolink'…
 - `cairn_cutout_parts.py` — Cairn's approved painted cutouts and completed hidden surfaces.
 - `cairn_cutout_pose.py` — Projected rigid-part poses for Cairn's cut-out renderer.
+- `cairn_cutout_scan.py` — Scan every frame of Cairn's live sheets for measurable anomalies: pixel islands (scraps, detached pieces), enclosed hol…
+- `cairn_review_sheets.py` — Labelled review sheets of every Cairn animation row, one PNG per view, from the live sheets.
 - `capture_gallery.py` — Gallery and trailer capture: runs the real game in a window and turns its screenshots into the gallery under docs/galle…
 - `clip.py` — A clip of a saved replay, from a terminal: the Replay theater's Export clip (src/game/clip_export.gd) for trailers and…
 - `codebase_map.py` — Writes the generated file lists and checks the codebase map for drift.
