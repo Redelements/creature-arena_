@@ -208,6 +208,50 @@ density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pix
 double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
 same). Gallery: `pixellab/cairn/cairn_route_a.png`.
 
+**Cut-out (Nov 2026).** Cairn's new look (a moai head, red headband, red gloves, a red cloth on one arm)
+is animated as a cut-out of five approved pixel-art stills (`assets/sprites/source/cairn_cutout/`:
+`side`, `front`, `back`, `front_34`, `back_34`; 110 px tall, 12 palette colours, feet on the game's
+foot points; Codex-made from Kevin's drawing, Nov 8 2026). Pixels are never repainted or AI-animated.
+`tools/cairn_cutout_parts.py` splits each still into 18 rigid parts (`parts/<view>/`; a part's plain
+file carries its hidden surface filled only under the parts above it, so idle 0 rebuilds the still
+exactly, its `_complete` file the whole completed stone). A glove's box keeps only its red and the outline
+within two pixels of it, and a scrap of fewer than `FRAGMENT` pixels cut off from its part joins the
+nearest part (else it floats when the parts move). A stone is completed by an ellipse fitted to
+its visible pixels (`_fit_ellipse`: the widest rows give the centre and width, the narrowing rows the
+height; a band cut from a stone's middle is taken as its widest part; a mostly hidden part borrows its
+twin's radii, a part with nothing to fit gets `DEFAULTS` round its authored centre; `CAPS` bound each kind), shaded like the painted stones (light top-left, dark lower-right
+crescent, darker rim) with alpha 254 so the renderer knows a fill pixel, and with an ink ring only where
+no painted ink of the part is next to it (two rings read as an after-image). The renderer inks the
+fill pixels on the frame's outer edge, so every frame has one outline, and a part that stays with the
+body shows its completion only inside the still's silhouette; `tools/cairn_cutout_pose.py` projects `gen_cairn.py`'s rig poses (kept only as the pose
+source, it no longer draws the sheets) into a centre and angle per part; `tools/gen_cairn_cutout.py`
+puts the parts back together: the still is idle frame 0, every other frame is the rig's pose minus its
+idle-0 pose in whole pixels. What may move beyond a translation: the arms (side and 3/4 views: a two-bone
+solve from the painted shoulder and elbow to the rig's glove; the bones stretch up to `STRETCH` 1.3 with
+the stones sliding apart before the glove is held back, since the painted far arm is foreshortened), the
+head (it swings about the neck on the hurt, knockout and fidget rows: `TURNING`, turns under `HEAD_MIN_TURN`
+8 degrees translate, so the charge's small roll doesn't flicker; arm turns under `MIN_TURN` 4 translate), and the gloves alone scale (`GLOVE_GROW`: bigger coming at the camera, smaller going
+away, so a punch facing the camera reads). Facing the camera or away (`TRANSLATED_ARMS`: down, up) the
+arm parts move by the rig's own projection instead of a flat bone chain. A glove that travels more than
+`GLOVE_SNAP` is placed on the rig's absolute glove (where the hit circle is), blending from the still's
+guard, so strikes arrive where they hit and idle 0 stays exact. A part whose covering neighbour moves
+more than `REVEAL` px away from it (or that turns `REVEAL_TURN`) is drawn from its `_complete` file. A glove
+the rig holds behind the body and below the chest (the Haymaker's rear fist cocked by the hip,
+`GLOVE_BEHIND`) is drawn behind the hips in the views that draw gloves in front.
+The stack never parts: a stone may not rise over the one under it (`STACK`), and no clear row
+opens between neighbours (`_stack_clamped`: a torso stone comes down onto the one below, a leg stone
+up to the one above, so the feet hop a few px at the uppercut's peak); the arm and leg chains stay
+linked (`CHAINS`, `glue`: a link drawn clear of the one before it is moved back toward it, up to
+`GLUE_MAX`). After compositing, a stray piece under 4 px goes and an enclosed pocket of 3 to
+`HOLE_FILL` px becomes ink (two stones a pixel apart would show the floor through him).
+Every turned or scaled part is re-inked; only palette colours and hard alpha reach a frame.
+`tools/cairn_cutout_scan.py` lists what is left measurable per frame (scraps, detached pieces, holes,
+jumps); `tools/cairn_review_sheets.py` makes the labelled per-view sheets for a frame-by-frame look. Since Nov 8
+2026 every row of all five views is cut-out (`--views all --live`; `ko` is side-only). The normal sheets
+are flat (facing the camera, `pack_normals` packing), the emissive sheets empty. `ko_fx` bands and the eye
+spot were measured on the still (head 58-96, chest 96-117, belly 117-124, base and legs 124-170; the eye
+at (94, 70)); `fx_top` 56 (he is 109 px / 54.5 units tall).
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |

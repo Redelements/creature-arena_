@@ -1,48 +1,62 @@
 # Status: handoff snapshot
 
-Stamped: 2026-11-04
-Branch: balance/mage-pass-nov-2026 (from main after #328; NET_VERSION 76)
-Trigger: the balance team's Nov 2026 notes, implemented in one branch
+Stamped: 2026-11-08
+Branch: cairn-rework (PR pending)
+Trigger: Cairn cut-out extended to every row and view
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
 this and CLAUDE.md, states the next step in one line and continues (no re-exploration).
 
 ## Current state
 
-The balance pass is merged into this branch from seven sub-branches (balance/mage-dmg,
-breakaway, cc-block, cerebro, crease, craglash, audio-falloff; keep them until the PR merges).
-Done, each with tests and a `docs/decisions.md` entry dated 2026-11-04:
+Cairn's look is five approved stills (`assets/sprites/source/cairn_cutout/`), animated as a
+cut-out (decisions 2026-11-08, `docs/SPRITES.md` "Cut-out"). The rig `tools/gen_cairn.py` is only
+the pose source; it does not draw the sheets.
 
-- Mages deal 1.3x (`data/rules/classes.json` damage_mult by role, `MatchSim.class_damage_mult`
-  in `_apply_hit`, poison scaled at apply); mage HP from the top ult combo (Pete's Big Heist
-  route, 116.4 on a mage): Cerebro 210 → 140, Crease 200 → 135.
-- Breakaway removed (input, cost, CPU knob, challenge, hints, docs). `breakaway.wav` stays for
-  the tag-in whoosh.
-- CC goes through a guard (`stamina.json` cc_through_guard; `MatchSim._cc_through_guard`):
-  slow, root, blind, freeze, petrify, stun, launch, knockdown, crumple, pull, stagger land in
-  full; damage, plain hitstun, poison, vuln stay blocked. Rage blocks as before (no CPU change).
-- Chef Cerebro: Tenderize thrown (speed 4, `stun_ticks` 180 = a fixed stun, `stun_lock`),
-  Flip Out thrown (tap flips toward him, hold `flip_away` 64; Culvert's charge_max 20 rule).
-- Mister Crease: CC durations (Frog slow 94, Crane launch 85, Shuriken hitstun 94/100, storm
-  slow 109); Thousand Cranes' knock-up only at the centre, once per foe (`storm.center_launch`),
-  every other pulse slows; frogs knock sideways (`projectile.knock: "side"`).
-- Craglash: Bedrock's taunt zone holds foes in (`taunt.contain`): walking, dodges, dashes,
-  blinks clamp to the 200 px zone; knockback, pulls, falls still move them.
-- Audio: fight sounds on AudioStreamPlayer2D with one `falloff` block in `data/audio.json`
-  (max_distance 720, attenuation 1.5); listener on the local fighter or the camera centre;
-  proximity voice uses the same curve (`VoiceChat.gain_for` → `AudioView.falloff_gain`).
+Done (Nov 8):
+- Kevin approved the side idle + jab ("looks great") and asked for every animation in this style
+  and the health bar lifted off his face.
+- `fx_top` 44 -> 56 (the still is 54.5 units tall; the bar sat across his face). `ko_fx` bands and
+  eye spot re-measured on the still; HUD `portrait` moved to the head. NET_VERSION 76 -> 77
+  (`cairn.json` is in the data hash; no sim change).
+- `tools/gen_cairn_cutout.py` now draws all 15 rows of all five views (`--views all --live`;
+  `ko` side-only). New: head swings about the neck when the rig turns it 4 degrees or more
+  (hurt, ko, idle_alt); arm bones stretch up to 1.3 before the glove is held back; a glove that
+  travels past `GLOVE_SNAP` lands on the rig's absolute glove (the hit circle); gloves scale with
+  depth toward the camera (`GLOVE_GROW`, 0.7..1.5); facing the camera or away the arm parts follow
+  the rig's projection (`TRANSLATED_ARMS`); a part whose covering neighbour moves `REVEAL` px away
+  takes its `_complete` image. `cairn_cutout_parts.py`: a glove box keeps no stone pixels.
+- Clean-up pass (Kevin: after-image outline between animations, stones cut into squares): the
+  hidden-surface fills are now ellipses fitted to each stone's visible pixels, shaded like the
+  painted stones, ring-trimmed beside painted ink, alpha 254 so the renderer can ink the frame's
+  outer edge once (`_fit_ellipse`, `_stone`, `CAPS` in `cairn_cutout_parts.py`).
+- Haymaker charge fix (Kevin: "looks weird mid charge"): the rear fist by the hip is drawn behind
+  the hips (`GLOVE_BEHIND`), parts with no fit get `DEFAULTS` stones, the head's turn threshold is
+  8 degrees (`HEAD_MIN_TURN`), gloves keep their two-pixel outline and pixel scraps join their
+  nearest part (`_adopt_fragments`, `FRAGMENT`): the floating arc beside the lead glove was the
+  rear glove's outline corners riding with the chest.
+- Frame-by-frame pass (Kevin asked for the sheets, then for anomalies): `tools/cairn_cutout_scan.py`
+  found 69 detached pieces and 25 scraps over the 650 frames; now 1 (back view, hook 2, the rear
+  glove 2 px off its hidden forearm). Fixes: the stack closes gaps (`_stack_clamped` with extents),
+  chains glued by pixel adjacency (`glue`), splinters and scraps dropped, pinholes of 3-8 px inked,
+  a turned head may not rise off the chest, STRETCH 1.15, shoulders revealed when their arm turns.
+  `tools/cairn_review_sheets.py` writes the labelled sheets (Kevin's copy: Downloads/cairn-sheets).
+- Idle 0 still rebuilds every still exactly; idle frames 1-7 match the approved sheet except a
+  24 px far-glove fill on frames 2-3. Six cut-out checks pass; packed sheets verified;
+  `anim_preview --check cairn` ok; showcase screenshots clean.
+- Windows build for Kevin: `C:\Users\Kevin\Downloads\CreatureArena-windows-cairn-rework\CreatureArena.exe`.
+  Review media: session scratchpad `cairn/cutout/review2/` (`<view>-sheet.png`, GIFs per row).
 
-Open items (proposals only, nothing implemented): Culvert's holes rework and Hissy Fitz's
-Stone Gaze rework. The options were given to Kevin in the session's report.
+Next:
+1. Kevin plays the build and judges every move in every direction; rulings wanted on the limits
+   below.
+2. Open the PR from `cairn-rework` (full suite + smoke were running at the stamp); server rebuild
+   after merge (NET 77).
+3. Known limits to put to Kevin: no blink / expression (one painted head per view: a second head
+   still would give blinks and the x-eyes); a punch facing the camera is the glove growing and
+   dropping toward the hips (the rig's camera); the knockout row lays the stones in a line (the
+   game scatters him from idle 0 anyway); the far arm's painted reach is 27 px, so the cross and
+   uppercut stretch the stones 1.3x and still stop short of the rig's glove by a few px.
 
-## Owed
-
-- Kevin's rulings: Culvert holes (slime pools / flooded shallows / gushing drains), Hissy
-  skill 2 (counter glare / quick stone pulse / snake snare); whether Crease's hard CC of
-  1.4–1.8 s is what the team meant (the window includes the fold; without it, 20 ticks less).
-- A PR for this branch, then the server (`/opt/creature-arena/update.sh`, protocol 76).
-- Known looks: Cerebro's held mallet / spatula still drawn while the thrown one flies; the
-  storm's centre zone has no ring yet.
-- Playtest from the branch build: the mage damage and HP, blocking a heavy (it launches now),
-  Tenderize / Flip Out at range, Crease's storm, Bedrock containment, sound falloff in a
-  4v4 and in proximity chat.
+Commands: `tools/CLAUDE.md` (cut-out bullet): the runpy wrapper, `--views all --live`, then
+`pack_sheets.py cairn`, `--import`.

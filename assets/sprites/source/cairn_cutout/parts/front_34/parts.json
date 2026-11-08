@@ -1,0 +1,308 @@
+{
+  "far_foot": {
+    "pivot": [
+      13,
+      5
+    ],
+    "center": [
+      106,
+      153
+    ],
+    "order": 0,
+    "bounds": [
+      93,
+      148,
+      114,
+      159
+    ]
+  },
+  "far_shin": {
+    "pivot": [
+      14,
+      8
+    ],
+    "center": [
+      106,
+      145
+    ],
+    "order": 1,
+    "bounds": [
+      92,
+      137,
+      112,
+      152
+    ]
+  },
+  "far_thigh": {
+    "pivot": [
+      15,
+      7
+    ],
+    "center": [
+      106,
+      132
+    ],
+    "order": 2,
+    "bounds": [
+      91,
+      125,
+      107,
+      142
+    ]
+  },
+  "near_foot": {
+    "pivot": [
+      15,
+      6
+    ],
+    "center": [
+      79,
+      156
+    ],
+    "order": 3,
+    "bounds": [
+      64,
+      150,
+      85,
+      161
+    ]
+  },
+  "near_shin": {
+    "pivot": [
+      14,
+      8
+    ],
+    "center": [
+      79,
+      145
+    ],
+    "order": 4,
+    "bounds": [
+      65,
+      137,
+      85,
+      154
+    ]
+  },
+  "near_thigh": {
+    "pivot": [
+      8,
+      8
+    ],
+    "center": [
+      79,
+      132
+    ],
+    "order": 5,
+    "bounds": [
+      71,
+      124,
+      92,
+      141
+    ]
+  },
+  "far_glove": {
+    "pivot": [
+      8,
+      8
+    ],
+    "center": [
+      110,
+      91
+    ],
+    "order": 15,
+    "bounds": [
+      102,
+      83,
+      117,
+      99
+    ]
+  },
+  "far_forearm": {
+    "pivot": [
+      8,
+      8
+    ],
+    "center": [
+      108,
+      100
+    ],
+    "order": 6,
+    "bounds": [
+      100,
+      92,
+      117,
+      109
+    ]
+  },
+  "far_upperarm": {
+    "pivot": [
+      7,
+      8
+    ],
+    "center": [
+      104,
+      104
+    ],
+    "order": 7,
+    "bounds": [
+      97,
+      96,
+      111,
+      113
+    ]
+  },
+  "far_shoulder": {
+    "pivot": [
+      8,
+      8
+    ],
+    "center": [
+      101,
+      92
+    ],
+    "order": 8,
+    "bounds": [
+      93,
+      84,
+      109,
+      101
+    ]
+  },
+  "base": {
+    "pivot": [
+      21,
+      8.0
+    ],
+    "center": [
+      92,
+      122.0
+    ],
+    "order": 9,
+    "bounds": [
+      71,
+      114,
+      105,
+      131
+    ]
+  },
+  "belly": {
+    "pivot": [
+      17,
+      5.0
+    ],
+    "center": [
+      92,
+      113.0
+    ],
+    "order": 10,
+    "bounds": [
+      75,
+      108,
+      102,
+      125
+    ]
+  },
+  "chest": {
+    "pivot": [
+      6,
+      12
+    ],
+    "center": [
+      92,
+      100
+    ],
+    "order": 11,
+    "bounds": [
+      86,
+      88,
+      98,
+      115
+    ]
+  },
+  "near_shoulder": {
+    "pivot": [
+      6,
+      9
+    ],
+    "center": [
+      77,
+      94
+    ],
+    "order": 12,
+    "bounds": [
+      71,
+      85,
+      87,
+      102
+    ]
+  },
+  "near_upperarm": {
+    "pivot": [
+      6,
+      13
+    ],
+    "center": [
+      76,
+      103
+    ],
+    "order": 13,
+    "bounds": [
+      70,
+      90,
+      84,
+      110
+    ]
+  },
+  "near_forearm": {
+    "pivot": [
+      9,
+      10
+    ],
+    "center": [
+      85,
+      105
+    ],
+    "order": 14,
+    "bounds": [
+      76,
+      95,
+      96,
+      112
+    ]
+  },
+  "near_glove": {
+    "pivot": [
+      7,
+      7
+    ],
+    "center": [
+      96,
+      95
+    ],
+    "order": 16,
+    "bounds": [
+      89,
+      88,
+      104,
+      103
+    ]
+  },
+  "head": {
+    "pivot": [
+      30,
+      17
+    ],
+    "center": [
+      92,
+      68
+    ],
+    "order": 17,
+    "bounds": [
+      62,
+      51,
+      107,
+      88
+    ]
+  }
+}
