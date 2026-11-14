@@ -12,7 +12,7 @@
 ## Where the rest lives
 - Numbers, moves, frame data, CPU routes: `data/creatures/craglash.json` (keys in `docs/MECHANICS.md`)
 - The kit in words, the class and counterplay: `README.md`, "### Craglash"
-- Sheets: `tools/gen_craglash.py`, layouts in `docs/SPRITES.md`
+- Sheets: `tools/gen_craglash_cutout.py` (a skeleton cut from the stills in `assets/sprites/source/craglash_cutout/`; `tools/gen_craglash.py` is the pose source), plan and limits in `docs/plans/craglash-cutout.md`
 
 ## Art notes
 - Pose reference: TBD
@@ -29,3 +29,4 @@
 - 2026-10-29 — Mountain Maw fling back (phase 2 of `docs/plans/craglash-anim.md`, PR `maw-phase2-fling`, NET_VERSION 72; Kevin R3: "flung his head back (tilt head quickly) then throws it forward"): lash 1 snaps the head back and up (turned face-up in the side view) by tick 2, 2-3 hold it with a shiver, 4 throws at tick 18; and hit mid-flight he shows headless hurt / guard rows (`hurt_nohead`, `guard_nohead`), so there is only ever one head (knocked down or out mid-flight, the flying head is dropped instead). No sim change.
 - 2026-10-29 — spikes and neck in order (phase 3 of `docs/plans/craglash-anim.md`, PR `maw-phase3-spikes`, NET_VERSION 73; Kevin: "sometimes his spikes/neck overlap incorrectly"): the neck's stones and the crown spikes are ordered by their own depths with the neck winning near ties, in every row and view, so no stone flips over or under a spike between frames; a headless knockout twin (`ko_nohead`) for a KO mid-flight, and a head that comes home while he is hurt or guarding stays on the headless twin until the reaction ends. No sim change.
 - 2026-11-04 — Bedrock holds its zone (balance team notes, branch `balance/craglash`): new `taunt.contain`; a taunted foe inside the 200 px zone can't walk, dodge, dash or blink out of it for the taunt's 3 s (knockback still can). Damage, duration, armor, pull unchanged.
+- 2026-11-14 — new look (Kevin's stills, PR `craglash-cutout`, NET_VERSION 78): every row of all five views redrawn as a skeleton cut from five stills; the Rake's hit is a full lunge; `fx_top` 80, new portrait and `neck_end`. No sim change. First pass outside the side view's idle and Rake.

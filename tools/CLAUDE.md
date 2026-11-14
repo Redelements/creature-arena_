@@ -245,6 +245,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_cairn_cutout.py` — Cairn's cut-out renderer: approved painted stills, moved by the 3D rig's poses.
 - `gen_cerebro.py` — Chef Cerebro sprite sheets: a floating brain who throws his kitchen with his mind.
 - `gen_craglash.py` — Craglash sprite sheet, a pixel-art recreation of the artist's character sheet.
+- `gen_craglash_cutout.py` — Craglash as a skeleton of parts cut from his approved stills (docs/plans/craglash-cutout.md).
 - `gen_crease.py` — Mister Crease sprite sheets: a pixel-art take on the concept art (an origami magician).
 - `gen_culvert.py` — Culvert sprite sheets: the storm-drain toad, drawn as a posed 3D rig.
 - `gen_digby.py` — Digby sprite sheets, a pixel-art recreation of the artist's character sheet.

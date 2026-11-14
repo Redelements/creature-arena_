@@ -40,7 +40,7 @@
     "reset_on_deal": true
   },
   "fx_height": 24,
-  "fx_top": 72,
+  "fx_top": 80,
   "fx_color": "#b5665f",
   "surge_aura": {"colors": ["#a3221a", "#ff6a14", "#ffd27a"], "motes": "embers", "spikes": 5, "sharp": 1.0, "speed": 0.7, "height": 1.25},
   "cut_in_frame": [
@@ -57,7 +57,7 @@
   "sprite": {
     "path": "res://assets/sprites/craglash_2x.png", "ppu": 2,
     "frame": 192,
-    "portrait": [68, 34, 48, 64],
+    "portrait": [82, 21, 48, 64],
     "cols": 12,
     "idle_ticks": 8,
     "run_ticks": 2,
@@ -92,7 +92,7 @@
       "ko",
       "ko_nohead"
     ],
-    "neck_end": {"side": [32.0, -44.0], "down": [-3.0, -22.0], "down_side": [15.6, -28.4], "up": [3.0, -66.0], "up_side": [15.6, -59.6]},
+    "neck_end": {"side": [27.0, -52.5], "down": [-3.5, -41.0], "down_side": [23.5, -44.5], "up": [-4.5, -63.0], "up_side": [23.5, -58.0]},
     "neck_dir": {"side": [1.0, 0.0], "down": [-0.818, 0.575], "down_side": [0.27, 0.963], "up": [0.822, -0.569], "up_side": [0.903, -0.43]},
     "headless": {"lash": [5, 6, 7], "hurt_nohead": [0, 1, 2, 3], "guard_nohead": [0, 1, 2, 3], "ko_nohead": [0, 1, 2, 3, 4, 5]},
     "views": {
