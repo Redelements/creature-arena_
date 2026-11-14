@@ -1,62 +1,36 @@
 # Status: handoff snapshot
 
-Stamped: 2026-11-08
-Branch: cairn-rework (PR pending)
-Trigger: Cairn cut-out extended to every row and view
+Stamped: 2026-11-14 08:20 UTC
+Branch: craglash-cutout (from main @ a49edb1)
+Trigger: phase end
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
 this and CLAUDE.md, states the next step in one line and continues (no re-exploration).
 
 ## Current state
 
-Cairn's look is five approved stills (`assets/sprites/source/cairn_cutout/`), animated as a
-cut-out (decisions 2026-11-08, `docs/SPRITES.md` "Cut-out"). The rig `tools/gen_cairn.py` is only
-the pose source; it does not draw the sheets.
+Craglash has a new look: a skeleton cut from five stills Kevin supplied (decisions 2026-11-14,
+plan and limits in `docs/plans/craglash-cutout.md`). `tools/gen_craglash_cutout.py` draws every
+row of all five views; `tools/gen_craglash.py` is the pose source only.
 
-Done (Nov 8):
-- Kevin approved the side idle + jab ("looks great") and asked for every animation in this style
-  and the health bar lifted off his face.
-- `fx_top` 44 -> 56 (the still is 54.5 units tall; the bar sat across his face). `ko_fx` bands and
-  eye spot re-measured on the still; HUD `portrait` moved to the head. NET_VERSION 76 -> 77
-  (`cairn.json` is in the data hash; no sim change).
-- `tools/gen_cairn_cutout.py` now draws all 15 rows of all five views (`--views all --live`;
-  `ko` side-only). New: head swings about the neck when the rig turns it 4 degrees or more
-  (hurt, ko, idle_alt); arm bones stretch up to 1.3 before the glove is held back; a glove that
-  travels past `GLOVE_SNAP` lands on the rig's absolute glove (the hit circle); gloves scale with
-  depth toward the camera (`GLOVE_GROW`, 0.7..1.5); facing the camera or away the arm parts follow
-  the rig's projection (`TRANSLATED_ARMS`); a part whose covering neighbour moves `REVEAL` px away
-  takes its `_complete` image. `cairn_cutout_parts.py`: a glove box keeps no stone pixels.
-- Clean-up pass (Kevin: after-image outline between animations, stones cut into squares): the
-  hidden-surface fills are now ellipses fitted to each stone's visible pixels, shaded like the
-  painted stones, ring-trimmed beside painted ink, alpha 254 so the renderer can ink the frame's
-  outer edge once (`_fit_ellipse`, `_stone`, `CAPS` in `cairn_cutout_parts.py`).
-- Haymaker charge fix (Kevin: "looks weird mid charge"): the rear fist by the hip is drawn behind
-  the hips (`GLOVE_BEHIND`), parts with no fit get `DEFAULTS` stones, the head's turn threshold is
-  8 degrees (`HEAD_MIN_TURN`), gloves keep their two-pixel outline and pixel scraps join their
-  nearest part (`_adopt_fragments`, `FRAGMENT`): the floating arc beside the lead glove was the
-  rear glove's outline corners riding with the chest.
-- Frame-by-frame pass (Kevin asked for the sheets, then for anomalies): `tools/cairn_cutout_scan.py`
-  found 69 detached pieces and 25 scraps over the 650 frames; now 1 (back view, hook 2, the rear
-  glove 2 px off its hidden forearm). Fixes: the stack closes gaps (`_stack_clamped` with extents),
-  chains glued by pixel adjacency (`glue`), splinters and scraps dropped, pinholes of 3-8 px inked,
-  a turned head may not rise off the chest, STRETCH 1.15, shoulders revealed when their arm turns.
-  `tools/cairn_review_sheets.py` writes the labelled sheets (Kevin's copy: Downloads/cairn-sheets).
-- Idle 0 still rebuilds every still exactly; idle frames 1-7 match the approved sheet except a
-  24 px far-glove fill on frames 2-3. Six cut-out checks pass; packed sheets verified;
-  `anim_preview --check cairn` ok; showcase screenshots clean.
-- Windows build for Kevin: `C:\Users\Kevin\Downloads\CreatureArena-windows-cairn-rework\CreatureArena.exe`.
-  Review media: session scratchpad `cairn/cutout/review2/` (`<view>-sheet.png`, GIFs per row).
+Done:
+- Stills converted to game size and the master palette (`assets/sprites/source/craglash_cutout/`).
+- Cuts follow the art's lines (watershed from seeds); skeleton as Kevin drew it (spine, collar,
+  shoulder line, a joint per neck stone); he approved the skeleton, the side idle and the Rake.
+- Rake and backhand hit with a full lunge and an extended arm; clean-up pass on every frame.
+- All rows, all views, Mountain Maw's head and slab rows, normals from the painted shading, eye
+  glow on the Surge row. `craglash.json` fx_top / portrait / neck_end; NET_VERSION 78.
+- Checks: `--check` (each view's idle 0 is its still), no frame in pieces or on a frame edge,
+  packed sheets verified, `anim_preview --check craglash`, showcases craglash and angles and a
+  smoke run without script errors. Full suite: only the two progression tests that need a
+  network failed in the cloud session.
 
 Next:
-1. Kevin plays the build and judges every move in every direction; rulings wanted on the limits
-   below.
-2. Open the PR from `cairn-rework` (full suite + smoke were running at the stamp); server rebuild
-   after merge (NET 77).
-3. Known limits to put to Kevin: no blink / expression (one painted head per view: a second head
-   still would give blinks and the x-eyes); a punch facing the camera is the glove growing and
-   dropping toward the hips (the rig's camera); the knockout row lays the stones in a line (the
-   game scatters him from idle 0 anyway); the far arm's painted reach is 27 px, so the cross and
-   uppercut stretch the stones 1.3x and still stop short of the rig's glove by a few px.
+1. Kevin reviews the other four views and the side rows beyond idle and the Rake (review sheets
+   and GIFs were sent in chat); fix what he sends back.
+2. Server rebuild after merge (NET 78).
+3. Owners' ruling on AI-made stills before release.
 
-Commands: `tools/CLAUDE.md` (cut-out bullet): the runpy wrapper, `--views all --live`, then
-`pack_sheets.py cairn`, `--import`.
+Commands: `python3 tools/gen_craglash_cutout.py --views all --check --rows <rows>`, then
+`python3 tools/pack_sheets.py craglash` and `--import`. `--parts` rewrites the part PNGs and
+`skeleton-<view>.png`; `--keys` prints the JSON keys; `--scan <rows>` lists turns per frame.

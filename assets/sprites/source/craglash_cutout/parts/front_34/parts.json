@@ -1,0 +1,242 @@
+{
+ "thigh_f": {
+  "order": 0,
+  "bounds": [
+   57,
+   117,
+   86,
+   148
+  ],
+  "pixels": 379,
+  "parent": "pelvis",
+  "joint": [
+   76,
+   122
+  ]
+ },
+ "shin_f": {
+  "order": 1,
+  "bounds": [
+   55,
+   131,
+   100,
+   164
+  ],
+  "pixels": 826,
+  "parent": "thigh_f",
+  "joint": [
+   78,
+   132
+  ]
+ },
+ "thigh_n": {
+  "order": 2,
+  "bounds": [
+   36,
+   118,
+   53,
+   141
+  ],
+  "pixels": 96,
+  "parent": "pelvis",
+  "joint": [
+   44,
+   124
+  ]
+ },
+ "shin_n": {
+  "order": 3,
+  "bounds": [
+   10,
+   127,
+   49,
+   165
+  ],
+  "pixels": 1069,
+  "parent": "thigh_n",
+  "joint": [
+   42,
+   134
+  ]
+ },
+ "pelvis": {
+  "order": 4,
+  "bounds": [
+   38,
+   89,
+   78,
+   137
+  ],
+  "pixels": 784,
+  "parent": null,
+  "joint": [
+   62,
+   116
+  ]
+ },
+ "chest": {
+  "order": 5,
+  "bounds": [
+   30,
+   58,
+   98,
+   108
+  ],
+  "pixels": 1598,
+  "parent": "pelvis",
+  "joint": [
+   64,
+   104
+  ]
+ },
+ "arm_far": {
+  "order": 6,
+  "bounds": [
+   80,
+   72,
+   109,
+   121
+  ],
+  "pixels": 281,
+  "parent": "collar",
+  "joint": [
+   94,
+   88
+  ]
+ },
+ "fist_far": {
+  "order": 7,
+  "bounds": [
+   86,
+   103,
+   112,
+   130
+  ],
+  "pixels": 463,
+  "parent": "arm_far",
+  "joint": [
+   102,
+   108
+  ]
+ },
+ "neck3": {
+  "order": 8,
+  "bounds": [
+   45,
+   48,
+   72,
+   70
+  ],
+  "pixels": 312,
+  "parent": "collar",
+  "joint": [
+   58,
+   64
+  ]
+ },
+ "neck2": {
+  "order": 9,
+  "bounds": [
+   34,
+   30,
+   64,
+   68
+  ],
+  "pixels": 611,
+  "parent": "neck3",
+  "joint": [
+   54,
+   54
+  ]
+ },
+ "neck1": {
+  "order": 10,
+  "bounds": [
+   43,
+   17,
+   79,
+   40
+  ],
+  "pixels": 293,
+  "parent": "neck2",
+  "joint": [
+   54,
+   40
+  ]
+ },
+ "head": {
+  "order": 11,
+  "bounds": [
+   59,
+   0,
+   120,
+   52
+  ],
+  "pixels": 2116,
+  "parent": "neck1",
+  "joint": [
+   72,
+   32
+  ]
+ },
+ "upperarm": {
+  "order": 12,
+  "bounds": [
+   4,
+   69,
+   39,
+   105
+  ],
+  "pixels": 459,
+  "parent": "shoulder",
+  "joint": [
+   32,
+   84
+  ]
+ },
+ "forearm": {
+  "order": 13,
+  "bounds": [
+   0,
+   89,
+   35,
+   128
+  ],
+  "pixels": 664,
+  "parent": "upperarm",
+  "joint": [
+   22,
+   98
+  ]
+ },
+ "fist": {
+  "order": 14,
+  "bounds": [
+   13,
+   87,
+   59,
+   131
+  ],
+  "pixels": 746,
+  "parent": "forearm",
+  "joint": [
+   26,
+   110
+  ]
+ },
+ "shoulder": {
+  "order": 15,
+  "bounds": [
+   14,
+   50,
+   73,
+   97
+  ],
+  "pixels": 1092,
+  "parent": "collar",
+  "joint": [
+   36,
+   74
+  ]
+ }
+}
