@@ -1,6 +1,6 @@
 # Status: handoff snapshot
 
-Stamped: 2026-11-14 08:20 UTC
+Stamped: 2026-11-19 07:40 UTC
 Branch: craglash-cutout (from main @ a49edb1)
 Trigger: phase end
 
@@ -24,6 +24,9 @@ Done:
   packed sheets verified, `anim_preview --check craglash`, showcases craglash and angles and a
   smoke run without script errors. Full suite: only the two progression tests that need a
   network failed in the cloud session.
+
+- Nov 18: stills restyled to Cairn's shading (`--restyle`, originals in `original/`), the
+  knockdown rebuilt as a collapse, wind-up sink, knees, a livelier far arm.
 
 Next:
 1. Kevin reviews the other four views and the side rows beyond idle and the Rake (review sheets

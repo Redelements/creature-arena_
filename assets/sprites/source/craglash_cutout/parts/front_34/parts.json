@@ -80,9 +80,9 @@
    30,
    58,
    98,
-   108
+   107
   ],
-  "pixels": 1598,
+  "pixels": 1376,
   "parent": "pelvis",
   "joint": [
    64,
@@ -93,11 +93,11 @@
   "order": 6,
   "bounds": [
    80,
-   72,
+   92,
    109,
    121
   ],
-  "pixels": 281,
+  "pixels": 266,
   "parent": "collar",
   "joint": [
    94,
@@ -213,11 +213,11 @@
   "order": 14,
   "bounds": [
    13,
-   87,
+   85,
    59,
    131
   ],
-  "pixels": 746,
+  "pixels": 983,
   "parent": "forearm",
   "joint": [
    26,

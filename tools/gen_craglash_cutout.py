@@ -248,6 +248,81 @@ def _caps(prof, n):
     return out
 
 
+# ------------------------------------------------------------------ restyle
+
+# The roster's cut-out shading (Cairn's sheets): one ink, and a short hard ramp per material.
+R_INK = (20, 18, 30)
+R_STONE = [(40, 46, 62), (64, 72, 90), (98, 106, 120), (138, 144, 154)]
+R_RED = [(118, 14, 46), (165, 21, 49), (214, 38, 42), (238, 84, 70)]
+R_ORANGE = [(199, 84, 39), (238, 114, 30), (252, 160, 60)]
+
+
+def _majority(idx, keep, size):
+    """Each pixel (where not `keep`) takes the commonest index in its size x size window."""
+    best, cnt = idx.copy(), np.zeros(idx.shape)
+    for v in np.unique(idx[~keep]):
+        c = ndi.uniform_filter(((idx == v) & ~keep).astype(float), size)
+        take = c > cnt
+        best[take], cnt[take] = v, c[take]
+    out = idx.copy()
+    out[~keep] = best[~keep]
+    return out
+
+
+def restyle_still(src):
+    """A converted still redrawn in the roster's shading: every pixel is ink or one step of
+    its material's ramp (stone, red mane and plates, orange fists and claws), the steps set by
+    how light the painting was there, and lone pixels folded into the band around them. The
+    eyes' yellows are kept."""
+    s = src.copy()
+    a = s[..., 3] > 0
+    r, g, b = [s[..., i].astype(float) for i in range(3)]
+    lum = (r + g + b) / 3.0
+    sat = np.maximum(np.maximum(r, g), b) - np.minimum(np.minimum(r, g), b)
+    ink = a & (lum < 34)
+    eye = a & (r > 230) & (g > 180) & (b < 140)
+    warm = a & ~ink & (sat > 55) & (r > g) & (r > b)
+    ratio = g / np.maximum(r, 1.0)
+    sure_o = warm & (ratio > 0.46)
+    sure_r = warm & (ratio < 0.38)
+    amb = warm & ~sure_o & ~sure_r
+    no = ndi.uniform_filter(sure_o.astype(float), 9)
+    nr = ndi.uniform_filter(sure_r.astype(float), 9)
+    orange = sure_o | (amb & (no > nr))
+    red = warm & ~orange
+    # the mane's deep shadow is nearly grey: a faintly warm pixel in the thick of the red is red
+    deep = a & ~ink & ~warm & ~eye & (r - np.maximum(g, b) > 6) & (ndi.uniform_filter(red.astype(float), 11) > 0.45)
+    red = red | deep
+    stone = a & ~ink & ~warm & ~eye & ~deep
+    idx = np.full(a.shape, -1)
+
+    def bands(mask, cuts, base):
+        for k in range(len(cuts) + 1):
+            lo = cuts[k - 1] if k else -1
+            hi = cuts[k] if k < len(cuts) else 999
+            idx[mask & (lum > lo) & (lum <= hi)] = base + k
+
+    bands(stone, [52, 80, 116], 0)
+    bands(red, [70, 100, 122], 10)
+    bands(orange, [112, 138], 20)
+    keep = ~a | ink | eye
+    idx = _majority(idx, keep, 3)
+    ramp = {0: R_STONE, 10: R_RED, 20: R_ORANGE}
+    for base, cols in ramp.items():
+        for k, c in enumerate(cols):
+            s[(idx == base + k) & ~keep, :3] = c
+    s[ink, :3] = R_INK
+    return s
+
+
+def restyle():
+    for name in STILL.values():
+        src = np.array(Image.open(os.path.join(ART, "original", name + ".png")).convert("RGBA"))
+        out = restyle_still(src)
+        Image.fromarray(out).save(os.path.join(ART, name + ".png"))
+        print("restyled", name, len(np.unique(out[out[..., 3] > 0][:, :3], axis=0)), "colours")
+
+
 # ------------------------------------------------------------------ cutting
 
 def still(view):
@@ -260,7 +335,9 @@ def part_masks(view):
     s = still(view)
     prof = PROFILES[view]
     a = s[..., 3] > 0
-    lum = s[..., :3].astype(int).sum(-1)
+    # the cuts are found on the still as it was painted (original/), so restyling never moves them
+    src = np.array(Image.open(os.path.join(ART, "original", STILL[view] + ".png")).convert("RGBA"))
+    lum = src[..., :3].astype(int).sum(-1)
     names = list(prof["seeds"])
     mk = np.zeros(a.shape, np.int32)
     yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
@@ -268,6 +345,21 @@ def part_masks(view):
         for x, y, r in prof["seeds"][n]:
             mk[((xx - x) ** 2 + (yy - y) ** 2 <= r * r) & a] = i + 1
     lab = watershed((765 - lum).astype(float), mk, mask=a)
+    # a part is one piece: anything of it that is not joined to its biggest piece goes to the
+    # part it touches most
+    for i in range(len(names)):
+        pieces, k = ndi.label(lab == i + 1)
+        if k < 2:
+            continue
+        sizes = ndi.sum(lab == i + 1, pieces, range(1, k + 1))
+        for j in range(k):
+            if j == int(np.argmax(sizes)):
+                continue
+            scrap = pieces == j + 1
+            ring = ndi.binary_dilation(scrap, iterations=2) & a & ~scrap & (lab != i + 1)
+            if ring.any():
+                vals, cnt = np.unique(lab[ring], return_counts=True)
+                lab[scrap] = vals[np.argmax(cnt)]
     return s, {n: lab == i + 1 for i, n in enumerate(names)}
 
 
@@ -459,6 +551,9 @@ LUNGE_AT = 14.0   # px of forward hand travel (after KS) that is a full lunge
 # Rows whose strike is the lunge: which rig hand throws it, and the arm's angle (degrees
 # below straight ahead; negative rises). Everything else reaches with the near arm as it is.
 LUNGE_ROWS = {"claw": (1, 8.0), "backhand": (0, -24.0)}
+WIND_AT = 8.0      # px the hand is drawn back for a full wind-up
+KNEE = 0.7         # px a thigh pushes forward per px the hips sink
+KNEE_MAX = 6.0
 LINK_SLACK = 8     # px a neck stone or the head may move off the part it sits on
 KSTEP = 1.0        # px a rig unit of foot travel slides a leg (his stride is short and heavy)
 HEAD_RISE = 14.0   # px the head may rise
@@ -505,7 +600,12 @@ def solve(view, pose, ref, row="", stepping=False):
         hand, aim = LUNGE_ROWS[row]
         thrown = _d(q["rel_hands"][hand], r0["rel_hands"][hand])
         e = max(0.0, min(1.0, thrown[0] / LUNGE_AT))
-    hipd = (hipd[0] + 5 * e * F[0], hipd[1] + 3 * e + 5 * e * F[1])
+    # the wind-up: while the striking hand is drawn back he sinks onto his knees and rocks back,
+    # so the lunge has somewhere to come from
+    wind = 0.0
+    if row in LUNGE_ROWS and not fall:
+        wind = max(0.0, min(1.0, -thrown[0] / WIND_AT))
+    hipd = (hipd[0] + (5 * e) * F[0], hipd[1] + 3 * e + 4 * wind + (5 * e) * F[1])
     slide("pelvis", hipd[0], hipd[1])
     cd = (hipd[0] + (lean + 7 * e) * F[0], hipd[1] + 1 * e + (lean + 7 * e) * F[1])
     slide("chest", *cd)
@@ -526,6 +626,8 @@ def solve(view, pose, ref, row="", stepping=False):
         dx, dy = fd[0] * KSTEP * 2, fd[1] * KSTEP * 1.4
         dx = max(-12.0, min(12.0, dx))
         sx, tx = dx + lung[0] * e, dx * 0.5 + lung[1] * e
+        # the knees: as the hips sink over planted feet the thighs push forward
+        tx += max(0.0, min(KNEE_MAX, hipd[1] * KNEE))
         slide("shin_" + leg, sx * F[0], dy + sx * F[1])
         slide("thigh_" + leg, tx * F[0], dy * 0.4 + tx * F[1] + (1 * e if leg == "n" else 0))
     # neck and head: the rig's neck curve on top of the chest's move, each stone held within
@@ -546,8 +648,8 @@ def solve(view, pose, ref, row="", stepping=False):
     if getattr(pose, "headless", False):
         out["head"] = None
     # the far arm rides the chest, with a little of the rig's off hand
-    od = (0.0, 0.0) if fall else _d(q["rel_hands"][0], r0["rel_hands"][0], KS * 0.4)
-    od = M((max(-8.0, min(8.0, od[0])), max(-10.0, min(6.0, od[1]))))
+    od = (0.0, 0.0) if fall else _d(q["rel_hands"][0], r0["rel_hands"][0], KS * 0.7)
+    od = M((max(-12.0, min(12.0, od[0])), max(-16.0, min(8.0, od[1]))))
     if "shoulder_f" in bones:
         slide("shoulder_f", cd[0] - 4 * e * F[0], cd[1] - 4 * e * F[1])
     slide("arm_far", cd[0] + od[0] * 0.5 - 5 * e * F[0], cd[1] + od[1] * 0.5 - 5 * e * F[1])
@@ -673,6 +775,84 @@ def frame(view, pose, ref, parts, size, at, row="", stepping=False):
     canvas = clean(canvas, fresh)
     arr = np.zeros((size[1], size[0], 4), np.uint8)
     x0, y0 = at[0] - PAD, at[1] - PAD
+    sx0, sy0 = max(0, -x0), max(0, -y0)
+    sx1, sy1 = min(canvas.shape[1], size[0] - x0), min(canvas.shape[0], size[1] - y0)
+    arr[y0 + sy0:y0 + sy1, x0 + sx0:x0 + sx1] = canvas[sy0:sy1, sx0:sx1]
+    return arr
+
+
+# The knockdown (Kevin, Nov 18: "his body just goes horizontal"). He is a pile of stones, so he
+# comes down as one: his knees give, he tips onto his back, and every part lands on the floor
+# on its own, the neck stones and the head last and with a bounce. Per frame of six:
+# (tip in degrees, how settled 0..1, knees' drop in px, bounce in px).
+COLLAPSE = [(-15.0, 0.0, 6, 0), (-45.0, 0.0, 12, 0), (-75.0, 0.4, 6, 0), (-90.0, 1.0, 0, 0),
+            (-90.0, 1.0, 0, 3), (-90.0, 1.0, 0, 0)]
+LIE_LENGTH = 0.78    # his length lying, times his height standing (the pile closes up)
+LIE_DEPTH = 0.4      # how much of the air under a part is left once it has settled
+LATE = ("neck3", "neck2", "neck1", "head")   # these land last
+
+
+def collapse(view, i, parts, masks, size, at, headless=False):
+    prof = PROFILES[view]
+    tip, settle, drop, bounce = COLLAPSE[min(i, len(COLLAPSE) - 1)]
+    ph, pw = next(iter(parts.values())).shape[:2]
+    big = 220
+    canvas = np.zeros((ph + 2 * big, pw + 2 * big, 4), np.uint8)
+    floor = ph - 1
+    heel = int(np.where(masks["shin_n"])[1].min()) + 8
+    for n in prof["draw"]:
+        if headless and n == "head":
+            continue
+        ys, xs = np.where(masks[n])
+        c0 = ((int(xs.min()) + int(xs.max())) / 2.0, (int(ys.min()) + int(ys.max())) / 2.0)
+        half_w = (int(xs.max()) - int(xs.min())) / 2.0
+        late = n in LATE
+        own = settle if not late else max(0.0, settle * 2 - 1.0) if i < 3 else 1.0
+        if late and i == 3:
+            own = 0.6             # still on their way down as the body lands
+        ang = _snap(tip if not n.startswith("shin") else tip * (0.6 if i < 2 else 1.0))
+        knee = 0 if n.startswith("shin") else drop
+        rigid = _rot_pt((c0[0], c0[1] + knee), (heel, floor), tip)
+        # lying: along the floor by its height, a part's depth in the body closed up
+        air = max(0.0, (c0[0] - heel) - half_w)
+        lie = (heel - (floor - c0[1]) * LIE_LENGTH, floor - half_w - air * (0.12 if late else LIE_DEPTH))
+        c = (rigid[0] + (lie[0] - rigid[0]) * own, rigid[1] + (lie[1] - rigid[1]) * own)
+        c = (c[0], c[1] - bounce * (2.0 if late else 1.0) * (0 if n.startswith("shin") else 1))
+        m_ = int(max(xs.max() - xs.min(), ys.max() - ys.min())) + 6
+        x0, y0 = int(c0[0]) - m_, int(c0[1]) - m_
+        tile = np.zeros((2 * m_ + 1, 2 * m_ + 1, 4), np.uint8)
+        sx0, sy0, sx1, sy1 = max(0, x0), max(0, y0), min(pw, x0 + 2 * m_ + 1), min(ph, y0 + 2 * m_ + 1)
+        tile[sy0 - y0:sy1 - y0, sx0 - x0:sx1 - x0] = parts[n][sy0:sy1, sx0:sx1]
+        tile = _turn(tile, (m_, m_), ang)
+        px_, py_ = int(round(c[0])) - m_ + big, int(round(c[1])) - m_ + big
+        sub = canvas[py_:py_ + 2 * m_ + 1, px_:px_ + 2 * m_ + 1]
+        on = tile[..., 3] > 0
+        sub[on] = tile[on]
+    solid = canvas[..., 3] > 0
+    shadow, _ = _stone_tones(*_whole(view))
+    closed = ndi.binary_fill_holes(ndi.binary_closing(solid, structure=np.ones((3, 3)), iterations=3))
+    gap = closed & ~solid
+    canvas[gap, :3] = shadow
+    canvas[gap, 3] = 254
+    solid = closed
+    lab, k = ndi.label(solid)
+    if k > 1:
+        sizes = ndi.sum(solid, lab, range(1, k + 1))
+        keep = lab == (1 + int(np.argmax(sizes)))
+        canvas[~keep] = 0
+        solid = keep
+    edge = solid & ~ndi.binary_erosion(solid)
+    canvas[edge & (canvas[..., 3] == 254), :3] = INK
+    canvas[solid, 3] = 255
+    canvas = clean(canvas, solid)
+    # nothing below the floor, and toward the frame's middle as he lies down
+    ys, xs = np.where(canvas[..., 3] > 0)
+    t = min(1.0, abs(tip) / 80.0)
+    cx = (int(xs.min()) + int(xs.max())) / 2.0
+    want = cx + ((size[0] / 2.0 - at[0] + big) - cx) * t
+    canvas = _shift(canvas, round(want - cx), (floor + big) - int(ys.max()) - (bounce if i == 4 else 0) * 0)
+    arr = np.zeros((size[1], size[0], 4), np.uint8)
+    x0, y0 = at[0] - big, at[1] - big
     sx0, sy0 = max(0, -x0), max(0, -y0)
     sx1, sy1 = min(canvas.shape[1], size[0] - x0), min(canvas.shape[0], size[1] - y0)
     arr[y0 + sy0:y0 + sy1, x0 + sx0:x0 + sx1] = canvas[sy0:sy1, sx0:sx1]
@@ -904,7 +1084,10 @@ def write_rows(names, view="side"):
         nsheet[y0:y0 + fh] = 0
         esheet[y0:y0 + fh] = 0
         for i, pose in enumerate(poses):
-            f = frame(view, pose, ref, parts, (fw, fh), at, name, _steps(poses, ref))
+            if name in ("ko", "ko_nohead"):
+                f = collapse(view, i, parts, masks, (fw, fh), at, name == "ko_nohead")
+            else:
+                f = frame(view, pose, ref, parts, (fw, fh), at, name, _steps(poses, ref))
             ys_, xs_ = np.where(f[..., 3] > 0)
             if ndi.label(f[..., 3] > 0)[1] != 1:
                 print("   PROBLEM %s %s %d: not one piece" % (view, name, i))
@@ -914,7 +1097,7 @@ def write_rows(names, view="side"):
             sheet[y0:y0 + fh, x0:x0 + fw] = f
             nsheet[y0:y0 + fh, x0:x0 + fw] = normals(f)
             # the eyes glow through his Surge's row, and wherever the rig lights his cracks
-            if name == surge_row or getattr(pose, "glow", 0.0) >= 0.99:
+            if name not in ("ko", "ko_nohead") and (name == surge_row or getattr(pose, "glow", 0.0) >= 0.99):
                 em = eye_mask(view, f, solve(view, pose, ref, name, _steps(poses, ref)), masks, at)
                 ef = np.zeros_like(f)
                 ef[em] = glow_rgb + (255,)
@@ -927,6 +1110,9 @@ def write_rows(names, view="side"):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if "--restyle" in args:
+        restyle()
+        sys.exit(0)
     if "--keys" in args:
         print(json.dumps(game_keys()))
         sys.exit(0)

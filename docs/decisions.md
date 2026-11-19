@@ -149,3 +149,8 @@ Format: `## YYYY-MM-DD — short title` then **Decision**, **Why**, **Replaces**
 **Why:** Kevin, Nov 13-14 2026: replace the character model; "make full skeleton", cuts must "curve with the lines that are already there", "his arm should never break in half", "more extension like a falcon punch". Straight polygon cuts, sheared torsos and painted filler patches were tried first and rejected ("lines are getting all messed up", "color splatter").
 **Affects:** `tools/gen_craglash_cutout.py`, `assets/sprites/source/craglash_cutout/`, `assets/sprites/craglash_2x*.png` (+ `_n`, `_e`, packed), `data/creatures/craglash.json` (`fx_top`, `portrait`, `neck_end`), `src/net/netplay.gd` (NET_VERSION 78), `docs/plans/craglash-cutout.md`, `docs/fighters/craglash.md`. No sim change. Open: the stills are AI-made, against the Cairn entry's "art we own, not generated"; the owners rule before release.
 
+## 2026-11-18 — Craglash's stills are restyled to the roster's shading; his knockdown is a collapse
+**Decision:** `gen_craglash_cutout.py --restyle` redraws the converted stills (kept in `craglash_cutout/original/`) in Cairn's ink and short hard ramps before they are cut, and the knockout rows are built by `collapse()` (each part lands on the floor by itself) instead of turning the standing body.
+**Why:** Kevin, Nov 18 2026: "he look out of place" beside the other fighters; "when craglash gets knocked over, his body just goes horizontal".
+**Affects:** `tools/gen_craglash_cutout.py`, `assets/sprites/source/craglash_cutout/`, `assets/sprites/craglash_2x*.png`. No data or sim change (NET_VERSION stays 78 on this branch).
+

@@ -67,6 +67,19 @@ punch", "run a clean up pass")
 - `craglash.json`: `fx_top` 80, `portrait`, the sprite block's `neck_end` (`--keys` prints
   them); NET_VERSION 78. The server needs rebuilding after the merge.
 
+## Up to the roster's standard (Kevin, Nov 18: "he look out of place", "when craglash gets
+knocked over, his body just goes horizontal")
+- Restyle (`--restyle`): the stills as converted are kept in `original/`; the stills the tool
+  cuts are redrawn from them in Cairn's shading: one ink, a four-step stone ramp, a four-step
+  red, a three-step orange (11 or 12 colours a view, was 27 to 29), lone pixels folded into
+  their band. The cuts are still found on `original/`, so they did not move.
+- Knockdown (`collapse`, `COLLAPSE`): no longer the standing body turned 90 degrees. His
+  knees give, he tips onto his back and each part lands on the floor by itself, the neck
+  stones and head last, with a bounce; he ends as a low pile.
+- A part is always one piece (stray bits of a cut go to the part they touch).
+- Wind-up: while the striking hand is drawn back the hips sink; knees: thighs push forward as
+  the hips sink (`KNEE`); the far arm follows the rig's off hand further.
+
 ## Known limits
 - Only the side view's rows have been reviewed by Kevin (idle and the Rake approved); the
   other views and rows are first passes.

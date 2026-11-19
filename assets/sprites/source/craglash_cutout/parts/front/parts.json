@@ -33,11 +33,11 @@
   "order": 2,
   "bounds": [
    34,
-   108,
+   105,
    65,
    145
   ],
-  "pixels": 548,
+  "pixels": 703,
   "parent": "pelvis",
   "joint": [
    50,
@@ -62,12 +62,12 @@
  "pelvis": {
   "order": 4,
   "bounds": [
-   41,
+   59,
    100,
    97,
    128
   ],
-  "pixels": 617,
+  "pixels": 462,
   "parent": null,
   "joint": [
    70,
